@@ -3,6 +3,8 @@ Cogs created by jack1142 (Jackenmen#6607 on Discord) for Red-DiscordBot. Red-Dis
 
 If you're developer, you can also send pull requests and I will happily merge your commits, if it doesn't conflict with anything developed before.
 
+Also I suggest to join [Red - Cog Support server](https://discord.gg/GET4DVk) and if you will ever need help with any of my cogs, just mention me (@Jackenmen#6607) on #support_othercogs channel.
+
 # Installation
 To install the cogs, Follow the given steps:
 
