@@ -33,4 +33,4 @@ Twentysix26 and everyone else who has contributed to Red Bot.
 Redjumpman and PaddoInWonderlands, for this neat readme file template :D
 
 # License
-Please see MIT License for details. This project is open source and you are free to modify and use my work so long as you credit me.
+Please see MIT License for details. This project is open source and you are free to modify and use my work as long as you credit me.
