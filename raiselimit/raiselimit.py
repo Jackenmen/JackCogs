@@ -17,13 +17,13 @@ class RaiseLimit:
                     print("I don't have permission to edit the channel!")
                 except discord.HTTPException as err:
                     print("An unexpected error occured. Probably discord API timed out, so probably you can just wait some time, but if the error repeats here's some useful info for debugging error:\n{}".format(err))
-            elif before.voice.voice_channel is not None and before.voice.voice_channel.user_limit is not 0:
-                try:
-                    await self.bot.edit_channel(before.voice.voice_channel, user_limit=before.voice.voice_channel.user_limit-1)
-                except discord.Forbidden:
-                    print("I don't have permission to edit the channel!")
-                except discord.HTTPException as err:
-                    print("An unexpected error occured. Probably discord API timed out, so probably you can just wait some time, but if the error repeats here's some useful info for debugging error:\n{}".format(err))
+        elif before.voice.voice_channel is not None and before.voice.voice_channel.user_limit is not 0:
+            try:
+                await self.bot.edit_channel(before.voice.voice_channel, user_limit=before.voice.voice_channel.user_limit-1)
+            except discord.Forbidden:
+                print("I don't have permission to edit the channel!")
+            except discord.HTTPException as err:
+                print("An unexpected error occured. Probably discord API timed out, so probably you can just wait some time, but if the error repeats here's some useful info for debugging error:\n{}".format(err))
     
 def setup(bot):
     n = RaiseLimit(bot)
