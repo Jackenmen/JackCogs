@@ -1,3 +1,4 @@
+[![](https://api.travis-ci.org/jack1142/JackCogs.svg?branch=master)](https://travis-ci.org/jack1142/JackCogs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Red Bot](https://img.shields.io/badge/Discord-Red%20Bot-red.svg)](https://github.com/Twentysix26/Red-DiscordBot)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
@@ -28,6 +29,7 @@ To install the cogs, Follow the given steps:
 
 # Credits
 Twentysix26 and everyone else who has contributed to Red Bot.
+
 Redjumpman and PaddoInWonderlands, for this neat readme file template :D
 
 # License
