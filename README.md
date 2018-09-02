@@ -10,20 +10,24 @@ If you're developer, you can also send pull requests and I will happily merge yo
 
 Also I suggest to join [Red - Cog Support server](https://discord.gg/GET4DVk) and if you will ever need help with any of my cogs, just mention me (@Jackenmen#6607) on #support_othercogs channel.
 
+# My cogs
+  * **raiselimit** - Automatically raises limit of users in voice channel with user limit, when bot joins.
+  * **rlstats** - Shows you Rocket League player statistics. Needs access to [Rocket League API](https://support.rocketleague.com/hc/en-us/articles/115000159374-API-Requests) which is currently in closed beta.
+
 # Installation
 To install the cogs, Follow the given steps:
 
 **Step 1** - Adding the repo.
 > To add the repo, type this into the chat:
 > 
-> ``[p]cog repo add jack-cogs https://github.com/jack1142/JackCogs``
+> ``[p]cog repo add JackCogs https://github.com/jack1142/JackCogs``
 > 
 > Then type,"I agree".
 
 **Step 2** - Adding the cog.
 > To add the cog, type this into the chat:
 > 
-> ``[p]cog install jack-cogs [cog_name]``
+> ``[p]cog install JackCogs [cog_name]``
 > 
 > Once the module has loaded up, type yes.
 
@@ -34,3 +38,5 @@ Redjumpman and PaddoInWonderlands, for this neat readme file template :D
 
 # License
 Please see MIT License for details. This project is open source and you are free to modify and use my work as long as you credit me.
+
+This project uses Roboto font which is distributed on Apache License 2.0
