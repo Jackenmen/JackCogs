@@ -170,7 +170,7 @@ class RLStats:
         # add number of wins (there's no text right now, only bars)
         # make Tier and division estimates shorter (create some additional methods)
         if 'token' not in list(self.settings.keys()) or self.settings['token'] == "":
-            await self.bot.say("`This cog wasn't configured properly. If you're the owner, setup the cog using {}rlstatsset`".format(ctx.prefix))
+            await self.bot.say("`This cog wasn't configured properly. If you're the owner, setup the cog using {}rlset`".format(ctx.prefix))
         else:
             await self.bot.change_nickname(ctx.message.server.me, "Wielka ANALITYCZKA Zagłady")
             await self.bot.send_typing(ctx.message.channel)
