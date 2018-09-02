@@ -30,9 +30,9 @@ class RLStats:
 
     def __init__(self, bot):
         self.bot = bot
+        self.check_folders()
         self.settings = fileIO("data/rlstats/settings.json", "load")
         self.session = aiohttp.ClientSession()
-        self.check_folders()
         self.ranks = (
             'Unranked',
             'Bronze I',
@@ -103,7 +103,7 @@ class RLStats:
         if not os.path.isfile("data/rlstats/rank_tiers.json"):
             self.rank_tiers = None
             print("Creating rank_tiers.json...")
-            self.bot.loop.create_task(self.get_tier_breakdown())
+            self.bot.loop.create_task(self._get_tier_breakdown())
         else:
             self.rank_tiers = self._fix_numbers_dict(fileIO("data/rlstats/rank_tiers.json", "load"))
 
@@ -547,9 +547,7 @@ class RLStats:
         fileIO("data/rlstats/settings.json", "save", self.settings)
         await self.bot.say("You successfully connected your Steam account with Discord!")
 
-    @checks.is_owner()
-    @rlset.command(pass_context=True, name="updatebreakdown")
-    async def get_tier_breakdown(self, ctx=None):
+    async def _get_tier_breakdown(self):
         # {10:{},11:{},12:{},13:{}}
         self.rank_tiers = defaultdict(lambda: defaultdict(dict))
 
@@ -574,8 +572,12 @@ class RLStats:
 
         fileIO("data/rlstats/rank_tiers.json", "save", self.rank_tiers)
 
-        if ctx is not None:
-            await self.bot.say("Tier breakdown updated.")
+    @checks.is_owner()
+    @rlset.command(pass_context=True, name="updatebreakdown")
+    async def updatebreakdown(self, ctx):
+        await self.bot.say("Updating tier breakdown...")
+        await self._get_tier_breakdown()
+        await self.bot.say("Tier breakdown updated.")
 
 
 def setup(bot):
