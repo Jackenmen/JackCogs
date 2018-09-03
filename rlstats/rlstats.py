@@ -155,7 +155,7 @@ class RLStats:
     @rlset.command(pass_context=True, name="token")
     async def set_token(self, ctx, token):
         """Sets the user token"""
-        self.bot.delete_message(ctx.message)
+        await self.bot.delete_message(ctx.message)
         self.settings["token"] = token
         fileIO("data/rlstats/settings.json", "save", self.settings)
         await self.bot.say("User token set successfully!")
@@ -169,6 +169,7 @@ class RLStats:
         # handle not-existing account IDs (preferably check if account exist at all and if it exists in RL)
         # add number of wins (there's no text right now, only bars)
         # make Tier and division estimates shorter (create some additional methods)
+        # use logging module
         if 'token' not in list(self.settings.keys()) or self.settings['token'] == "":
             await self.bot.say("`This cog wasn't configured properly. If you're the owner, setup the cog using {}rlset`".format(ctx.prefix))
         else:
@@ -575,6 +576,7 @@ class RLStats:
     @checks.is_owner()
     @rlset.command(pass_context=True, name="updatebreakdown")
     async def updatebreakdown(self, ctx):
+        """Update tier breakdown"""
         await self.bot.say("Updating tier breakdown...")
         await self._get_tier_breakdown()
         await self.bot.say("Tier breakdown updated.")
