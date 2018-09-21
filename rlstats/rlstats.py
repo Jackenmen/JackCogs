@@ -5,11 +5,11 @@ import asyncio
 import aiohttp
 import xml.etree.ElementTree as ET
 import os
-from pprint import pprint
 from .utils import checks
 from .utils.dataIO import fileIO
 import math
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
+import logging
 
 try:
     from PIL import Image, ImageDraw, ImageFont, ImageColor, ImageOps
@@ -20,6 +20,8 @@ try:
     from babel.numbers import format_decimal
 except:
     raise RuntimeError("Can't load Babel. Do 'pip3 install Babel'.")
+
+log = logging.getLogger('red.rlstats')
 
 
 class RLStats:
@@ -62,6 +64,7 @@ class RLStats:
             13: (960, 383)
         }
         self.coords = {
+            'username': (960, 71),
             'rank_image': (153, 248),
             'rank_text': (242, 453),  # center of rank text
             'matches_played': (822, 160),
@@ -119,6 +122,58 @@ class RLStats:
         offset = self.offsets[playlist_id]
         return self._add_coords(coords, offset)
 
+    async def _find_steam_profile(self, id):
+        """Find steam profile by SteamID64 or custom url"""
+        try:
+            async with self.session.get('https://steamcommunity.com/profiles/{}/?xml=1'.format(id)) as resp:
+                steam_profile = ET.fromstring(await resp.text())
+        except aiohttp.ClientResponseError:
+            await self.bot.say(
+                "An error occured while searching for Steam profile. "
+                "If this will happen again, please inform bot owner about the issue."
+            )
+            raise
+        except aiohttp.ClientError:
+            await self.bot.say(
+                "An error occured while searching for Steam profile. "
+                "If this will happen again, please inform bot owner about the issue."
+            )
+            raise
+        error = steam_profile.find('error')
+
+        if error is None:
+            pass
+        elif error.text == 'The specified profile could not be found.':
+            try:
+                async with self.session.get('https://steamcommunity.com/id/{}/?xml=1'.format(id)) as resp:
+                    steam_profile = ET.fromstring(await resp.text())
+            except aiohttp.ClientResponseError:
+                await self.bot.say(
+                    "An error occured while searching for Steam profile. "
+                    "If this will happen again, please inform bot owner about the issue."
+                )
+                raise
+            except aiohttp.ClientError:
+                await self.bot.say(
+                    "An error occured while searching for Steam profile. "
+                    "If this will happen again, please inform bot owner about the issue."
+                )
+                raise
+            error = steam_profile.find('error')
+
+            if error is None:
+                id = steam_profile.find('steamID64').text
+            else:
+                log.debug(
+                    "Steam threw error while searching profile by custom url: {}".format(error.text)
+                )
+                return None
+        else:
+            log.debug(
+                "Steam threw error while searching profile by ID: {}".format(error.text)
+            )
+            return None
+
     def _fix_numbers_dict(self, d: dict):
         """Converts (recursively) dictionary's keys with numbers to integers"""
         new = {}
@@ -149,16 +204,20 @@ class RLStats:
         requesting for API access in a ticket on https://support.rocketleague.com
         Under "Issue" you need to select Installation and setup > I need API access"""
         if ctx.invoked_subcommand is None:
+            print(type(ctx.message.channel))
             await self.bot.send_cmd_help(ctx)
 
     @checks.is_owner()
     @rlset.command(pass_context=True, name="token")
     async def set_token(self, ctx, token):
-        """Sets the user token"""
-        await self.bot.delete_message(ctx.message)
-        self.settings["token"] = token
-        fileIO("data/rlstats/settings.json", "save", self.settings)
-        await self.bot.say("User token set successfully!")
+        """Sets the user token. USE THIS COMMAND IN PM"""
+        if ctx.message.channel.is_private:
+            self.settings["token"] = token
+            fileIO("data/rlstats/settings.json", "save", self.settings)
+            await self.bot.say("User token set successfully! You should probably remove your message with token for safety.")
+        else:
+            await self.bot.delete_message(ctx.message)
+            await self.bot.say("You can't set token from server channel! Use this command in PM instead.")
 
     @commands.command(pass_context=True)
     async def rlstats(self, ctx, id=None):
@@ -166,21 +225,27 @@ class RLStats:
         # TODO:
         # add support for PS4 and Xbox (there's no endpoint for Switch)
         # when there are multiple platforms available for given user, ask for platform in reaction menu
-        # handle not-existing account IDs (preferably check if account exist at all and if it exists in RL)
+        # handle not-existing account IDs (preferably check if account exist at all and also if it exists in RL)
         # add number of wins (there's no text right now, only bars)
         # make Tier and division estimates shorter (create some additional methods)
-        # use logging module
         if 'token' not in list(self.settings.keys()) or self.settings['token'] == "":
-            await self.bot.say("`This cog wasn't configured properly. If you're the owner, setup the cog using {}rlset`".format(ctx.prefix))
+            await self.bot.say(
+                "`This cog wasn't configured properly. If you're the owner, setup the cog using {}rlset`".format(ctx.prefix)
+            )
         else:
-            await self.bot.change_nickname(ctx.message.server.me, "Wielka ANALITYCZKA Zagłady")
             await self.bot.send_typing(ctx.message.channel)
 
             if id is None:
                 if ctx.message.author.id in self.settings['USERS']:
                     id = self.settings['USERS'][ctx.message.author.id]
                 else:
-                    await self.bot.say("Twoje konto Steam nie jest połączone z kontem Discord! Musisz podać Steam ID: `-rlstats <SteamID64>/<customURL>` lub połączyć, używając komendy: `-rlconnect <SteamID64>/<customURL>`")
+                    await self.bot.say((
+                        "Your Steam account is not connected with Discord. "
+                        "If you want to get stats, either give Steam ID after a command: "
+                        "`{0}rlstats <SteamID64>/<customURL>`"
+                        " or connect your account using command: "
+                        "`{0}rlconnect <SteamID64>/<customURL>`"
+                    ).format(ctx.prefix))
                     return
             else:
                 converter = commands.MemberConverter(ctx, id)
@@ -189,55 +254,45 @@ class RLStats:
                     if member.id in self.settings['USERS']:
                         id = self.settings['USERS'][member.id]
                     else:
-                        await self.bot.say("Ta osoba nie ma połączonego konta Steam z kontem Discord! Musisz ją wyszukać za pomocą Steam ID: `-rlstats <SteamID64>/<customURL>`")
+                        await self.bot.say((
+                            "This user hasn't connected his Steam account with Discord. "
+                            "You need to search for his stats using Steam ID: "
+                            "`{0}rlstats <SteamID64>/<customURL>`"
+                        ).format(ctx.prefix))
                         return
                 except commands.errors.BadArgument:
-                    try:
-                        val = int(id)
-                    except ValueError:
-                        try:
-                            async with self.session.get('https://steamcommunity.com/id/{}/?xml=1'.format(id)) as resp:
-                                steam_profile = ET.fromstring(await resp.text())
-                        except aiohttp.ClientResponseError as e:
-                            print("Hey there! We've run into some issues, there's more details about it:\nInformations about request:")
-                            pprint(e.request_info)
-                            print("\nHTTP Status Code: {}\n".format(e.status))
-                            print("Message: {}\n".format(e.message))
-                            print("Headers: {}\n".format(e.headers))
-                            await self.bot.say("Wystąpił błąd podczas próby sprawdzenia rangi, nie przejmuj się, to pewnie chwilowe. Jeśli błąd się powtórzy, poinformuj administratora o problemie!")
-                            return
-                        except aiohttp.ClientError as e:
-                            print("Hey there! We've run into some issues, there's more details about it:\nName of exception: {}\nArguments:\n".format(type(e).__name__))
-                            pprint(e.args)
-                            await self.bot.say("Wystąpił błąd podczas próby sprawdzenia rangi, nie przejmuj się, to pewnie chwilowe. Jeśli błąd się powtórzy, poinformuj administratora o problemie!")
-                            return
-                        error = steam_profile.find('error')
-                        if error is None:
-                            id = steam_profile.find('steamID64').text
-                        else:
-                            await self.bot.say(error.text)
-                            return
+                    steam_id = await self._find_steam_profile(id)
+                    if steam_id is None:
+                        await self.bot.say('The specified profile could not be found.')
+                        return
+                    else:
+                        id = steam_id
+
             try:
-                async with self.session.get('https://api.rocketleague.com/api/v1/steam/playerskills/{}/'.format(id), headers={'Authorization': 'Token {}'.format(self.settings['token'])}) as resp:
+                async with self.session.get(
+                    'https://api.rocketleague.com/api/v1/steam/playerskills/{}/'.format(id),
+                    headers={
+                        'Authorization': 'Token {}'.format(self.settings['token'])
+                    }
+                ) as resp:
                     player = await resp.json()
-            except aiohttp.ClientResponseError as e:
-                print("Hey there! We've run into some issues, there's more details about it:\nInformations about request:")
-                pprint(e.request_info)
-                print("\nHTTP Status Code: {}\n".format(e.status))
-                print("Message: {}\n".format(e.message))
-                print("Headers: {}\n".format(e.headers))
-                await self.bot.say("Wystąpił błąd podczas próby sprawdzenia rangi, nie przejmuj się, to pewnie chwilowe. Jeśli błąd się powtórzy, poinformuj administratora o problemie!")
-                return
-            except aiohttp.ClientError as e:
-                print("Hey there! We've run into some issues, there's more details about it:\nName of exception: {}\nArguments:\n".format(type(e).__name__))
-                pprint(e.args)
-                await self.bot.say("Wystąpił błąd podczas próby sprawdzenia rangi, nie przejmuj się, to pewnie chwilowe. Jeśli błąd się powtórzy, poinformuj administratora o problemie!")
-                return
+            except aiohttp.ClientResponseError:
+                await self.bot.say(
+                    "An error occured while checking Rocket League Stats. "
+                    "If this will happen again, please inform bot owner about the issue."
+                )
+                raise
+            except aiohttp.ClientError:
+                await self.bot.say(
+                    "An error occured while checking Rocket League Stats. "
+                    "If this will happen again, please inform bot owner about the issue."
+                )
+                raise
 
             player_skills = {}
             for playlist in player[0]['player_skills']:
                 player_skills[playlist['playlist']] = playlist
-            for playlist_id in range(10,14):
+            for playlist_id in range(10, 14):
                 if playlist_id not in player_skills:
                     player_skills[playlist_id] = {
                         "division": 0,
@@ -262,13 +317,13 @@ class RLStats:
                     "level": 0
                 }
 
-            divisions = ('I','II','III','IV')
-            bg_color = (255,255,255, 0)
+            divisions = ('I', 'II', 'III', 'IV')
+            bg_color = (255, 255, 255, 0)
             size = (1920, 1080)
             result = Image.new('RGBA', size, bg_color)
             process = Image.new('RGBA', size, bg_color)
             bg_image = Image.open('data/rlstats/rank_bg.png').convert('RGBA')
-            result.paste(bg_image, (0,0))
+            result.paste(bg_image, (0, 0))
             draw = ImageDraw.Draw(process)
 
             fonts = {}
@@ -278,10 +333,12 @@ class RLStats:
 
             # Draw - username
             w, h = fonts["RobotoCondensedBold90"].getsize(player[0]["user_name"])
-            draw.text(((size[0]-w)/2, 12+(124-h)/2), player[0]["user_name"], font=fonts["RobotoCondensedBold90"], fill="white")
+            coords = self._add_coords(self.coords['username'], (-w/2, -h/2))
+            draw.text(coords, player[0]["user_name"],
+                      font=fonts["RobotoCondensedBold90"], fill="white")
 
             # Draw - rank details
-            for playlist_id in range(10,14):
+            for playlist_id in range(10, 14):
                 # Draw - rank image
                 temp = Image.new('RGBA', size, bg_color)
                 temp_image = Image.open('data/rlstats/images/ranks/{}.png'.format(player_skills[playlist_id]['tier'])).convert('RGBA')
@@ -508,41 +565,26 @@ class RLStats:
 
             # save result
             result = Image.alpha_composite(result, process)
-            #result.thumbnail((520,520), Image.ANTIALIAS)
-            result.save('data/rlstats/temp/{}_profile.png'.format(id),'PNG', quality=100)
-            await self.bot.change_nickname(ctx.message.server.me, "Wielka ANALITYCZKA Zagłady") # change nickname again so it won't be overwritten
-            await self.bot.send_file(ctx.message.channel, 'data/rlstats/temp/{}_profile.png'.format(id), content='Statystyki RL dla **{}** _(strzałki pokazują liczbę punktów potrzebnych do następnej/poprzedniej dywizji)_'.format(player[0]["user_name"]))
+            result.save('data/rlstats/temp/{}_profile.png'.format(id), 'PNG', quality=100)
+            await self.bot.send_file(
+                ctx.message.channel,
+                'data/rlstats/temp/{}_profile.png'.format(id),
+                content='Rocket League Stats for **{}** _(arrows show amount of points for division down/up)_'.format(player[0]["user_name"])
+            )
             os.remove('data/rlstats/temp/{}_profile.png'.format(id))
-            await self.bot.change_nickname(ctx.message.server.me, None)
 
     @commands.command(pass_context=True)
     async def rlconnect(self, ctx, id):
         """Connects Steam account with Discord. Use SteamID64 or custom url."""
-        try:
-            val = int(id)
-        except ValueError:
-            try:
-                async with self.session.get('https://steamcommunity.com/id/{}/?xml=1'.format(id)) as resp:
-                    steam_profile = ET.fromstring(await resp.text())
-            except aiohttp.ClientResponseError as e:
-                print("Hey there! We've run into some issues, there's more details about it:\nInformations about request:")
-                pprint(e.request_info)
-                print("\nHTTP Status Code: {}\n".format(e.status))
-                print("Message: {}\n".format(e.message))
-                print("Headers: {}\n".format(e.headers))
-                await self.bot.say("Wystąpił błąd podczas próby sprawdzenia rangi, nie przejmuj się, to pewnie chwilowe. Jeśli błąd się powtórzy, poinformuj administratora o problemie!")
-                return
-            except aiohttp.ClientError as e:
-                print("Hey there! We've run into some issues, there's more details about it:\nName of exception: {}\nArguments:\n".format(type(e).__name__))
-                pprint(e.args)
-                await self.bot.say("Wystąpił błąd podczas próby sprawdzenia rangi, nie przejmuj się, to pewnie chwilowe. Jeśli błąd się powtórzy, poinformuj administratora o problemie!")
-                return
-            error = steam_profile.find('error')
-            if error is None:
-                id = steam_profile.find('steamID64').text
-            else:
-                await self.bot.say(error.text)
-                return
+        steam_id = self._find_steam_profile(id)
+        if steam_id is None:
+            await self.bot.say(
+                'The specified profile could not be found. '
+                'I did not connect your Steam account with Discord.'
+            )
+            return
+        else:
+            id = steam_id
 
         self.settings["USERS"][ctx.message.author.id] = id
         fileIO("data/rlstats/settings.json", "save", self.settings)
@@ -556,16 +598,11 @@ class RLStats:
             try:
                 async with self.session.get('http://rltracker.pro/tier_breakdown/get_division_stats?tier_id={}'.format(i+1)) as resp:
                     tier = await resp.json()
-            except aiohttp.ClientResponseError as e:
-                print("Hey there! We've run into some issues, there's more details about it:\nInformations about request:")
-                pprint(e.request_info)
-                print("\nHTTP Status Code: {}\n".format(e.status))
-                print("Message: {}\n".format(e.message))
-                print("Headers: {}\n".format(e.headers))
+            except aiohttp.ClientResponseError:
+                log.error('Downloading tier breakdown did not succeed.')
                 raise
-            except aiohttp.ClientError as e:
-                print("Hey there! We've run into some issues, there's more details about it:\nName of exception: {}\nArguments:\n".format(type(e).__name__))
-                pprint(e.args)
+            except aiohttp.ClientError:
+                log.error('Downloading tier breakdown did not succeed.')
                 raise
 
             for breakdown in tier:
