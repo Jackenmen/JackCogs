@@ -81,7 +81,7 @@ class RLStats:
         self.tier_size = (49, 49)
 
     def __unload(self):
-        self.session.close()
+        self.bot.loop.create_task(self.session.close())
 
     def check_folders(self):
         if not os.path.exists("data/rlstats"):
@@ -142,7 +142,7 @@ class RLStats:
         error = steam_profile.find('error')
 
         if error is None:
-            pass
+            id = steam_profile.find('steamID64').text
         elif error.text == 'The specified profile could not be found.':
             try:
                 async with self.session.get('https://steamcommunity.com/id/{}/?xml=1'.format(id)) as resp:
@@ -173,6 +173,8 @@ class RLStats:
                 "Steam threw error while searching profile by ID: {}".format(error.text)
             )
             return None
+
+        return id
 
     def _fix_numbers_dict(self, d: dict):
         """Converts (recursively) dictionary's keys with numbers to integers"""
