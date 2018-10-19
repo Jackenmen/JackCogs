@@ -9,4 +9,4 @@ notifications:
 email: false
 branches:
   except:
-    - /dev\/.*/
+    - /wip\/.*/
