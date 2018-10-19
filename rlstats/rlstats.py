@@ -28,7 +28,7 @@ log = logging.getLogger('red.rlstats')
 class RLStats:
     """Get your Rocket League stats with a single command!"""
     # TODO:
-    # move rltracker cog functions to this cog
+    # add rltracker cog functionality to this cog
     # rest of TODO in rlstats method
 
     def __init__(self, bot):
@@ -333,6 +333,7 @@ class RLStats:
     async def rlstats(self, ctx, *id):
         """Checks for your or given player's Rocket League stats"""
         # TODO:
+        # add icons for platforms
         # add ranked sports
         # add number of wins (there's no text right now, only bars)
         # make Tier and division estimates shorter (create some additional methods)
