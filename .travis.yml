@@ -7,3 +7,6 @@ script: python -m compileall ./
 cache: pip
 notifications:
 email: false
+branches:
+  except:
+    - /dev\/.*/
