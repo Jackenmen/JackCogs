@@ -64,6 +64,13 @@ class RLStats:
             'Champion III',
             'Grand Champion'
         )
+        self.divisions = ('I', 'II', 'III', 'IV')
+        self.size = (1920, 1080)
+        self.fonts = {
+            'RobotoCondensedBold90': ImageFont.truetype("data/rlstats/fonts/RobotoCondensedBold.ttf", 90),
+            'RobotoBold45': ImageFont.truetype("data/rlstats/fonts/RobotoBold.ttf", 45),
+            'RobotoLight45': ImageFont.truetype("data/rlstats/fonts/RobotoLight.ttf", 45)
+        }
         self.offsets = {
             10: (0, 0),
             11: (960, 0),
@@ -338,13 +345,13 @@ class RLStats:
         # add number of wins (there's no text right now, only bars)
         # make Tier and division estimates shorter (create some additional methods)
 
+        await self.bot.send_typing(ctx.message.channel)
+
         if 'token' not in list(self.settings.keys()) or self.settings['token'] == "":
             await self.bot.say(
                 "`This cog wasn't configured properly. If you're the owner, setup the cog using {}rlset`".format(ctx.prefix)
             )
             return
-
-        await self.bot.send_typing(ctx.message.channel)
 
         if not id:
             if ctx.message.author.id in self.settings['USERS']:
@@ -434,30 +441,20 @@ class RLStats:
                 "level": 0
             }
 
-        divisions = ('I', 'II', 'III', 'IV')
-        bg_color = (255, 255, 255, 0)
-        size = (1920, 1080)
-        result = Image.new('RGBA', size, bg_color)
-        process = Image.new('RGBA', size, bg_color)
-        bg_image = Image.open('data/rlstats/rank_bg.png').convert('RGBA')
-        result.paste(bg_image, (0, 0))
+        result = Image.open('data/rlstats/rank_bg.png').convert('RGBA')
+        process = Image.new('RGBA', self.size)
         draw = ImageDraw.Draw(process)
 
-        fonts = {}
-        fonts["RobotoCondensedBold90"] = ImageFont.truetype("data/rlstats/fonts/RobotoCondensedBold.ttf", 90)
-        fonts["RobotoBold45"] = ImageFont.truetype("data/rlstats/fonts/RobotoBold.ttf", 45)
-        fonts["RobotoLight45"] = ImageFont.truetype("data/rlstats/fonts/RobotoLight.ttf", 45)
-
         # Draw - username
-        w, h = fonts["RobotoCondensedBold90"].getsize(player["user_name"])
+        w, h = self.fonts["RobotoCondensedBold90"].getsize(player["user_name"])
         coords = self._add_coords(self.coords['username'], (-w/2, -h/2))
         draw.text(coords, player["user_name"],
-                  font=fonts["RobotoCondensedBold90"], fill="white")
+                  font=self.fonts["RobotoCondensedBold90"], fill="white")
 
         # Draw - rank details
         for playlist_id in range(10, 14):
             # Draw - rank image
-            temp = Image.new('RGBA', size, bg_color)
+            temp = Image.new('RGBA', self.size)
             temp_image = Image.open('data/rlstats/images/ranks/{}.png'.format(player_skills[playlist_id]['tier'])).convert('RGBA')
             temp_image.thumbnail(self.rank_size, Image.ANTIALIAS)
             coords = self._get_coords(playlist_id, 'rank_image')
@@ -469,35 +466,35 @@ class RLStats:
             if player_skills[playlist_id]['tier']:
                 rank_text = self.ranks[int(player_skills[playlist_id]['tier'])]
                 if player_skills[playlist_id]['tier'] != player_skills[playlist_id]['tier_max']:
-                    rank_text += " Div {}".format(divisions[int(player_skills[playlist_id]['division'])])
+                    rank_text += " Div {}".format(self.divisions[int(player_skills[playlist_id]['division'])])
             else:
                 rank_text = "Unranked"
 
-            w, h = fonts["RobotoLight45"].getsize(rank_text)
+            w, h = self.fonts["RobotoLight45"].getsize(rank_text)
             coords = self._get_coords(playlist_id, 'rank_text')
             coords = self._add_coords(coords, (-w/2, -h/2))
-            draw.text(coords, rank_text, font=fonts["RobotoLight45"], fill="white")
+            draw.text(coords, rank_text, font=self.fonts["RobotoLight45"], fill="white")
 
             # Draw - matches played
             coords = self._get_coords(playlist_id, 'matches_played')
-            draw.text(coords, str(player_skills[playlist_id]['matches_played']), font=fonts["RobotoBold45"], fill="white")
+            draw.text(coords, str(player_skills[playlist_id]['matches_played']), font=self.fonts["RobotoBold45"], fill="white")
 
             # Draw - Win/Losing Streak
             if player_skills[playlist_id]['win_streak'] < 0:
                 text = "Losing Streak:"
             else:
                 text = "Win Streak:"
-            w, h = fonts["RobotoLight45"].getsize(text)
+            w, h = self.fonts["RobotoLight45"].getsize(text)
             coords_text = self._get_coords(playlist_id, 'win_streak')
             coords_amount = self._add_coords(coords_text, (11+w, 0))
             # Draw - "Win Streak" or "Losing Streak"
-            draw.text(coords_text, text, font=fonts["RobotoLight45"], fill="white")
+            draw.text(coords_text, text, font=self.fonts["RobotoLight45"], fill="white")
             # Draw - amount of won/lost games
-            draw.text(coords_amount, str(player_skills[playlist_id]['win_streak']), font=fonts["RobotoBold45"], fill="white")
+            draw.text(coords_amount, str(player_skills[playlist_id]['win_streak']), font=self.fonts["RobotoBold45"], fill="white")
 
             # Draw - Skill Rating
             coords = self._get_coords(playlist_id, 'skill')
-            draw.text(coords, str(player_skills[playlist_id]['skill']), font=fonts["RobotoBold45"], fill="white")
+            draw.text(coords, str(player_skills[playlist_id]['skill']), font=self.fonts["RobotoBold45"], fill="white")
 
             # Draw - Gain/Loss
             if os.path.isfile('data/rltracker/{}_{}.txt'.format(id, playlist_id)):
@@ -514,19 +511,19 @@ class RLStats:
 
             coords = self._get_coords(playlist_id, 'gain')
             if gain == 0:
-                draw.text(coords, "N/A", font=fonts["RobotoBold45"], fill="white")
+                draw.text(coords, "N/A", font=self.fonts["RobotoBold45"], fill="white")
             else:
-                draw.text(coords, str(format_decimal((gain), format='#.###', locale='pl_PL')), font=fonts["RobotoBold45"], fill="white")
+                draw.text(coords, str(format_decimal((gain), format='#.###', locale='pl_PL')), font=self.fonts["RobotoBold45"], fill="white")
 
             # Draw - Tier and division estimates
             if player_skills[playlist_id]['tier'] == 0:
                 # Draw - Division Down
                 coords = self._get_coords(playlist_id, 'div_down')
-                draw.text(coords, "N/A", font=fonts["RobotoBold45"], fill="white")
+                draw.text(coords, "N/A", font=self.fonts["RobotoBold45"], fill="white")
 
                 # Draw - Tier Down
                 # Icon
-                tier_down_temp = Image.new('RGBA', size, bg_color)
+                tier_down_temp = Image.new('RGBA', self.size)
                 tier_down_image = Image.open('data/rlstats/images/ranks/0.png').convert('RGBA')
                 tier_down_image.thumbnail(self.tier_size, Image.ANTIALIAS)
                 coords_image = self._get_coords(playlist_id, 'tier_down')
@@ -535,15 +532,15 @@ class RLStats:
                 draw = ImageDraw.Draw(process)
                 # Points
                 coords_text = self._add_coords(coords_image, (self.tier_size[0]+11, -5))
-                draw.text(coords_text, "N/A", font=fonts["RobotoBold45"], fill="white")
+                draw.text(coords_text, "N/A", font=self.fonts["RobotoBold45"], fill="white")
 
                 # Draw - Division Up
                 coords = self._get_coords(playlist_id, 'div_up')
-                draw.text(coords, "N/A", font=fonts["RobotoBold45"], fill="white")
+                draw.text(coords, "N/A", font=self.fonts["RobotoBold45"], fill="white")
 
                 # Draw - Tier Up
                 # Icon
-                tier_up_temp = Image.new('RGBA', size, bg_color)
+                tier_up_temp = Image.new('RGBA', self.size)
                 tier_up_image = Image.open('data/rlstats/images/ranks/0.png').convert('RGBA')
                 tier_up_image.thumbnail(self.tier_size, Image.ANTIALIAS)
                 coords_image = self._get_coords(playlist_id, 'tier_up')
@@ -552,7 +549,7 @@ class RLStats:
                 draw = ImageDraw.Draw(process)
                 # Points
                 coords_text = self._add_coords(coords_image, (self.tier_size[0]+11, -5))
-                draw.text(coords_text, "N/A", font=fonts["RobotoBold45"], fill="white")
+                draw.text(coords_text, "N/A", font=self.fonts["RobotoBold45"], fill="white")
             else:
                 # Draw - Division and Tier Down
                 if not player_skills[playlist_id]['tier'] == 1:
@@ -562,14 +559,14 @@ class RLStats:
                         difference = int(math.ceil(player_skills[playlist_id]['skill'] - self.rank_tiers[playlist_id][player_skills[playlist_id]['tier']-1][player_skills[playlist_id]['division']][0]))
                         if difference < 0:
                             difference = 0
-                        draw.text(coords, "-" + str(difference), font=fonts["RobotoBold45"], fill="white")
+                        draw.text(coords, "-" + str(difference), font=self.fonts["RobotoBold45"], fill="white")
                     else:
-                        draw.text(coords, "N/A", font=fonts["RobotoBold45"], fill="white")
+                        draw.text(coords, "N/A", font=self.fonts["RobotoBold45"], fill="white")
 
                     # Draw - Tier Down
                     # Icon
                     tier_down = 'data/rlstats/images/ranks/{}.png'.format(int(player_skills[playlist_id]['tier'])-1)
-                    tier_down_temp = Image.new('RGBA', size, bg_color)
+                    tier_down_temp = Image.new('RGBA', self.size)
                     tier_down_image = Image.open(tier_down).convert('RGBA')
                     tier_down_image.thumbnail(self.tier_size, Image.ANTIALIAS)
                     coords_image = self._get_coords(playlist_id, 'tier_down')
@@ -581,15 +578,15 @@ class RLStats:
                     if difference < 0:
                         difference = 0
                     coords_text = self._add_coords(coords_image, (self.tier_size[0]+11, -5))
-                    draw.text(coords_text, "N/A", font=fonts["RobotoBold45"], fill="white")
+                    draw.text(coords_text, "N/A", font=self.fonts["RobotoBold45"], fill="white")
                 else:
                     # Draw - Division Down
                     coords = self._get_coords(playlist_id, 'div_down')
-                    draw.text(coords, "N/A", font=fonts["RobotoBold45"], fill="white")
+                    draw.text(coords, "N/A", font=self.fonts["RobotoBold45"], fill="white")
 
                     # Draw - Tier Down
                     # Icon
-                    tier_down_temp = Image.new('RGBA', size, bg_color)
+                    tier_down_temp = Image.new('RGBA', self.size)
                     tier_down_image = Image.open('data/rlstats/images/ranks/0.png').convert('RGBA')
                     tier_down_image.thumbnail(self.tier_size, Image.ANTIALIAS)
                     coords_image = self._get_coords(playlist_id, 'tier_down')
@@ -598,7 +595,7 @@ class RLStats:
                     draw = ImageDraw.Draw(process)
                     # Points
                     coords_text = self._add_coords(coords_image, (self.tier_size[0]+11, -5))
-                    draw.text(coords_text, "N/A", font=fonts["RobotoBold45"], fill="white")
+                    draw.text(coords_text, "N/A", font=self.fonts["RobotoBold45"], fill="white")
 
                 # Draw - Division and Tier Up
                 if player_skills[playlist_id]['tier'] != player_skills[playlist_id]['tier_max']:
@@ -607,12 +604,12 @@ class RLStats:
                     if difference < 0:
                         difference = 0
                     coords = self._get_coords(playlist_id, 'div_up')
-                    draw.text(coords, "+" + str(difference), font=fonts["RobotoBold45"], fill="white")
+                    draw.text(coords, "+" + str(difference), font=self.fonts["RobotoBold45"], fill="white")
 
                     # Draw - Tier Up
                     # Icon
                     tier_up = 'data/rlstats/images/ranks/{}.png'.format(int(player_skills[playlist_id]['tier'])+1)
-                    tier_up_temp = Image.new('RGBA', size, bg_color)
+                    tier_up_temp = Image.new('RGBA', self.size)
                     tier_up_image = Image.open(tier_up).convert('RGBA')
                     tier_up_image.thumbnail(self.tier_size, Image.ANTIALIAS)
                     coords_image = self._get_coords(playlist_id, 'tier_up')
@@ -624,15 +621,15 @@ class RLStats:
                     if difference < 0:
                         difference = 0
                     coords_text = self._add_coords(coords_image, (self.tier_size[0]+11, -5))
-                    draw.text(coords_text, "+" + str(difference), font=fonts["RobotoBold45"], fill="white")
+                    draw.text(coords_text, "+" + str(difference), font=self.fonts["RobotoBold45"], fill="white")
                 else:
                     # Draw - Division Up
                     coords = self._get_coords(playlist_id, 'div_up')
-                    draw.text(coords, "N/A", font=fonts["RobotoBold45"], fill="white")
+                    draw.text(coords, "N/A", font=self.fonts["RobotoBold45"], fill="white")
 
                     # Draw - Tier Up
                     # Icon
-                    tier_up_temp = Image.new('RGBA', size, bg_color)
+                    tier_up_temp = Image.new('RGBA', self.size)
                     tier_up_image = Image.open('data/rlstats/images/ranks/0.png').convert('RGBA')
                     tier_up_image.thumbnail(self.tier_size, Image.ANTIALIAS)
                     coords_image = self._get_coords(playlist_id, 'tier_up')
@@ -641,7 +638,7 @@ class RLStats:
                     draw = ImageDraw.Draw(process)
                     # Points
                     coords_text = self._add_coords(coords_image, (self.tier_size[0]+11, -5))
-                    draw.text(coords_text, "N/A", font=fonts["RobotoBold45"], fill="white")
+                    draw.text(coords_text, "N/A", font=self.fonts["RobotoBold45"], fill="white")
 
         # Season Reward Level
         reward_images = ['Unranked', 'Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Champion', 'GrandChampion']
@@ -658,7 +655,7 @@ class RLStats:
         else:
             reward_ready = "NotReady"
 
-        reward_temp = Image.new('RGBA', size, bg_color)
+        reward_temp = Image.new('RGBA', self.size)
         reward_image = Image.open('data/rlstats/images/rewards/{}{}.png'.format(reward_images[(0 if (0 if player['season_rewards']['level'] is None else player['season_rewards']['level']) is None else (0 if player['season_rewards']['level'] is None else player['season_rewards']['level']))], reward_ready)).convert('RGBA')
         reward_temp.paste(reward_image, (150, 886))
         process = Image.alpha_composite(process, reward_temp)
@@ -671,7 +668,7 @@ class RLStats:
             elif reward_ready == "NotReady":
                 reward_bars_nowin_image = Image.open('data/rlstats/images/rewards/bars/BarRed.png').convert('RGBA')
             for win in range(0, 10):
-                reward_bars_temp = Image.new('RGBA', size, bg_color)
+                reward_bars_temp = Image.new('RGBA', self.size)
                 coords = self._add_coords(self.coords['rewards'], (win*83, 0))
                 if (0 if player['season_rewards']['wins'] is None else player['season_rewards']['wins']) > win:
                     reward_bars_temp.paste(reward_bars_win_image, coords)
