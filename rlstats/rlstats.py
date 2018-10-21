@@ -176,7 +176,6 @@ class RLStats:
                 players += await self._find_profile(platform, id)
             except UnallowedCharactersError as e:
                 log.debug(str(e))
-
         # Remove it after creating everything
         if not players:
             return None
