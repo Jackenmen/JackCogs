@@ -336,6 +336,21 @@ class RLStats:
             await self.bot.delete_message(ctx.message)
             await self.bot.say("You can't set token from server channel! Use this command in PM instead.")
 
+    async def _is_token_set(self):
+        """Checks if token is set"""
+        if 'token' not in list(self.settings.keys()) or self.settings['token'] == "":
+            return True
+        else:
+            return False
+
+    async def _get_player_id_by_member_id(self, member_id):
+        """nwm"""
+        if member_id in self.settings['USERS']:
+            return self.settings['USERS'][member_id]
+        else:
+            return None
+
+
     @commands.command(pass_context=True)
     async def rlstats(self, ctx, *id):
         """Checks for your or given player's Rocket League stats"""
@@ -347,16 +362,16 @@ class RLStats:
 
         await self.bot.send_typing(ctx.message.channel)
 
-        if 'token' not in list(self.settings.keys()) or self.settings['token'] == "":
-            await self.bot.say(
-                "`This cog wasn't configured properly. If you're the owner, setup the cog using {}rlset`".format(ctx.prefix)
-            )
+        if self._is_token_set():
+            await self.bot.say((
+                "`This cog wasn't configured properly. "
+                "If you're the owner, setup the cog using {}rlset`"
+            ).format(ctx.prefix))
             return
 
         if not id:
-            if ctx.message.author.id in self.settings['USERS']:
-                id = self.settings['USERS'][ctx.message.author.id]
-            else:
+            id = self._get_player_id_by_member_id(ctx.message.author.id)
+            if id is None:
                 await self.bot.say((
                     "Your game account is not connected with Discord. "
                     "If you want to get stats, either give your ID after a command: "
