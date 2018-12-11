@@ -11,6 +11,7 @@ import math
 from collections import defaultdict
 from re import fullmatch
 import logging
+from enum import Enum
 
 try:
     from PIL import Image, ImageDraw, ImageFont, ImageColor, ImageOps
@@ -23,6 +24,129 @@ except:
     raise RuntimeError("Can't load Babel. Do 'pip3 install Babel'.")
 
 log = logging.getLogger('red.rlstats')
+
+RANKS = (
+    'Unranked',
+    'Bronze I',
+    'Bronze II',
+    'Bronze III',
+    'Silver I',
+    'Silver II',
+    'Silver III',
+    'Gold I',
+    'Gold II',
+    'Gold III',
+    'Platinum I',
+    'Platinum II',
+    'Platinum III',
+    'Diamond I',
+    'Diamond II',
+    'Diamond III',
+    'Champion I',
+    'Champion II',
+    'Champion III',
+    'Grand Champion'
+)
+DIVISIONS = ('I', 'II', 'III', 'IV')
+
+
+class PlaylistKey(Enum):
+    SOLO_DUEL = 10
+    DOUBLES = 11
+    SOLO_STANDARD = 12
+    STANDARD = 13
+    HOOPS = 27
+    RUMBLE = 28
+    DROPSHOT = 29
+    SNOWDAY = 30
+
+    def __str__(self):
+        return self.name
+
+
+class Playlist:
+    __slots__ = ['playlist', 'tier', 'division', 'mu', 'skill',
+                 'sigma', 'win_streak', 'matches_played', 'tier_max']
+
+    def __init__(self, **kwargs):
+        self.playlist = kwargs.get('playlist')
+        self.tier = kwargs.get('tier', 0)
+        self.division = kwargs.get('division', 0)
+        self.mu = kwargs.get('mu', 25)
+        self.skill = kwargs.get('skill', self.mu*20+100)
+        self.sigma = kwargs.get('sigma', 8.333)
+        self.win_streak = kwargs.get('win_streak', 0)
+        self.matches_played = kwargs.get('matches_played', 0)
+        self.tier_max = kwargs.get('tier_max', 19)
+
+    def __str__(self):
+        try:
+            if self.tier in [0, self.tier_max]:
+                return RANKS[self.tier]
+            else:
+                return '{} Div {}'.format(
+                    RANKS[self.tier], DIVISIONS[self.division]
+                )
+        except IndexError:
+            return 'Unknown'
+
+
+class Platform(Enum):
+    steam = 'Steam'
+    xboxone = 'Xbox One'
+    ps4 = 'Playstation 4'
+
+    def __str__(self):
+        return self.value
+
+
+class SeasonRewards:
+    __slots__ = ['level', 'wins']
+
+    def __init__(self, **kwargs):
+        self.level = kwargs.get('level', 0)
+        self.wins = kwargs.get('wins', 0)
+
+
+class Player:
+    """Represents Rocket League Player
+
+    Attributes
+    -----------
+    platform : Platform
+        Player's platform. There is a chance that the type will be ``int`` if
+        the platform type is not within the ones recognised by the enumerator.
+
+    """
+    __slots__ = ['platform', 'user_name', 'user_id', 'playlists',
+                 'season_rewards']
+
+    def __init__(self, **kwargs):
+        self.platform = kwargs.get('platform')
+        try:
+            self.platform = Platform[self.platform]
+        except KeyError:
+            pass
+        self.user_name = kwargs.get('user_name')
+        self.user_id = kwargs.get('user_id', self.user_name)
+        self.playlists = {}
+        self._prepare_playlist(kwargs.get('player_skills', []))
+        self.season_rewards = SeasonRewards(**kwargs.get('season_rewards', {}))
+
+    def get_playlist(self, playlist_key):
+        return self.playlists.get(playlist_key)
+
+    def add_playlist(self, playlist):
+        try:
+            playlist['playlist'] = PlaylistKey(playlist['playlist'])
+        except ValueError:
+            pass
+
+        self.playlists[playlist['playlist']] = Playlist(**playlist)
+
+    def _prepare_playlists(self, player_skills):
+        for playlist in player_skills:
+            self.add_playlist(playlist)
 
 
 class RLStats:
@@ -42,29 +166,6 @@ class RLStats:
             3: "3⃣",
             4: "4⃣"
         }
-        self.ranks = (
-            'Unranked',
-            'Bronze I',
-            'Bronze II',
-            'Bronze III',
-            'Silver I',
-            'Silver II',
-            'Silver III',
-            'Gold I',
-            'Gold II',
-            'Gold III',
-            'Platinum I',
-            'Platinum II',
-            'Platinum III',
-            'Diamond I',
-            'Diamond II',
-            'Diamond III',
-            'Champion I',
-            'Champion II',
-            'Champion III',
-            'Grand Champion'
-        )
-        self.divisions = ('I', 'II', 'III', 'IV')
         self.size = (1920, 1080)
         self.fonts = {
             'RobotoCondensedBold90': ImageFont.truetype("data/rlstats/fonts/RobotoCondensedBold.ttf", 90),
@@ -72,10 +173,10 @@ class RLStats:
             'RobotoLight45': ImageFont.truetype("data/rlstats/fonts/RobotoLight.ttf", 45)
         }
         self.offsets = {
-            10: (0, 0),
-            11: (960, 0),
-            12: (0, 383),
-            13: (960, 383)
+            PlaylistKey.SOLO_DUEL: (0, 0),
+            PlaylistKey.DOUBLES: (960, 0),
+            PlaylistKey.SOLO_STANDARD: (0, 383),
+            PlaylistKey.STANDARD: (960, 383)
         }
         self.coords = {
             'username': (960, 71),
@@ -188,8 +289,10 @@ class RLStats:
             return None
         elif len(players) > 1:
             description = ''
-            for idx, i in enumerate(players, 1):
-                description += "\n{}. {} account with username: {}".format(idx, i['platform'], i['user_name'])
+            for idx, player in enumerate(players, 1):
+                description += "\n{}. {} account with username: {}".format(
+                    idx, player.platform, player.user_name
+                )
 
             choice = await self._reaction_menu(
                 ctx, discord.Embed(
@@ -288,8 +391,7 @@ class RLStats:
             raise
 
         player[0]['platform'] = platform
-        player[0]['id'] = id
-        return player[0]
+        return Player(**player[0])
 
     def _fix_numbers_dict(self, d: dict):
         """Converts (recursively) dictionary's keys with numbers to integers"""
@@ -321,7 +423,6 @@ class RLStats:
         requesting for API access in a ticket on https://support.rocketleague.com
         Under "Issue" you need to select Installation and setup > I need API access"""
         if ctx.invoked_subcommand is None:
-            print(type(ctx.message.channel))
             await self.bot.send_cmd_help(ctx)
 
     @checks.is_owner()
@@ -397,6 +498,9 @@ class RLStats:
             except commands.errors.BadArgument:
                 pass
 
+        playlists = [PlaylistKey.SOLO_DUEL, PlaylistKey.DOUBLES,
+                     PlaylistKey.SOLO_STANDARD, PlaylistKey.STANDARD]
+
         try:
             if isinstance(id, dict):
                 player = await self._get_stats(id['platform'], id['id'])
@@ -405,7 +509,7 @@ class RLStats:
         except ServerError as e:
             log.error(str(e))
             await self.bot.say(
-                "Rocket League API expierences some issues right now. Try again later."
+                "Rocket League API experiences some issues right now. Try again later."
             )
             return
         except NoChoiceError as e:
@@ -428,33 +532,9 @@ class RLStats:
             )
             return
 
-        player_skills = {}
-        for playlist in player['player_skills']:
-            player_skills[playlist['playlist']] = playlist
-        for playlist_id in range(10, 14):
-            if playlist_id not in player_skills:
-                player_skills[playlist_id] = {
-                    "division": 0,
-                    "playlist": playlist_id,
-                    "mu": 25,
-                    "win_streak": 0,
-                    "tier": 0,
-                    "skill": 600,
-                    "sigma": 8.333,
-                    "matches_played": 0,
-                    "tier_max": 19
-                }
-        if 0 not in player_skills:
-            player_skills[0] = {
-                "mu": 25,
-                "playlist": playlist_id,
-                "sigma": 8.333
-            }
-        if not player['season_rewards'] or player['season_rewards']['level'] is None:
-            player['season_rewards'] = {
-                "wins": 0,
-                "level": 0
-            }
+        for playlist_key in playlists:
+            if playlist_key not in player.playlists:
+                player.add_playlist({'playlist': playlist_key})
 
         result = Image.open('data/rlstats/rank_bg.png').convert('RGBA')
         process = Image.new('RGBA', self.size)
@@ -467,53 +547,54 @@ class RLStats:
                   font=self.fonts["RobotoCondensedBold90"], fill="white")
 
         # Draw - rank details
-        for playlist_id in range(10, 14):
+        for playlist_key in playlists:
             # Draw - rank image
+            playlist = player.get_playlist(playlist_key)
             temp = Image.new('RGBA', self.size)
-            temp_image = Image.open('data/rlstats/images/ranks/{}.png'.format(player_skills[playlist_id]['tier'])).convert('RGBA')
+            temp_image = Image.open('data/rlstats/images/ranks/{}.png'.format(playlist.tier)).convert('RGBA')
             temp_image.thumbnail(self.rank_size, Image.ANTIALIAS)
-            coords = self._get_coords(playlist_id, 'rank_image')
+            coords = self._get_coords(playlist_key, 'rank_image')
             temp.paste(temp_image, coords)
             process = Image.alpha_composite(process, temp)
             draw = ImageDraw.Draw(process)
 
             # Draw - rank name (e.g. Diamond 3 Div 1)
-            if player_skills[playlist_id]['tier']:
-                rank_text = self.ranks[int(player_skills[playlist_id]['tier'])]
-                if player_skills[playlist_id]['tier'] != player_skills[playlist_id]['tier_max']:
-                    rank_text += " Div {}".format(self.divisions[int(player_skills[playlist_id]['division'])])
+            if playlist.tier:
+                rank_text = self.ranks[int(playlist.tier)]
+                if playlist.tier != playlist.tier_max:
+                    rank_text += " Div {}".format(self.divisions[int(playlist.division)])
             else:
                 rank_text = "Unranked"
 
             w, h = self.fonts["RobotoLight45"].getsize(rank_text)
-            coords = self._get_coords(playlist_id, 'rank_text')
+            coords = self._get_coords(playlist_key, 'rank_text')
             coords = self._add_coords(coords, (-w/2, -h/2))
             draw.text(coords, rank_text, font=self.fonts["RobotoLight45"], fill="white")
 
             # Draw - matches played
-            coords = self._get_coords(playlist_id, 'matches_played')
-            draw.text(coords, str(player_skills[playlist_id]['matches_played']), font=self.fonts["RobotoBold45"], fill="white")
+            coords = self._get_coords(playlist_key, 'matches_played')
+            draw.text(coords, str(playlist.matches_played), font=self.fonts["RobotoBold45"], fill="white")
 
             # Draw - Win/Losing Streak
-            if player_skills[playlist_id]['win_streak'] < 0:
+            if playlist.win_streak < 0:
                 text = "Losing Streak:"
             else:
                 text = "Win Streak:"
             w, h = self.fonts["RobotoLight45"].getsize(text)
-            coords_text = self._get_coords(playlist_id, 'win_streak')
+            coords_text = self._get_coords(playlist_key, 'win_streak')
             coords_amount = self._add_coords(coords_text, (11+w, 0))
             # Draw - "Win Streak" or "Losing Streak"
             draw.text(coords_text, text, font=self.fonts["RobotoLight45"], fill="white")
             # Draw - amount of won/lost games
-            draw.text(coords_amount, str(player_skills[playlist_id]['win_streak']), font=self.fonts["RobotoBold45"], fill="white")
+            draw.text(coords_amount, str(playlist.win_streak), font=self.fonts["RobotoBold45"], fill="white")
 
             # Draw - Skill Rating
-            coords = self._get_coords(playlist_id, 'skill')
-            draw.text(coords, str(player_skills[playlist_id]['skill']), font=self.fonts["RobotoBold45"], fill="white")
+            coords = self._get_coords(playlist_key, 'skill')
+            draw.text(coords, str(playlist.skill), font=self.fonts["RobotoBold45"], fill="white")
 
             # Draw - Gain/Loss
-            if os.path.isfile('data/rltracker/{}_{}.txt'.format(id, playlist_id)):
-                with open('data/rltracker/{}_{}.txt'.format(id, playlist_id)) as file:
+            if os.path.isfile('data/rltracker/{}_{}.txt'.format(id, playlist_key)):
+                with open('data/rltracker/{}_{}.txt'.format(id, playlist_key)) as file:
                     lines = file.readlines()
                     before = lines[-2].split(";")[3]
                     after = lines[-1].split(";")[3]
@@ -524,16 +605,16 @@ class RLStats:
             else:
                 gain = 0
 
-            coords = self._get_coords(playlist_id, 'gain')
+            coords = self._get_coords(playlist_key, 'gain')
             if gain == 0:
                 draw.text(coords, "N/A", font=self.fonts["RobotoBold45"], fill="white")
             else:
                 draw.text(coords, str(format_decimal((gain), format='#.###', locale='pl_PL')), font=self.fonts["RobotoBold45"], fill="white")
 
             # Draw - Tier and division estimates
-            if player_skills[playlist_id]['tier'] == 0:
+            if playlist.tier == 0:
                 # Draw - Division Down
-                coords = self._get_coords(playlist_id, 'div_down')
+                coords = self._get_coords(playlist_key, 'div_down')
                 draw.text(coords, "N/A", font=self.fonts["RobotoBold45"], fill="white")
 
                 # Draw - Tier Down
@@ -541,7 +622,7 @@ class RLStats:
                 tier_down_temp = Image.new('RGBA', self.size)
                 tier_down_image = Image.open('data/rlstats/images/ranks/0.png').convert('RGBA')
                 tier_down_image.thumbnail(self.tier_size, Image.ANTIALIAS)
-                coords_image = self._get_coords(playlist_id, 'tier_down')
+                coords_image = self._get_coords(playlist_key, 'tier_down')
                 tier_down_temp.paste(tier_down_image, coords_image)
                 process = Image.alpha_composite(process, tier_down_temp)
                 draw = ImageDraw.Draw(process)
@@ -550,7 +631,7 @@ class RLStats:
                 draw.text(coords_text, "N/A", font=self.fonts["RobotoBold45"], fill="white")
 
                 # Draw - Division Up
-                coords = self._get_coords(playlist_id, 'div_up')
+                coords = self._get_coords(playlist_key, 'div_up')
                 draw.text(coords, "N/A", font=self.fonts["RobotoBold45"], fill="white")
 
                 # Draw - Tier Up
@@ -558,7 +639,7 @@ class RLStats:
                 tier_up_temp = Image.new('RGBA', self.size)
                 tier_up_image = Image.open('data/rlstats/images/ranks/0.png').convert('RGBA')
                 tier_up_image.thumbnail(self.tier_size, Image.ANTIALIAS)
-                coords_image = self._get_coords(playlist_id, 'tier_up')
+                coords_image = self._get_coords(playlist_key, 'tier_up')
                 tier_up_temp.paste(tier_up_image, coords_image)
                 process = Image.alpha_composite(process, tier_up_temp)
                 draw = ImageDraw.Draw(process)
@@ -567,11 +648,11 @@ class RLStats:
                 draw.text(coords_text, "N/A", font=self.fonts["RobotoBold45"], fill="white")
             else:
                 # Draw - Division and Tier Down
-                if not player_skills[playlist_id]['tier'] == 1:
+                if not playlist.tier == 1:
                     # Draw - Division Down
-                    coords = self._get_coords(playlist_id, 'div_down')
-                    if not player_skills[playlist_id]['division'] == 0:
-                        difference = int(math.ceil(player_skills[playlist_id]['skill'] - self.rank_tiers[playlist_id][player_skills[playlist_id]['tier']-1][player_skills[playlist_id]['division']][0]))
+                    coords = self._get_coords(playlist_key, 'div_down')
+                    if not playlist['division'] == 0:
+                        difference = int(math.ceil(playlist.skill - self.rank_tiers[playlist_key.value][playlist.tier-1][playlist.division][0]))
                         if difference < 0:
                             difference = 0
                         draw.text(coords, "-" + str(difference), font=self.fonts["RobotoBold45"], fill="white")
@@ -580,23 +661,23 @@ class RLStats:
 
                     # Draw - Tier Down
                     # Icon
-                    tier_down = 'data/rlstats/images/ranks/{}.png'.format(int(player_skills[playlist_id]['tier'])-1)
+                    tier_down = 'data/rlstats/images/ranks/{}.png'.format(int(playlist.tier)-1)
                     tier_down_temp = Image.new('RGBA', self.size)
                     tier_down_image = Image.open(tier_down).convert('RGBA')
                     tier_down_image.thumbnail(self.tier_size, Image.ANTIALIAS)
-                    coords_image = self._get_coords(playlist_id, 'tier_down')
+                    coords_image = self._get_coords(playlist_key, 'tier_down')
                     tier_down_temp.paste(tier_down_image, coords_image)
                     process = Image.alpha_composite(process, tier_down_temp)
                     draw = ImageDraw.Draw(process)
                     # Points
-                    difference = int(math.ceil(player_skills[playlist_id]['skill'] - self.rank_tiers[playlist_id][player_skills[playlist_id]['tier']-1][0][0]))
+                    difference = int(math.ceil(playlist.skill - self.rank_tiers[playlist_key.value][playlist.tier-1][0][0]))
                     if difference < 0:
                         difference = 0
                     coords_text = self._add_coords(coords_image, (self.tier_size[0]+11, -5))
                     draw.text(coords_text, "N/A", font=self.fonts["RobotoBold45"], fill="white")
                 else:
                     # Draw - Division Down
-                    coords = self._get_coords(playlist_id, 'div_down')
+                    coords = self._get_coords(playlist_key, 'div_down')
                     draw.text(coords, "N/A", font=self.fonts["RobotoBold45"], fill="white")
 
                     # Draw - Tier Down
@@ -604,7 +685,7 @@ class RLStats:
                     tier_down_temp = Image.new('RGBA', self.size)
                     tier_down_image = Image.open('data/rlstats/images/ranks/0.png').convert('RGBA')
                     tier_down_image.thumbnail(self.tier_size, Image.ANTIALIAS)
-                    coords_image = self._get_coords(playlist_id, 'tier_down')
+                    coords_image = self._get_coords(playlist_key, 'tier_down')
                     tier_down_temp.paste(tier_down_image, coords_image)
                     process = Image.alpha_composite(process, tier_down_temp)
                     draw = ImageDraw.Draw(process)
@@ -613,33 +694,33 @@ class RLStats:
                     draw.text(coords_text, "N/A", font=self.fonts["RobotoBold45"], fill="white")
 
                 # Draw - Division and Tier Up
-                if player_skills[playlist_id]['tier'] != player_skills[playlist_id]['tier_max']:
+                if playlist.tier != playlist.tier_max:
                     # Draw - Division Up
-                    difference = int(math.ceil(self.rank_tiers[playlist_id][player_skills[playlist_id]['tier']-1][player_skills[playlist_id]['division']][1] - player_skills[playlist_id]['skill']))
+                    difference = int(math.ceil(self.rank_tiers[playlist_key.value][playlist.tier-1][playlist.division][1] - playlist.skill))
                     if difference < 0:
                         difference = 0
-                    coords = self._get_coords(playlist_id, 'div_up')
+                    coords = self._get_coords(playlist_key, 'div_up')
                     draw.text(coords, "+" + str(difference), font=self.fonts["RobotoBold45"], fill="white")
 
                     # Draw - Tier Up
                     # Icon
-                    tier_up = 'data/rlstats/images/ranks/{}.png'.format(int(player_skills[playlist_id]['tier'])+1)
+                    tier_up = 'data/rlstats/images/ranks/{}.png'.format(int(playlist.tier)+1)
                     tier_up_temp = Image.new('RGBA', self.size)
                     tier_up_image = Image.open(tier_up).convert('RGBA')
                     tier_up_image.thumbnail(self.tier_size, Image.ANTIALIAS)
-                    coords_image = self._get_coords(playlist_id, 'tier_up')
+                    coords_image = self._get_coords(playlist_key, 'tier_up')
                     tier_up_temp.paste(tier_up_image, coords_image)
                     process = Image.alpha_composite(process, tier_up_temp)
                     draw = ImageDraw.Draw(process)
                     # Points
-                    difference = int(math.ceil(self.rank_tiers[playlist_id][player_skills[playlist_id]['tier']-1][3][1] - player_skills[playlist_id]['skill']))
+                    difference = int(math.ceil(self.rank_tiers[playlist_key.value][playlist.tier-1][3][1] - playlist.skill))
                     if difference < 0:
                         difference = 0
                     coords_text = self._add_coords(coords_image, (self.tier_size[0]+11, -5))
                     draw.text(coords_text, "+" + str(difference), font=self.fonts["RobotoBold45"], fill="white")
                 else:
                     # Draw - Division Up
-                    coords = self._get_coords(playlist_id, 'div_up')
+                    coords = self._get_coords(playlist_key, 'div_up')
                     draw.text(coords, "N/A", font=self.fonts["RobotoBold45"], fill="white")
 
                     # Draw - Tier Up
@@ -647,7 +728,7 @@ class RLStats:
                     tier_up_temp = Image.new('RGBA', self.size)
                     tier_up_image = Image.open('data/rlstats/images/ranks/0.png').convert('RGBA')
                     tier_up_image.thumbnail(self.tier_size, Image.ANTIALIAS)
-                    coords_image = self._get_coords(playlist_id, 'tier_up')
+                    coords_image = self._get_coords(playlist_key, 'tier_up')
                     tier_up_temp.paste(tier_up_image, coords_image)
                     process = Image.alpha_composite(process, tier_up_temp)
                     draw = ImageDraw.Draw(process)
@@ -659,10 +740,9 @@ class RLStats:
         reward_images = ['Unranked', 'Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Champion', 'GrandChampion']
 
         highest_rank = []
-        for playlist_id in range(10, 14):
-            highest_rank.append(player_skills[playlist_id]['tier'])
+        for playlist_key in playlists:
+            highest_rank.append(playlist.tier)
         highest_rank = max(highest_rank)
-        highest_rank = player_skills[10]['tier']
         if player['season_rewards']['level'] == 7:
             reward_ready = ""
         elif player['season_rewards']['level'] * 3 < highest_rank:
@@ -727,13 +807,13 @@ class RLStats:
             return
 
         self.settings["USERS"][ctx.message.author.id] = {
-            'platform': player['platform'],
-            'id': player['id']
+            'platform': player.platform,
+            'id': player.user_id
         }
         fileIO("data/rlstats/settings.json", "save", self.settings)
         await self.bot.say(
             "You successfully connected your {} account with Discord!"
-            .format(player['platform'])
+            .format(player.platform)
         )
 
     async def _get_tier_breakdown(self):
@@ -752,6 +832,7 @@ class RLStats:
                 self.rank_tiers[breakdown['playlist_id']][i][breakdown['division']] = [breakdown['from'], breakdown['to']]
 
         fileIO("data/rlstats/rank_tiers.json", "save", self.rank_tiers)
+        self.rank_tiers = self._fix_numbers_dict(self.rank_tiers)
 
     @checks.is_owner()
     @rlset.command(pass_context=True, name="updatebreakdown")
