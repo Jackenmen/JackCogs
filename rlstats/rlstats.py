@@ -559,17 +559,11 @@ class RLStats:
             draw = ImageDraw.Draw(process)
 
             # Draw - rank name (e.g. Diamond 3 Div 1)
-            if playlist.tier:
-                rank_text = self.ranks[int(playlist.tier)]
-                if playlist.tier != playlist.tier_max:
-                    rank_text += " Div {}".format(self.divisions[int(playlist.division)])
-            else:
-                rank_text = "Unranked"
 
-            w, h = self.fonts["RobotoLight45"].getsize(rank_text)
+            w, h = self.fonts["RobotoLight45"].getsize(str(playlist))
             coords = self._get_coords(playlist_key, 'rank_text')
             coords = self._add_coords(coords, (-w/2, -h/2))
-            draw.text(coords, rank_text, font=self.fonts["RobotoLight45"], fill="white")
+            draw.text(coords, str(playlist), font=self.fonts["RobotoLight45"], fill="white")
 
             # Draw - matches played
             coords = self._get_coords(playlist_key, 'matches_played')
