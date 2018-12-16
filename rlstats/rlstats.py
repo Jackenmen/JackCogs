@@ -9,7 +9,7 @@ from .utils import checks
 from .utils.dataIO import fileIO
 import math
 from collections import defaultdict
-from re import fullmatch
+import re
 import logging
 from enum import Enum
 
@@ -64,12 +64,80 @@ class PlaylistKey(Enum):
         return self.name
 
 
+class TierEstimates:
+    __slots__ = ['div_down', 'div_up', 'tier_down', 'tier_up']
+    tier_breakdown = None
+
+    def __init__(self, playlist):
+        self.div_down = int(
+            math.ceil(
+                playlist.skill - self.rank_tiers[playlist.key.value][playlist.tier-1][playlist.division][0]
+            )
+        )
+
+    @classmethod
+    def load_tier_breakdown(cls):
+        if not os.path.isfile("data/rlstats/rank_tiers.json"):
+            print("Creating rank_tiers.json...")
+            event_loop = asyncio.get_event_loop()
+            event_loop.run_until_complete(cls._get_tier_breakdown())
+        else:
+            cls.tier_breakdown = cls._fix_numbers_dict(fileIO("data/rlstats/rank_tiers.json", "load"))
+
+    @classmethod
+    async def _get_tier_breakdown(cls):
+        # {10:{},11:{},12:{},13:{}}
+        cls.tier_breakdown = defaultdict(lambda: defaultdict(dict))
+
+        session = aiohttp.ClientSession()
+        for i in range(19):
+            try:
+                async with session.get('http://rltracker.pro/tier_breakdown/get_division_stats?tier_id={}'.format(i+1)) as resp:
+                    tier = await resp.json()
+            except (aiohttp.ClientResponseError, aiohttp.ClientError):
+                log.error('Downloading tier breakdown did not succeed.')
+                raise
+
+            for breakdown in tier:
+                cls.tier_breakdown[breakdown['playlist_id']][i][breakdown['division']] = [breakdown['from'], breakdown['to']]
+
+        fileIO("data/rlstats/rank_tiers.json", "save", cls.tier_breakdown)
+        cls.tier_breakdown = cls._fix_numbers_dict(cls.tier_breakdown)
+
+    @classmethod
+    def _fix_numbers_dict(cls, d: dict):
+        """Converts (recursively) dictionary's keys with numbers to integers"""
+        new = {}
+        for k, v in d.items():
+            if isinstance(v, dict):
+                v = cls._fix_numbers_dict(v)
+            elif isinstance(v, list):
+                v = cls._fix_numbers_list(v)
+            new[int(k)] = v
+        return new
+
+    @classmethod
+    def _fix_numbers_list(cls, l: list):
+        """Converts (recursively) list's values with numbers to floats"""
+        new = []
+        for v in l:
+            if isinstance(v, dict):
+                v = cls._fix_numbers_dict(v)
+            elif isinstance(v, list):
+                v = cls._fix_numbers_list(v)
+            new.append(float(v))
+        return new
+
+
+TierEstimates.load_tier_breakdown()
+
+
 class Playlist:
-    __slots__ = ['playlist', 'tier', 'division', 'mu', 'skill',
-                 'sigma', 'win_streak', 'matches_played', 'tier_max']
+    __slots__ = ['playlist', 'tier', 'division', 'mu', 'skill',  'sigma',
+                 'win_streak', 'matches_played', 'tier_max', 'tier_estimates']
 
     def __init__(self, **kwargs):
-        self.playlist = kwargs.get('playlist')
+        self.key = kwargs.get('key')
         self.tier = kwargs.get('tier', 0)
         self.division = kwargs.get('division', 0)
         self.mu = kwargs.get('mu', 25)
@@ -78,6 +146,7 @@ class Playlist:
         self.win_streak = kwargs.get('win_streak', 0)
         self.matches_played = kwargs.get('matches_played', 0)
         self.tier_max = kwargs.get('tier_max', 19)
+        self.tier_estimates = TierEstimates(self)
 
     def __str__(self):
         try:
@@ -93,11 +162,17 @@ class Playlist:
 
 class Platform(Enum):
     steam = 'Steam'
-    xboxone = 'Xbox One'
     ps4 = 'Playstation 4'
+    xboxone = 'Xbox One'
 
     def __str__(self):
         return self.value
+
+
+class PlatformPatterns:
+    steam = re.compile('[a-zA-Z0-9_-]{2,32}')
+    ps4 = re.compile('[a-zA-Z][a-zA-Z0-9_-]{2,15}')
+    xboxone = re.compile('[a-zA-Z](?=.{0,15}$)([a-zA-Z0-9-_]+ ?)+')
 
 
 class SeasonRewards:
@@ -138,11 +213,11 @@ class Player:
 
     def add_playlist(self, playlist):
         try:
-            playlist['playlist'] = PlaylistKey(playlist['playlist'])
+            playlist['key'] = PlaylistKey(playlist['playlist'])
         except ValueError:
             pass
 
-        self.playlists[playlist['playlist']] = Playlist(**playlist)
+        self.playlists[playlist['key']] = Playlist(**playlist)
 
     def _prepare_playlists(self, player_skills):
         for playlist in player_skills:
@@ -194,11 +269,6 @@ class RLStats:
         }
         self.rank_size = (179, 179)
         self.tier_size = (49, 49)
-        self.platform_patterns = {
-            'ps4': '[a-zA-Z][a-zA-Z0-9_-]{2,15}',
-            'xboxone': '[a-zA-Z](?=.{0,15}$)([a-zA-Z0-9-_]+ ?)+',
-            'steam': '[a-zA-Z0-9_-]{2,32}'
-        }
 
     def __unload(self):
         self.bot.loop.create_task(self.session.close())
@@ -277,9 +347,8 @@ class RLStats:
         return self._add_coords(coords, offset)
 
     async def _get_player(self, ctx, id):
-        platforms = self.platform_patterns.keys()
         players = []
-        for platform in platforms:
+        for platform in Platform:
             try:
                 players += await self._find_profile(platform, id)
             except UnallowedCharactersError as e:
@@ -307,15 +376,15 @@ class RLStats:
             return players[0]
 
     async def _find_profile(self, platform, id):
-        pattern = self.platform_patterns[platform]
-        if not fullmatch(pattern, id):
+        pattern = getattr(PlatformPatterns, platform.name)
+        if not pattern.fullmatch(pattern, id):
             raise UnallowedCharactersError(
                 "Provided username doesn't match provided pattern: {}"
                 .format(pattern)
             )
 
         players = []
-        if platform == 'steam':
+        if platform == Platform.steam:
             ids = await self._find_steam_ids(id)
         else:
             ids = [id]
@@ -360,7 +429,7 @@ class RLStats:
     async def _get_stats(self, platform, id):
         try:
             async with self.session.get(
-                'https://api.rocketleague.com/api/v1/{}/playerskills/{}/'.format(platform, id),
+                'https://api.rocketleague.com/api/v1/{}/playerskills/{}/'.format(platform.name, id),
                 headers={
                     'Authorization': 'Token {}'.format(self.settings['token'])
                 }
@@ -447,10 +516,11 @@ class RLStats:
     async def _get_player_id_by_member_id(self, member_id):
         """nwm"""
         if member_id in self.settings['USERS']:
-            return self.settings['USERS'][member_id]
+            userdata = dict(self.settings['USERS'][member_id])
+            userdata['platform'] = Platform[userdata['platform']]
+            return userdata
         else:
             return None
-
 
     @commands.command(pass_context=True)
     async def rlstats(self, ctx, *id):
@@ -645,7 +715,7 @@ class RLStats:
                 if not playlist.tier == 1:
                     # Draw - Division Down
                     coords = self._get_coords(playlist_key, 'div_down')
-                    if not playlist['division'] == 0:
+                    if not playlist.division == 0:
                         difference = int(math.ceil(playlist.skill - self.rank_tiers[playlist_key.value][playlist.tier-1][playlist.division][0]))
                         if difference < 0:
                             difference = 0
