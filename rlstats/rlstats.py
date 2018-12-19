@@ -293,7 +293,7 @@ class PlatformPatterns:
 
 
 class SeasonRewards:
-    __slots__ = ['level', 'wins']
+    __slots__ = ['level', 'wins', 'reward_ready']
 
     def __init__(self, **kwargs):
         self.level = kwargs.get('level', 0)
@@ -302,6 +302,11 @@ class SeasonRewards:
         self.wins = kwargs.get('wins', 0)
         if self.wins is None:
             self.wins = 0
+        highest_rank = kwargs.get('highest_rank', 0)
+        if self.level * 3 < highest_rank:
+            self.reward_ready = True
+        else:
+            self.reward_ready = False
 
 
 class Player:
@@ -327,7 +332,13 @@ class Player:
         self.user_id = kwargs.get('user_id', self.user_name)
         self.playlists = {}
         self._prepare_playlists(kwargs.get('player_skills', []))
-        self.season_rewards = SeasonRewards(**kwargs.get('season_rewards', {}))
+        self.highest_rank = []
+        for playlist in self.playlists.values:
+            self.highest_rank.append(playlist.tier)
+        self.highest_rank = max(self.highest_rank)
+        self.season_rewards = kwargs.get('season_rewards', {})
+        self.season_rewards['highest_rank'] = self.highest_rank
+        self.season_rewards = SeasonRewards(**self.season_rewards)
 
     def get_playlist(self, playlist_key):
         return self.playlists.get(playlist_key)
@@ -830,7 +841,7 @@ class RLStats:
         highest_rank = max(highest_rank)
         if player.season_rewards.level == 7:
             reward_ready = ""
-        elif player.season_rewards.level * 3 < highest_rank:
+        elif player.season_rewards.reward_ready:
             reward_ready = "Ready"
         else:
             reward_ready = "NotReady"
