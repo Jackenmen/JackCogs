@@ -105,16 +105,22 @@ class TierEstimates:
         playlist = self.playlist
         if (
             self.tier == 1 and self.division == 0 or
-            playlist.key not in self.tier_breakdown
+            playlist.key not in self.tier_breakdown or
+            self.tier == 0
         ):
             self.div_down = None
         else:
-            divisions = self.tier_breakdown[playlist.key][self.tier]
-            self.div_down = int(
-                math.ceil(
-                    divisions[self.division][0] - playlist.skill
+            try:
+                divisions = self.tier_breakdown[playlist.key][self.tier]
+                self.div_down = int(
+                    math.ceil(
+                        divisions[self.division][0] - playlist.skill
+                    )
                 )
-            )
+            except KeyError as e:
+                self.div_down = None
+                log.debug(str(e))
+                return
             if self.div_down > 0:
                 self.div_down = -1
 
@@ -122,16 +128,26 @@ class TierEstimates:
         playlist = self.playlist
         if (
             self.tier == self.playlist.tier_max or
-            playlist.key not in self.tier_breakdown
+            playlist.key not in self.tier_breakdown or
+            self.tier == 0
         ):
             self.div_up = None
         else:
-            divisions = self.tier_breakdown[playlist.key][self.tier]
-            self.div_up = int(
-                math.ceil(
-                    divisions[self.division][1] - playlist.skill
+            try:
+                divisions = self.tier_breakdown[playlist.key][self.tier]
+                if self.tier == self.division == 0:
+                    value = divisions[1][0]
+                else:
+                    value = divisions[self.division][1]
+                self.div_up = int(
+                    math.ceil(
+                        value - playlist.skill
+                    )
                 )
-            )
+            except KeyError as e:
+                self.div_up = None
+                log.debug(str(e))
+                return
             if self.div_up < 0:
                 self.div_up = 1
 
@@ -139,16 +155,22 @@ class TierEstimates:
         playlist = self.playlist
         if (
             self.tier == 1 or
-            playlist.key not in self.tier_breakdown
+            playlist.key not in self.tier_breakdown or
+            self.tier == 0
         ):
             self.tier_down = None
         else:
-            divisions = self.tier_breakdown[playlist.key][self.tier]
-            self.tier_down = int(
-                math.ceil(
-                    divisions[0][0] - playlist.skill
+            try:
+                divisions = self.tier_breakdown[playlist.key][self.tier]
+                self.tier_down = int(
+                    math.ceil(
+                        divisions[0][0] - playlist.skill
+                    )
                 )
-            )
+            except KeyError as e:
+                self.tier_down = None
+                log.debug(str(e))
+                return
             if self.tier_down > 0:
                 self.tier_down = -1
 
@@ -156,16 +178,22 @@ class TierEstimates:
         playlist = self.playlist
         if (
             self.tier == self.playlist.tier_max or
-            playlist.key not in self.tier_breakdown
+            playlist.key not in self.tier_breakdown or
+            self.tier == 0
         ):
             self.tier_up = None
         else:
-            divisions = self.tier_breakdown[playlist.key][self.tier]
-            self.tier_up = int(
-                math.ceil(
-                    divisions[3][1] - playlist.skill
+            try:
+                divisions = self.tier_breakdown[playlist.key][self.tier]
+                self.tier_up = int(
+                    math.ceil(
+                        divisions[3][1] - playlist.skill
+                    )
                 )
-            )
+            except KeyError as e:
+                self.tier_up = None
+                log.debug(str(e))
+                return
             if self.tier_up < 0:
                 self.tier_up = 1
 
@@ -191,6 +219,8 @@ class TierEstimates:
                         self.tier = tier
                         self.division = division
                         return
+        self.tier = playlist.tier
+        self.division = playlist.division
 
     @classmethod
     def load_tier_breakdown(cls, bot, update=False):
@@ -302,8 +332,8 @@ class SeasonRewards:
         self.wins = kwargs.get('wins', 0)
         if self.wins is None:
             self.wins = 0
-        highest_rank = kwargs.get('highest_rank', 0)
-        if self.level * 3 < highest_rank:
+        highest_tier = kwargs.get('highest_tier', 0)
+        if self.level == 0 or self.level * 3 < highest_tier:
             self.reward_ready = True
         else:
             self.reward_ready = False
@@ -320,7 +350,7 @@ class Player:
 
     """
     __slots__ = ['platform', 'user_name', 'user_id', 'playlists',
-                 'season_rewards']
+                 'highest_tier', 'season_rewards']
 
     def __init__(self, **kwargs):
         self.platform = kwargs.get('platform')
@@ -332,12 +362,15 @@ class Player:
         self.user_id = kwargs.get('user_id', self.user_name)
         self.playlists = {}
         self._prepare_playlists(kwargs.get('player_skills', []))
-        self.highest_rank = []
-        for playlist in self.playlists.values:
-            self.highest_rank.append(playlist.tier)
-        self.highest_rank = max(self.highest_rank)
+        if self.playlists:
+            self.highest_tier = []
+            for playlist in self.playlists.values():
+                self.highest_tier.append(playlist.tier)
+            self.highest_tier = max(self.highest_tier)
+        else:
+            self.highest_tier = 0
         self.season_rewards = kwargs.get('season_rewards', {})
-        self.season_rewards['highest_rank'] = self.highest_rank
+        self.season_rewards['highest_tier'] = self.highest_tier
         self.season_rewards = SeasonRewards(**self.season_rewards)
 
     def get_playlist(self, playlist_key):
@@ -787,7 +820,10 @@ class RLStats:
 
             # Draw - Tier Down
             # Icon
-            tier_down = 'data/rlstats/images/ranks/{}.png'.format(int(playlist.tier_estimates.tier)-1)
+            tier = playlist.tier_estimates.tier
+            tier_down = 'data/rlstats/images/ranks/{}.png'.format(
+                tier-1 if tier > 0 else 0
+            )
             tier_down_temp = Image.new('RGBA', self.size)
             tier_down_image = Image.open(tier_down).convert('RGBA')
             tier_down_image.thumbnail(self.tier_size, Image.ANTIALIAS)
@@ -815,7 +851,7 @@ class RLStats:
             # Icon
             tier = playlist.tier_estimates.tier
             tier_up = 'data/rlstats/images/ranks/{}.png'.format(
-                tier+1 if tier < playlist.tier_max else 0
+                tier+1 if 0 < tier < playlist.tier_max else 0
             )
             tier_up_temp = Image.new('RGBA', self.size)
             tier_up_image = Image.open(tier_up).convert('RGBA')
@@ -833,35 +869,36 @@ class RLStats:
             draw.text(coords_text, tier_up, font=self.fonts["RobotoBold45"], fill="white")
 
         # Season Reward Level
-        reward_images = ['Unranked', 'Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Champion', 'GrandChampion']
-
-        highest_rank = []
-        for playlist_key in playlists:
-            highest_rank.append(playlist.tier)
-        highest_rank = max(highest_rank)
-        if player.season_rewards.level == 7:
-            reward_ready = ""
-        elif player.season_rewards.reward_ready:
-            reward_ready = "Ready"
-        else:
-            reward_ready = "NotReady"
+        rewards = player.season_rewards
 
         reward_temp = Image.new('RGBA', self.size)
-        reward_image = Image.open('data/rlstats/images/rewards/{}{}.png'.format(reward_images[(0 if (0 if player.season_rewards.level is None else player.season_rewards.level) is None else (0 if player.season_rewards.level is None else player.season_rewards.level))], reward_ready)).convert('RGBA')
+        reward_image = Image.open(
+            'data/rlstats/images/rewards/{:d}_{:d}.png'.format(
+                rewards.level, rewards.reward_ready
+            )
+        ).convert('RGBA')
         reward_temp.paste(reward_image, (150, 886))
         process = Image.alpha_composite(process, reward_temp)
         draw = ImageDraw.Draw(process)
         # Season Reward Bars
-        if reward_ready != "":
-            reward_bars_win_image = Image.open('data/rlstats/images/rewards/bars/Bar{}Win.png'.format(reward_images[(0 if player.season_rewards.level is None else player.season_rewards.level)])).convert('RGBA')
-            if reward_ready == "Ready":
-                reward_bars_nowin_image = Image.open('data/rlstats/images/rewards/bars/Bar{}NoWin.png'.format(reward_images[(0 if player.season_rewards.level is None else player.season_rewards.level)])).convert('RGBA')
-            elif reward_ready == "NotReady":
-                reward_bars_nowin_image = Image.open('data/rlstats/images/rewards/bars/BarRed.png').convert('RGBA')
+        if player.season_rewards.level != 7:
+            reward_bars_win_image = Image.open(
+                'data/rlstats/images/rewards/bars/Bar_{:d}_Win.png'
+                .format(rewards.level)
+            ).convert('RGBA')
+            if player.season_rewards.reward_ready:
+                reward_bars_nowin_image = Image.open(
+                    'data/rlstats/images/rewards/bars/Bar_{:d}_NoWin.png'
+                    .format(rewards.level)
+                ).convert('RGBA')
+            else:
+                reward_bars_nowin_image = Image.open(
+                    'data/rlstats/images/rewards/bars/BarRed.png'
+                ).convert('RGBA')
             for win in range(0, 10):
                 reward_bars_temp = Image.new('RGBA', self.size)
                 coords = self._add_coords(self.coords['rewards'], (win*83, 0))
-                if (0 if player.season_rewards.wins is None else player.season_rewards.wins) > win:
+                if rewards.wins > win:
                     reward_bars_temp.paste(reward_bars_win_image, coords)
                 else:
                     reward_bars_temp.paste(reward_bars_nowin_image, coords)
