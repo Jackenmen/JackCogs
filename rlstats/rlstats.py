@@ -78,10 +78,10 @@ class PlaylistKey(Enum):
     HOOPS = 27
     RUMBLE = 28
     DROPSHOT = 29
-    SNOWDAY = 30
+    SNOW_DAY = 30
 
     def __str__(self):
-        return self.name
+        return self.name.replace('_', ' ').title()
 
 
 class TierEstimates:
