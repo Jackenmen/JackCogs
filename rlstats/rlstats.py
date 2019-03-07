@@ -659,7 +659,7 @@ class RLStats:
             return None
 
     @commands.command(pass_context=True)
-    async def rlstats(self, ctx, *id):
+    async def rlstats(self, ctx, *, id=None):
         """Checks for your or given player's Rocket League stats"""
         # TODO:
         # add icons for platforms
@@ -676,7 +676,7 @@ class RLStats:
             ).format(ctx.prefix))
             return
 
-        if not id:
+        if id is None:
             id = await self._get_player_id_by_member_id(ctx.message.author.id)
             if id is None:
                 await self.bot.say((
@@ -688,7 +688,6 @@ class RLStats:
                 ).format(ctx.prefix))
                 return
         else:
-            id = " ".join(id)
             converter = commands.MemberConverter(ctx, id)
             try:
                 member = converter.convert()
