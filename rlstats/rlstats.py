@@ -411,7 +411,8 @@ class RLStats:
         self.fonts = {
             'RobotoCondensedBold90': ImageFont.truetype("data/rlstats/fonts/RobotoCondensedBold.ttf", 90),
             'RobotoBold45': ImageFont.truetype("data/rlstats/fonts/RobotoBold.ttf", 45),
-            'RobotoLight45': ImageFont.truetype("data/rlstats/fonts/RobotoLight.ttf", 45)
+            'RobotoLight45': ImageFont.truetype("data/rlstats/fonts/RobotoLight.ttf", 45),
+            'RobotoRegular74': ImageFont.truetype("data/rlstats/fonts/RobotoRegular.ttf", 74)
         }
         self.offsets = {
             PlaylistKey.SOLO_DUEL: (0, 0),
@@ -421,6 +422,7 @@ class RLStats:
         }
         self.coords = {
             'username': (960, 71),
+            'playlist_name': (243, 197),
             'rank_image': (153, 248),
             'rank_text': (242, 453),  # center of rank text
             'matches_played': (822, 160),
@@ -752,6 +754,12 @@ class RLStats:
 
         # Draw - rank details
         for playlist_key in playlists:
+            # Draw - playlist name
+            w, h = self.fonts["RobotoRegular74"].getsize(str(playlist_key))
+            coords = self._get_coords(playlist_key, 'playlist_name')
+            coords = self._add_coords(coords, (-w/2, -h/2))
+            draw.text(coords, str(playlist_key), font=self.fonts["RobotoRegular74"], fill="white")
+
             # Draw - rank image
             playlist = player.get_playlist(playlist_key)
             temp = Image.new('RGBA', self.size)
