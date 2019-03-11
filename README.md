@@ -11,7 +11,6 @@ If you're developer, you can also send pull requests and I will happily merge yo
 Also I suggest to join [Red - Cog Support server](https://discord.gg/GET4DVk) and if you will ever need help with any of my cogs, just mention me (@Jackenmen#6607) on #support_othercogs channel.
 
 # My cogs
-  * **raiselimit** - Automatically raises limit of users in voice channel with user limit, when bot joins.
   * **rlstats** - Shows you Rocket League player statistics. Needs access to [Rocket League API](https://support.rocketleague.com/hc/en-us/articles/115000159374-API-Requests) which is currently in closed beta.
 
 # Installation
@@ -20,9 +19,9 @@ To install the cogs, Follow the given steps:
 **Step 1** - Adding the repo.
 > To add the repo, type this into the chat:
 > 
-> ``[p]cog repo add JackCogs https://github.com/jack1142/JackCogs``
+> ``[p]repo add JackCogs https://github.com/jack1142/JackCogs``
 > 
-> Then type,"I agree".
+> Then type, "I agree".
 
 **Step 2** - Adding the cog.
 > To add the cog, type this into the chat:

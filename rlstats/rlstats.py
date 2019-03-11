@@ -1,29 +1,27 @@
 import discord
-from discord.ext import commands
+from redbot.core import commands, checks
+from redbot.core.config import Config
+from redbot.core.utils.predicates import ReactionPredicate
+from redbot.core.utils.menus import start_adding_reactions
+from redbot.core.data_manager import bundled_data_path
 
 import asyncio
 import aiohttp
 import xml.etree.ElementTree as ET
 import os
-from .utils import checks
-from .utils.dataIO import fileIO
-import math
+from math import ceil
 from collections import defaultdict
 import re
 import logging
 from enum import Enum
+from io import BytesIO
 
 try:
-    from PIL import Image, ImageDraw, ImageFont, ImageColor, ImageOps
-except:
+    from PIL import Image, ImageDraw, ImageFont
+except ImportError:
     raise RuntimeError("Can't load pillow. Do 'pip3 install pillow'.")
 
-try:
-    from babel.numbers import format_decimal
-except:
-    raise RuntimeError("Can't load Babel. Do 'pip3 install Babel'.")
-
-log = logging.getLogger('red.rlstats')
+log = logging.getLogger('redbot.rlstats')
 
 RANKS = (
     'Unranked',
@@ -81,6 +79,10 @@ class PlaylistKey(Enum):
     SNOW_DAY = 30
 
     def __str__(self):
+        return str(self.value)
+
+    @property
+    def friendly_name(self):
         return self.name.replace('_', ' ').title()
 
 
@@ -113,7 +115,7 @@ class TierEstimates:
             try:
                 divisions = self.tier_breakdown[playlist.key][self.tier]
                 self.div_down = int(
-                    math.ceil(
+                    ceil(
                         divisions[self.division][0] - playlist.skill
                     )
                 )
@@ -140,7 +142,7 @@ class TierEstimates:
                 else:
                     value = divisions[self.division][1]
                 self.div_up = int(
-                    math.ceil(
+                    ceil(
                         value - playlist.skill
                     )
                 )
@@ -163,7 +165,7 @@ class TierEstimates:
             try:
                 divisions = self.tier_breakdown[playlist.key][self.tier]
                 self.tier_down = int(
-                    math.ceil(
+                    ceil(
                         divisions[0][0] - playlist.skill
                     )
                 )
@@ -186,7 +188,7 @@ class TierEstimates:
             try:
                 divisions = self.tier_breakdown[playlist.key][self.tier]
                 self.tier_up = int(
-                    math.ceil(
+                    ceil(
                         divisions[3][1] - playlist.skill
                     )
                 )
@@ -223,11 +225,11 @@ class TierEstimates:
         self.division = playlist.division
 
     @classmethod
-    def load_tier_breakdown(cls, bot, update=False):
-        if not os.path.isfile("data/rlstats/tier_breakdown.json") or update:
-            print("Creating tier_breakdown.json...")
-            bot.loop.create_task(cls.get_tier_breakdown())
-        cls.tier_breakdown = cls._fix_numbers_dict(fileIO("data/rlstats/tier_breakdown.json", "load"))
+    async def load_tier_breakdown(cls, config, update=False):
+        if await config.tier_breakdown() is None or update:
+            log.info("Downloading tier_breakdown...")
+            await cls.get_tier_breakdown(config)
+        cls.tier_breakdown = cls._fix_numbers_dict(await config.tier_breakdown())
         for k in cls.tier_breakdown.keys():
             try:
                 playlist_key = PlaylistKey(k)
@@ -235,10 +237,10 @@ class TierEstimates:
             except ValueError:
                 pass
 
-    @classmethod
-    async def get_tier_breakdown(cls):
+    @staticmethod
+    async def get_tier_breakdown(config):
         # {10:{},11:{},12:{},13:{}}
-        cls.tier_breakdown = defaultdict(lambda: defaultdict(dict))
+        tier_breakdown = defaultdict(lambda: defaultdict(dict))
 
         session = aiohttp.ClientSession()
         for i in range(1, 20):
@@ -250,9 +252,13 @@ class TierEstimates:
                 raise
 
             for breakdown in tier:
-                cls.tier_breakdown[breakdown['playlist_id']][i][breakdown['division']] = [breakdown['from'], breakdown['to']]
+                playlist_id = breakdown['playlist_id']
+                division = breakdown['division']
+                begin = breakdown['from']
+                end = breakdown['to']
+                tier_breakdown[playlist_id][i][division] = [begin, end]
 
-        fileIO("data/rlstats/tier_breakdown.json", "save", cls.tier_breakdown)
+        await config.tier_breakdown.set(tier_breakdown)
 
     @classmethod
     def _fix_numbers_dict(cls, d: dict):
@@ -349,7 +355,7 @@ class Player:
         the platform type is not within the ones recognised by the enumerator.
 
     """
-    __slots__ = ['platform', 'user_name', 'user_id', 'playlists',
+    __slots__ = ['platform', 'user_name', 'player_id', 'playlists',
                  'highest_tier', 'season_rewards']
 
     def __init__(self, **kwargs):
@@ -359,7 +365,7 @@ class Player:
         except KeyError:
             pass
         self.user_name = kwargs.get('user_name')
-        self.user_id = kwargs.get('user_id', self.user_name)
+        self.player_id = kwargs.get('user_id', self.user_name)
         self.playlists = {}
         self._prepare_playlists(kwargs.get('player_skills', []))
         if self.playlists:
@@ -390,7 +396,7 @@ class Player:
             self.add_playlist(playlist)
 
 
-class RLStats:
+class RLStats(commands.Cog):
     """Get your Rocket League stats with a single command!"""
     # TODO:
     # add rltracker cog functionality to this cog
@@ -398,8 +404,9 @@ class RLStats:
 
     def __init__(self, bot):
         self.bot = bot
-        self.check_folders()
-        self.settings = fileIO("data/rlstats/settings.json", "load")
+        self.config = Config.get_conf(self, identifier=6672039729)
+        self.config.register_global(tier_breakdown=None)
+        self.config.register_user(player_id=None, platform=None)
         self.session = aiohttp.ClientSession()
         self.emoji = {
             1: "1⃣",
@@ -408,11 +415,16 @@ class RLStats:
             4: "4⃣"
         }
         self.size = (1920, 1080)
+        self.data_path = bundled_data_path(self)
         self.fonts = {
-            'RobotoCondensedBold90': ImageFont.truetype("data/rlstats/fonts/RobotoCondensedBold.ttf", 90),
-            'RobotoBold45': ImageFont.truetype("data/rlstats/fonts/RobotoBold.ttf", 45),
-            'RobotoLight45': ImageFont.truetype("data/rlstats/fonts/RobotoLight.ttf", 45),
-            'RobotoRegular74': ImageFont.truetype("data/rlstats/fonts/RobotoRegular.ttf", 74)
+            'RobotoCondensedBold90': ImageFont.truetype(
+                str(self.data_path / "fonts/RobotoCondensedBold.ttf"), 90),
+            'RobotoBold45': ImageFont.truetype(
+                str(self.data_path / "fonts/RobotoBold.ttf"), 45),
+            'RobotoLight45': ImageFont.truetype(
+                str(self.data_path / "fonts/RobotoLight.ttf"), 45),
+            'RobotoRegular74': ImageFont.truetype(
+                str(self.data_path / "fonts/RobotoRegular.ttf"), 74)
         }
         self.offsets = {
             PlaylistKey.SOLO_DUEL: (0, 0),
@@ -438,59 +450,13 @@ class RLStats:
         self.rank_size = (179, 179)
         self.tier_size = (49, 49)
 
-    def check_folders(self):
-        if not os.path.exists("data/rlstats"):
-            print("Creating data/rlstats folder...")
-            os.makedirs("data/rlstats")
+    async def initialize(self):
+        await TierEstimates.load_tier_breakdown(self.config)
 
-        if not os.path.exists("data/rlstats/temp"):
-            print("Creating data/rlstats/temp folder...")
-            os.makedirs("data/rlstats/temp")
+    def __unload(self):
+        self.bot.loop.create_task(self.session.close())
 
-        self.check_files()
-
-    def check_files(self):
-        if not os.path.isfile("data/rlstats/settings.json"):
-            default = {
-                "USERS": {},
-                "token": ""
-            }
-            print("Creating default rlstats settings.json...")
-            fileIO("data/rlstats/settings.json", "save", default)
-
-    async def _reaction_menu(self, ctx, content, choices, **kwargs):
-        """menu control logic for this taken from
-           https://github.com/Lunar-Dust/Dusty-Cogs/blob/master/menu/menu.py"""
-        timeout = kwargs.get('timeout', 15)
-        emoji = kwargs.get('emoji', self.emoji)
-
-        if type(content) == discord.Embed:
-            message = await self.bot.send_message(ctx.message.channel,
-                                                  embed=content)
-        else:
-            message = await self.bot.say(content)
-
-        for idx, i in enumerate(choices, 1):
-            await self.bot.add_reaction(message, str(emoji[idx]))
-
-        r = await self.bot.wait_for_reaction(
-            emoji=list(emoji.values()),
-            message=message,
-            user=ctx.message.author,
-            timeout=timeout)
-
-        try:
-            await self.bot.delete_message(message)
-        except discord.Forbidden:
-            pass
-
-        if r is None:
-            return None
-
-        reacts = {v: k for k, v in emoji.items()}
-        react = reacts[r.reaction.emoji]
-        choice = choices[react-1]
-        return choice
+    __del__ = __unload
 
     def _add_coords(self, coords1, coords2):
         """Adds two tuples with coordinates (x,y)"""
@@ -504,11 +470,16 @@ class RLStats:
         offset = self.offsets[playlist_id]
         return self._add_coords(coords, offset)
 
-    async def _get_player(self, ctx, id):
+    async def _get_token(self):
+        rocketleague = await self.bot.db.api_tokens.get_raw("rocketleague",
+                                                            default={"user_token": ""})
+        return rocketleague['user_token']
+
+    async def _get_player(self, ctx, player_id):
         players = []
         for platform in Platform:
             try:
-                players += await self._find_profile(platform, id)
+                players += await self._find_profile(ctx, platform, player_id)
             except UnallowedCharactersError as e:
                 log.debug(str(e))
         # Remove it after creating everything
@@ -521,21 +492,26 @@ class RLStats:
                     idx, player.platform, player.user_name
                 )
 
-            choice = await self._reaction_menu(
-                ctx, discord.Embed(
-                    title="There are multiple accounts with provided name:",
-                    description=description
-                ), choices=players
-            )
-            if choice is None:
+            msg = await ctx.send(embed=discord.Embed(
+                title="There are multiple accounts with provided name:",
+                description=description
+            ))
+            emojis = ReactionPredicate.NUMBER_EMOJIS[1:len(players)+1]
+            start_adding_reactions(msg, emojis)
+            pred = ReactionPredicate.with_emojis(emojis, msg)
+            try:
+                await ctx.bot.wait_for("reaction_add", check=pred, timeout=15)
+            except asyncio.TimeoutError:
                 raise NoChoiceError("User didn't choose profile he wants to check")
-            return choice
+            finally:
+                await msg.delete()
+            return players[pred.result]
         else:
             return players[0]
 
-    async def _find_profile(self, platform, id):
+    async def _find_profile(self, ctx, platform, player_id):
         pattern = getattr(PlatformPatterns, platform.name)
-        if not pattern.fullmatch(id):
+        if not pattern.fullmatch(player_id):
             raise UnallowedCharactersError(
                 "Provided username doesn't match provided pattern: {}"
                 .format(pattern)
@@ -543,13 +519,13 @@ class RLStats:
 
         players = []
         if platform == Platform.steam:
-            ids = await self._find_steam_ids(id)
+            ids = await self._find_steam_ids(ctx, player_id)
         else:
-            ids = [id]
+            ids = [player_id]
 
-        for id in ids:
+        for player_id in ids:
             try:
-                player = await self._get_stats(platform, id)
+                player = await self._get_stats(ctx, player_id, platform)
                 if player not in players:
                     players.append(player)
             except PlayerNotFoundError as e:
@@ -559,15 +535,15 @@ class RLStats:
 
         return players
 
-    async def _find_steam_ids(self, id):
+    async def _find_steam_ids(self, ctx, player_id):
         search_types = ['profiles', 'id']
         ids = []
         for search_type in search_types:
             try:
-                async with self.session.get('https://steamcommunity.com/{}/{}/?xml=1'.format(search_type, id)) as resp:
+                async with self.session.get('https://steamcommunity.com/{}/{}/?xml=1'.format(search_type, player_id)) as resp:
                     steam_profile = ET.fromstring(await resp.text())
             except (aiohttp.ClientResponseError, aiohttp.ClientError):
-                await self.bot.say(
+                await ctx.send(
                     "An error occured while searching for Steam profile. "
                     "If this will happen again, please inform bot owner about the issue."
                 )
@@ -584,12 +560,12 @@ class RLStats:
 
         return ids
 
-    async def _get_stats(self, platform, id):
+    async def _get_stats(self, ctx, player_id, platform):
         try:
             async with self.session.get(
-                'https://api.rocketleague.com/api/v1/{}/playerskills/{}/'.format(platform.name, id),
+                'https://api.rocketleague.com/api/v1/{}/playerskills/{}/'.format(platform.name, player_id),
                 headers={
-                    'Authorization': 'Token {}'.format(self.settings['token'])
+                    'Authorization': 'Token {}'.format(await self._get_token())
                 }
             ) as resp:
                 if resp.status >= 500:
@@ -605,13 +581,13 @@ class RLStats:
                         "RL API threw client error (status code: {}) during request: {}"
                         .format(resp.status, player['detail'])
                     )
-                    await self.bot.say(
+                    await ctx.send(
                         "An error occured while checking Rocket League Stats. "
                         "If this will happen again, please inform bot owner about the issue."
                     )
                     return
         except (aiohttp.ClientResponseError, aiohttp.ClientError):
-            await self.bot.say(
+            await ctx.send(
                 "An error occured while checking Rocket League Stats. "
                 "If this will happen again, please inform bot owner about the issue."
             )
@@ -621,45 +597,47 @@ class RLStats:
         return Player(**player[0])
 
     @checks.is_owner()
-    @commands.group(pass_context=True, name="rlset")
+    @commands.group(name="rlset")
     async def rlset(self, ctx):
-        """Commands for setting Rocket League API settings.
-        You can obtain your user token by
-        requesting for API access in a ticket on https://support.rocketleague.com
-        Under "Issue" you need to select Installation and setup > I need API access"""
-        if ctx.invoked_subcommand is None:
-            await self.bot.send_cmd_help(ctx)
+        """RLStats configuration options."""
 
     @checks.is_owner()
-    @rlset.command(pass_context=True, name="token")
-    async def set_token(self, ctx, token):
-        """Sets the user token. USE THIS COMMAND IN PM"""
-        if ctx.message.channel.is_private:
-            self.settings["token"] = token
-            fileIO("data/rlstats/settings.json", "save", self.settings)
-            await self.bot.say("User token set successfully! You should probably remove your message with token for safety.")
-        else:
-            await self.bot.delete_message(ctx.message)
-            await self.bot.say("You can't set token from server channel! Use this command in PM instead.")
+    @rlset.command()
+    async def token(self, ctx):
+        """Instructions to set the Rocket League API tokens."""
+        message = (
+            "**Getting API access from Psyonix is very hard right now, "
+            "it's even harder than it was, but you can try:**\n"
+            "1. Go to Psyonix support website and log in with your game account\n"
+            "(https://support.rocketleague.com)\n"
+            '2. Click "Submit a ticket"\n'
+            '3. Under "Issue" field, select "Installation and setup > I need API access"\n'
+            "4. Fill out the form provided with your request, etc.\n"
+            '5. Click "Submit"\n'
+            "6. Hope that Psyonix will reply to you\n"
+            "7. When you get API access, copy your user token "
+            "from your account on Rocket League API website\n"
+            "`{}set api rocketleague user_token,your_user_token`".format(ctx.prefix)
+        )
+        await ctx.maybe_send_embed(message)
 
     async def _is_token_set(self):
         """Checks if token is set"""
-        if 'token' not in list(self.settings.keys()) or self.settings['token'] == "":
+        if await self._get_token() == "":
             return False
         else:
             return True
 
-    async def _get_player_id_by_member_id(self, member_id):
+    async def _get_player_data_by_member(self, member):
         """nwm"""
-        if member_id in self.settings['USERS']:
-            userdata = dict(self.settings['USERS'][member_id])
-            userdata['platform'] = Platform[userdata['platform']]
-            return userdata
+        player_id = await self.config.user(member).player_id()
+        if player_id is not None:
+            return player_id, Platform[await self.config.user(member).platform()]
         else:
             return None
 
-    @commands.command(pass_context=True)
-    async def rlstats(self, ctx, *, id=None):
+    @commands.command()
+    async def rlstats(self, ctx, *, player_id=None):
         """Checks for your or given player's Rocket League stats"""
         # TODO:
         # add icons for platforms
@@ -667,19 +645,21 @@ class RLStats:
         # add number of wins (there's no text right now, only bars)
         # make Tier and division estimates shorter (create some additional methods)
 
-        await self.bot.send_typing(ctx.message.channel)
+        await ctx.trigger_typing()
 
         if not await self._is_token_set():
-            await self.bot.say((
+            await ctx.send((
                 "`This cog wasn't configured properly. "
                 "If you're the owner, setup the cog using {}rlset`"
             ).format(ctx.prefix))
             return
 
-        if id is None:
-            id = await self._get_player_id_by_member_id(ctx.message.author.id)
-            if id is None:
-                await self.bot.say((
+        platform = None
+        if player_id is None:
+            try:
+                player_id, platform = await self._get_player_data_by_member(ctx.author)
+            except TypeError:
+                await ctx.send((
                     "Your game account is not connected with Discord. "
                     "If you want to get stats, either give your ID after a command: "
                     "`{0}rlstats <ID>`"
@@ -688,51 +668,51 @@ class RLStats:
                 ).format(ctx.prefix))
                 return
         else:
-            converter = commands.MemberConverter(ctx, id)
             try:
-                member = converter.convert()
-                if member.id in self.settings['USERS']:
-                    id = self.settings['USERS'][member.id]
-                else:
-                    await self.bot.say((
+                member = await commands.MemberConverter().convert(ctx, player_id)
+            except commands.BadArgument:
+                pass
+            else:
+                try:
+                    player_id, platform = await self._get_player_data_by_member(member)
+                except TypeError:
+                    await ctx.send((
                         "This user hasn't connected his game account with Discord. "
                         "You need to search for his stats using his ID: "
                         "`{0}rlstats <ID>`"
                     ).format(ctx.prefix))
                     return
-            except commands.errors.BadArgument:
-                pass
 
         playlists = [PlaylistKey.SOLO_DUEL, PlaylistKey.DOUBLES,
                      PlaylistKey.SOLO_STANDARD, PlaylistKey.STANDARD]
 
         try:
-            if isinstance(id, dict):
-                player = await self._get_stats(id['platform'], id['id'])
+            if platform is not None:
+                player = await self._get_stats(ctx, player_id, platform)
             else:
-                player = await self._get_player(ctx, id)
+                player = await self._get_player(ctx, player_id)
         except ServerError as e:
             log.error(str(e))
-            await self.bot.say(
+            await ctx.send(
                 "Rocket League API experiences some issues right now. Try again later."
             )
             return
         except NoChoiceError as e:
             log.debug(str(e))
-            await self.bot.say(
+            await ctx.send(
                 "You didn't choose profile you want to check."
             )
             return
         except PlayerNotFoundError as e:
             log.debug(str(e))
-            await self.bot.say(
+            await ctx.send(
                 "The specified profile could not be found."
             )
             return
 
         if player is None:
             log.debug("The specified profile could not be found.")
-            await self.bot.say(
+            await ctx.send(
                 "The specified profile could not be found."
             )
             return
@@ -741,7 +721,7 @@ class RLStats:
             if playlist_key not in player.playlists:
                 player.add_playlist({'playlist': playlist_key})
 
-        result = Image.open('data/rlstats/rank_bg.png').convert('RGBA')
+        result = Image.open(self.data_path / 'rank_bg.png').convert('RGBA')
         process = Image.new('RGBA', self.size)
         draw = ImageDraw.Draw(process)
 
@@ -754,15 +734,15 @@ class RLStats:
         # Draw - rank details
         for playlist_key in playlists:
             # Draw - playlist name
-            w, h = self.fonts["RobotoRegular74"].getsize(str(playlist_key))
+            w, h = self.fonts["RobotoRegular74"].getsize(playlist_key.friendly_name)
             coords = self._get_coords(playlist_key, 'playlist_name')
             coords = self._add_coords(coords, (-w/2, -h/2))
-            draw.text(coords, str(playlist_key), font=self.fonts["RobotoRegular74"], fill="white")
+            draw.text(coords, playlist_key.friendly_name, font=self.fonts["RobotoRegular74"], fill="white")
 
             # Draw - rank image
             playlist = player.get_playlist(playlist_key)
             temp = Image.new('RGBA', self.size)
-            temp_image = Image.open('data/rlstats/images/ranks/{}.png'.format(playlist.tier)).convert('RGBA')
+            temp_image = Image.open(self.data_path / 'images/ranks/{}.png'.format(playlist.tier)).convert('RGBA')
             temp_image.thumbnail(self.rank_size, Image.ANTIALIAS)
             coords = self._get_coords(playlist_key, 'rank_image')
             temp.paste(temp_image, coords)
@@ -798,8 +778,8 @@ class RLStats:
             draw.text(coords, str(playlist.skill), font=self.fonts["RobotoBold45"], fill="white")
 
             # Draw - Gain/Loss
-            if os.path.isfile('data/rltracker/{}_{}.txt'.format(id, playlist_key)):
-                with open('data/rltracker/{}_{}.txt'.format(id, playlist_key)) as file:
+            """if os.path.isfile('data/rltracker/{}_{}.txt'.format(player_id, playlist_key.value)):
+                with open('data/rltracker/{}_{}.txt'.format(player_id, playlist_key.value)) as file:
                     lines = file.readlines()
                     before = lines[-2].split(";")[3]
                     after = lines[-1].split(";")[3]
@@ -808,13 +788,14 @@ class RLStats:
                     else:
                         gain = abs((float(after) - float(before))*20)
             else:
-                gain = 0
+                gain = 0"""
+            gain = 0
 
             coords = self._get_coords(playlist_key, 'gain')
             if gain == 0:
                 draw.text(coords, "N/A", font=self.fonts["RobotoBold45"], fill="white")
             else:
-                draw.text(coords, str(format_decimal((gain), format='#.###', locale='pl_PL')), font=self.fonts["RobotoBold45"], fill="white")
+                draw.text(coords, str(round(gain, 3)), font=self.fonts["RobotoBold45"], fill="white")
 
             # Draw - Tier and division estimates
             # Draw - Division Down
@@ -828,7 +809,7 @@ class RLStats:
             # Draw - Tier Down
             # Icon
             tier = playlist.tier_estimates.tier
-            tier_down = 'data/rlstats/images/ranks/{}.png'.format(
+            tier_down = self.data_path / 'images/ranks/{}.png'.format(
                 tier-1 if tier > 0 else 0
             )
             tier_down_temp = Image.new('RGBA', self.size)
@@ -857,7 +838,7 @@ class RLStats:
             # Draw - Tier Up
             # Icon
             tier = playlist.tier_estimates.tier
-            tier_up = 'data/rlstats/images/ranks/{}.png'.format(
+            tier_up = self.data_path / 'images/ranks/{}.png'.format(
                 tier+1 if 0 < tier < playlist.tier_max else 0
             )
             tier_up_temp = Image.new('RGBA', self.size)
@@ -880,7 +861,7 @@ class RLStats:
 
         reward_temp = Image.new('RGBA', self.size)
         reward_image = Image.open(
-            'data/rlstats/images/rewards/{:d}_{:d}.png'.format(
+            self.data_path / 'images/rewards/{:d}_{:d}.png'.format(
                 rewards.level, rewards.reward_ready
             )
         ).convert('RGBA')
@@ -890,17 +871,17 @@ class RLStats:
         # Season Reward Bars
         if player.season_rewards.level != 7:
             reward_bars_win_image = Image.open(
-                'data/rlstats/images/rewards/bars/Bar_{:d}_Win.png'
+                self.data_path / 'images/rewards/bars/Bar_{:d}_Win.png'
                 .format(rewards.level)
             ).convert('RGBA')
             if player.season_rewards.reward_ready:
                 reward_bars_nowin_image = Image.open(
-                    'data/rlstats/images/rewards/bars/Bar_{:d}_NoWin.png'
+                    self.data_path / 'images/rewards/bars/Bar_{:d}_NoWin.png'
                     .format(rewards.level)
                 ).convert('RGBA')
             else:
                 reward_bars_nowin_image = Image.open(
-                    'data/rlstats/images/rewards/bars/BarRed.png'
+                    self.data_path / 'rlstats/images/rewards/bars/BarRed.png'
                 ).convert('RGBA')
             for win in range(0, 10):
                 reward_bars_temp = Image.new('RGBA', self.size)
@@ -914,57 +895,50 @@ class RLStats:
 
         # save result
         result = Image.alpha_composite(result, process)
-        result.save('data/rlstats/temp/{}_profile.png'.format(id), 'PNG', quality=100)
-        await self.bot.send_file(
-            ctx.message.channel,
-            'data/rlstats/temp/{}_profile.png'.format(id),
-            content='Rocket League Stats for **{}** _(arrows show amount of points for division down/up)_'.format(player.user_name)
+        fp = BytesIO()
+        result.save(fp, 'PNG', quality=100)
+        fp.seek(0)
+        await ctx.send(
+            'Rocket League Stats for **{}** _(arrows show amount of points for division down/up)_'.format(player.user_name),
+            file=discord.File(fp, '{}_profile.png'.format(player_id))
         )
-        os.remove('data/rlstats/temp/{}_profile.png'.format(id))
 
-    @commands.command(pass_context=True)
-    async def rlconnect(self, ctx, id):
+    @commands.command()
+    async def rlconnect(self, ctx, player_id):
         """Connects game profile with Discord."""
         try:
-            player = await self._get_player(ctx, id)
+            player = await self._get_player(ctx, player_id)
         except ServerError as e:
             log.error(str(e))
-            await self.bot.say(
+            await ctx.send(
                 "Rocket League API expierences some issues right now. Try again later."
             )
             return
         except NoChoiceError as e:
             log.debug(str(e))
-            await self.bot.say(
+            await ctx.send(
                 "You didn't choose profile you want to connect."
             )
             return
 
         if player is None:
-            await self.bot.say(
+            await ctx.send(
                 "The specified profile could not be found."
             )
             return
 
-        self.settings["USERS"][ctx.message.author.id] = {
-            'platform': player.platform,
-            'id': player.user_id
-        }
-        fileIO("data/rlstats/settings.json", "save", self.settings)
-        await self.bot.say(
+        await self.config.user(ctx.author).platform.set(player.platform.name)
+        await self.config.user(ctx.author).player_id.set(player.player_id)
+
+        await ctx.send(
             "You successfully connected your {} account with Discord!"
             .format(player.platform)
         )
 
     @checks.is_owner()
-    @rlset.command(pass_context=True, name="updatebreakdown")
+    @rlset.command(name="updatebreakdown")
     async def updatebreakdown(self, ctx):
         """Update tier breakdown"""
-        await self.bot.say("Updating tier breakdown...")
-        await TierEstimates.get_tier_breakdown(self.bot, update=True)
-        await self.bot.say("Tier breakdown updated.")
-
-
-def setup(bot):
-    TierEstimates.load_tier_breakdown(bot)
-    bot.add_cog(RLStats(bot))
+        await ctx.send("Updating tier breakdown...")
+        await TierEstimates.load_tier_breakdown(self.config, update=True)
+        await ctx.send("Tier breakdown updated.")

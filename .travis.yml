@@ -1,8 +1,6 @@
+dist: xenial
 language: python
-python:
-  - "3.5.2"
-install:
-  - pip install -r requirements.txt
+python: "3.7.2"
 script: python -m compileall ./
 cache: pip
 notifications:
