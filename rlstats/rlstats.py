@@ -881,7 +881,7 @@ class RLStats(commands.Cog):
                 ).convert('RGBA')
             else:
                 reward_bars_nowin_image = Image.open(
-                    self.data_path / 'rlstats/images/rewards/bars/BarRed.png'
+                    self.data_path / 'rlstats/images/rewards/bars/Bar_Red.png'
                 ).convert('RGBA')
             for win in range(0, 10):
                 reward_bars_temp = Image.new('RGBA', self.size)
