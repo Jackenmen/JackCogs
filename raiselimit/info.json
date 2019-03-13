@@ -1,0 +1,9 @@
+{
+    "name" : "RaiseLimit",
+    "author" : ["jack1142"],
+    "short" : "Raises limit of users in voice channel, when bot joins.",
+    "description" : "With this, bot will automatically raise limit of users in voice channel by 1, when it joins to it",
+    "install_msg" : "Thanks for installing RaiseLimit. You don't need to configure anything, bot will automatically raise limit of users in channel, when it joins.",
+    "tags" : ["voice", "tools"],
+    "disabled" : false
+}
