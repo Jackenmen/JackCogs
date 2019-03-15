@@ -1,4 +1,4 @@
-[![](https://api.travis-ci.org/jack1142/JackCogs.svg?branch=master)](https://travis-ci.org/jack1142/JackCogs)
+[![Build Status](https://travis-ci.com/jack1142/JackCogs.svg?branch=wip/cleaning-code-v3)](https://travis-ci.com/jack1142/JackCogs/branches)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Red Bot](https://img.shields.io/badge/Discord-Red%20Bot-red.svg)](https://github.com/Twentysix26/Red-DiscordBot)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
@@ -11,6 +11,7 @@ If you're developer, you can also send pull requests and I will happily merge yo
 Also I suggest to join [Red - Cog Support server](https://discord.gg/GET4DVk) and if you will ever need help with any of my cogs, just mention me (@Jackenmen#6607) on #support_othercogs channel.
 
 # My cogs
+  * **raiselimit** - Raises limit of users in voice channel, when bot joins.
   * **rlstats** - Shows you Rocket League player statistics. Needs access to [Rocket League API](https://support.rocketleague.com/hc/en-us/articles/115000159374-API-Requests) which is currently in closed beta.
 
 # Installation
