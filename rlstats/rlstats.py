@@ -404,7 +404,8 @@ class RLStats(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.config = Config.get_conf(self, identifier=6672039729)
+        self.config = Config.get_conf(self, identifier=6672039729,
+                                      force_registration=True)
         self.config.register_global(tier_breakdown=None)
         self.config.register_user(player_id=None, platform=None)
         self.session = aiohttp.ClientSession()
