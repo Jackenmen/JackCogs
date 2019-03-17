@@ -11,7 +11,7 @@ If you're developer, you can also send pull requests and I will happily merge yo
 Also I suggest to join [Red - Cog Support server](https://discord.gg/GET4DVk) and if you will ever need help with any of my cogs, just mention me (@Jackenmen#6607) on #support_othercogs channel.
 
 # My cogs
-  * **raiselimit** - Raises limit of users in voice channel, when bot joins.
+  * **voicetools** - Various tools to make voice channels better!
   * **rlstats** - Shows you Rocket League player statistics. Needs access to [Rocket League API](https://support.rocketleague.com/hc/en-us/articles/115000159374-API-Requests) which is currently in closed beta.
 
 # Installation
