@@ -276,10 +276,18 @@ class VoiceTools(commands.Cog):
                 guild.default_role: discord.PermissionOverwrite(read_messages=False),
                 guild.me: discord.PermissionOverwrite(read_messages=True)
             }
+            category = await guild.create_category(
+                "Temporary Category (ForceLimit Module)",
+                overwrites=overwrites
+            )
             vc = await guild.create_voice_channel(
-                "Temporary Channel (ForceLimit Module)", overwrites=overwrites)
+                "Temporary Channel (ForceLimit Module)",
+                overwrites=overwrites,
+                category=category
+            )
             await member.move_to(vc)
             await vc.delete()
+            await category.delete()
             log.info((
                 "Member with ID {member_id} joined voice channel with ID {channel_id} "
                 "exceeding its limit, disconnecting!"
