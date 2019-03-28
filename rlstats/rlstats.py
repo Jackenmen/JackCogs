@@ -323,7 +323,13 @@ class Platform(Enum):
 
 
 class PlatformPatterns:
-    steam = re.compile('[a-zA-Z0-9_-]{2,32}')
+    steam = re.compile(r"""
+        (?:
+            (?:https?:\/\/(?:www\.)?)?steamcommunity\.com\/
+            (id|profiles)\/         # group 1 - None if input is only a username/id
+        )?
+        ([a-zA-Z0-9_-]{2,32})\/?    # group 2
+    """, re.VERBOSE)
     ps4 = re.compile('[a-zA-Z][a-zA-Z0-9_-]{2,15}')
     xboxone = re.compile('[a-zA-Z](?=.{0,15}$)([a-zA-Z0-9-_]+ ?)+')
 
@@ -512,7 +518,8 @@ class RLStats(commands.Cog):
 
     async def _find_profile(self, ctx, platform, player_id):
         pattern = getattr(PlatformPatterns, platform.name)
-        if not pattern.fullmatch(player_id):
+        match = pattern.fullmatch(player_id)
+        if not match:
             raise UnallowedCharactersError(
                 "Provided username doesn't match provided pattern: {}"
                 .format(pattern)
@@ -520,7 +527,7 @@ class RLStats(commands.Cog):
 
         players = []
         if platform == Platform.steam:
-            ids = await self._find_steam_ids(ctx, player_id)
+            ids = await self._find_steam_ids(ctx, match)
         else:
             ids = [player_id]
 
@@ -536,8 +543,13 @@ class RLStats(commands.Cog):
 
         return players
 
-    async def _find_steam_ids(self, ctx, player_id):
-        search_types = ['profiles', 'id']
+    async def _find_steam_ids(self, ctx, match):
+        player_id = match.group(2)
+        search_type = match.group(1)
+        if search_type is None:
+            search_types = ['profiles', 'id']
+        else:
+            search_types = [search_type]
         ids = []
         for search_type in search_types:
             try:
