@@ -8,7 +8,6 @@ from redbot.core.data_manager import bundled_data_path
 import asyncio
 import aiohttp
 import xml.etree.ElementTree as ET
-import os
 from math import ceil
 from collections import defaultdict
 import re
@@ -245,7 +244,10 @@ class TierEstimates:
         session = aiohttp.ClientSession()
         for i in range(1, 20):
             try:
-                async with session.get('http://rltracker.pro/tier_breakdown/get_division_stats?tier_id={}'.format(i)) as resp:
+                async with session.get(
+                    'http://rltracker.pro/tier_breakdown/get_division_stats?tier_id={}'
+                    .format(i)
+                ) as resp:
                     tier = await resp.json()
             except (aiohttp.ClientResponseError, aiohttp.ClientError):
                 log.error('Downloading tier breakdown did not succeed.')
@@ -553,12 +555,15 @@ class RLStats(commands.Cog):
         ids = []
         for search_type in search_types:
             try:
-                async with self.session.get('https://steamcommunity.com/{}/{}/?xml=1'.format(search_type, player_id)) as resp:
+                async with self.session.get(
+                    'https://steamcommunity.com/{}/{}/?xml=1'
+                    .format(search_type, player_id)
+                ) as resp:
                     steam_profile = ET.fromstring(await resp.text())
             except (aiohttp.ClientResponseError, aiohttp.ClientError):
                 await ctx.send(
                     "An error occured while searching for Steam profile. "
-                    "If this will happen again, please inform bot owner about the issue."
+                    "If this happens again, please inform bot owner about the issue."
                 )
                 raise
 
@@ -576,7 +581,8 @@ class RLStats(commands.Cog):
     async def _get_stats(self, ctx, player_id, platform):
         try:
             async with self.session.get(
-                'https://api.rocketleague.com/api/v1/{}/playerskills/{}/'.format(platform.name, player_id),
+                'https://api.rocketleague.com/api/v1/{}/playerskills/{}/'
+                .format(platform.name, player_id),
                 headers={
                     'Authorization': 'Token {}'.format(await self._get_token())
                 }
@@ -588,7 +594,9 @@ class RLStats(commands.Cog):
                     )
                 player = await resp.json()
                 if resp.status == 400 and 'not found' in player['detail']:
-                    raise PlayerNotFoundError("Player with provided username could not be found.")
+                    raise PlayerNotFoundError(
+                        "Player with provided username could not be found."
+                    )
                 elif resp.status >= 400:
                     log.error(
                         "RL API threw client error (status code: {}) during request: {}"
@@ -596,7 +604,8 @@ class RLStats(commands.Cog):
                     )
                     await ctx.send(
                         "An error occured while checking Rocket League Stats. "
-                        "If this will happen again, please inform bot owner about the issue."
+                        "If this happens again, "
+                        "please inform bot owner about the issue."
                     )
                     return
         except (aiohttp.ClientResponseError, aiohttp.ClientError):
@@ -624,7 +633,8 @@ class RLStats(commands.Cog):
             "1. Go to Psyonix support website and log in with your game account\n"
             "(https://support.rocketleague.com)\n"
             '2. Click "Submit a ticket"\n'
-            '3. Under "Issue" field, select "Installation and setup > I need API access"\n'
+            '3. Under "Issue" field, select '
+            '"Installation and setup > I need API access"\n'
             "4. Fill out the form provided with your request, etc.\n"
             '5. Click "Submit"\n'
             "6. Hope that Psyonix will reply to you\n"
@@ -750,12 +760,17 @@ class RLStats(commands.Cog):
             w, h = self.fonts["RobotoRegular74"].getsize(playlist_key.friendly_name)
             coords = self._get_coords(playlist_key, 'playlist_name')
             coords = self._add_coords(coords, (-w/2, -h/2))
-            draw.text(coords, playlist_key.friendly_name, font=self.fonts["RobotoRegular74"], fill="white")
+            draw.text(
+                coords, playlist_key.friendly_name,
+                font=self.fonts["RobotoRegular74"], fill="white"
+            )
 
             # Draw - rank image
             playlist = player.get_playlist(playlist_key)
             temp = Image.new('RGBA', self.size)
-            temp_image = Image.open(self.data_path / 'images/ranks/{}.png'.format(playlist.tier)).convert('RGBA')
+            temp_image = Image.open(
+                self.data_path / 'images/ranks/{}.png'.format(playlist.tier)
+            ).convert('RGBA')
             temp_image.thumbnail(self.rank_size, Image.ANTIALIAS)
             coords = self._get_coords(playlist_key, 'rank_image')
             temp.paste(temp_image, coords)
@@ -767,11 +782,17 @@ class RLStats(commands.Cog):
             w, h = self.fonts["RobotoLight45"].getsize(str(playlist))
             coords = self._get_coords(playlist_key, 'rank_text')
             coords = self._add_coords(coords, (-w/2, -h/2))
-            draw.text(coords, str(playlist), font=self.fonts["RobotoLight45"], fill="white")
+            draw.text(
+                coords, str(playlist),
+                font=self.fonts["RobotoLight45"], fill="white"
+            )
 
             # Draw - matches played
             coords = self._get_coords(playlist_key, 'matches_played')
-            draw.text(coords, str(playlist.matches_played), font=self.fonts["RobotoBold45"], fill="white")
+            draw.text(
+                coords, str(playlist.matches_played),
+                font=self.fonts["RobotoBold45"], fill="white"
+            )
 
             # Draw - Win/Losing Streak
             if playlist.win_streak < 0:
@@ -784,31 +805,30 @@ class RLStats(commands.Cog):
             # Draw - "Win Streak" or "Losing Streak"
             draw.text(coords_text, text, font=self.fonts["RobotoLight45"], fill="white")
             # Draw - amount of won/lost games
-            draw.text(coords_amount, str(playlist.win_streak), font=self.fonts["RobotoBold45"], fill="white")
+            draw.text(
+                coords_amount, str(playlist.win_streak),
+                font=self.fonts["RobotoBold45"], fill="white"
+            )
 
             # Draw - Skill Rating
             coords = self._get_coords(playlist_key, 'skill')
-            draw.text(coords, str(playlist.skill), font=self.fonts["RobotoBold45"], fill="white")
+            draw.text(
+                coords, str(playlist.skill),
+                font=self.fonts["RobotoBold45"], fill="white"
+            )
 
             # Draw - Gain/Loss
-            """if os.path.isfile('data/rltracker/{}_{}.txt'.format(player_id, playlist_key.value)):
-                with open('data/rltracker/{}_{}.txt'.format(player_id, playlist_key.value)) as file:
-                    lines = file.readlines()
-                    before = lines[-2].split(";")[3]
-                    after = lines[-1].split(";")[3]
-                    if before == "Mu":
-                        gain = 0
-                    else:
-                        gain = abs((float(after) - float(before))*20)
-            else:
-                gain = 0"""
+            # TODO: rltracker rewrite needed to support this
             gain = 0
 
             coords = self._get_coords(playlist_key, 'gain')
             if gain == 0:
                 draw.text(coords, "N/A", font=self.fonts["RobotoBold45"], fill="white")
             else:
-                draw.text(coords, str(round(gain, 3)), font=self.fonts["RobotoBold45"], fill="white")
+                draw.text(
+                    coords, str(round(gain, 3)),
+                    font=self.fonts["RobotoBold45"], fill="white"
+                )
 
             # Draw - Tier and division estimates
             # Draw - Division Down
@@ -838,7 +858,10 @@ class RLStats(commands.Cog):
             else:
                 tier_down = '{0:+d}'.format(playlist.tier_estimates.tier_down)
             coords_text = self._add_coords(coords_image, (self.tier_size[0]+11, -5))
-            draw.text(coords_text, tier_down, font=self.fonts["RobotoBold45"], fill="white")
+            draw.text(
+                coords_text, tier_down,
+                font=self.fonts["RobotoBold45"], fill="white"
+            )
 
             # Draw - Division Up
             coords = self._get_coords(playlist_key, 'div_up')
@@ -867,7 +890,10 @@ class RLStats(commands.Cog):
                 tier_up = 'N/A'
             else:
                 tier_up = '{0:+d}'.format(playlist.tier_estimates.tier_up)
-            draw.text(coords_text, tier_up, font=self.fonts["RobotoBold45"], fill="white")
+            draw.text(
+                coords_text, tier_up,
+                font=self.fonts["RobotoBold45"], fill="white"
+            )
 
         # Season Reward Level
         rewards = player.season_rewards
@@ -912,7 +938,10 @@ class RLStats(commands.Cog):
         result.save(fp, 'PNG', quality=100)
         fp.seek(0)
         await ctx.send(
-            'Rocket League Stats for **{}** _(arrows show amount of points for division down/up)_'.format(player.user_name),
+            (
+                'Rocket League Stats for **{}** '
+                '*(arrows show amount of points for division down/up)*'
+            ).format(player.user_name),
             file=discord.File(fp, '{}_profile.png'.format(player_id))
         )
 
