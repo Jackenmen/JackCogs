@@ -50,6 +50,7 @@ class VoiceTools(commands.Cog):
 
     @forcelimit.command(name="enable")
     async def forcelimit_enable(self, ctx):
+        """Enables ForceLimit module"""
         if not await self.config.guild(ctx.guild).forcelimit_enabled():
             await self.config.guild(ctx.guild).forcelimit_enabled.set(True)
             await ctx.send("ForceLimit module is now enabled on this server")
@@ -58,6 +59,7 @@ class VoiceTools(commands.Cog):
 
     @forcelimit.command(name="disable")
     async def forcelimit_disable(self, ctx):
+        """Disables ForceLimit module"""
         if await self.config.guild(ctx.guild).forcelimit_enabled():
             await self.config.guild(ctx.guild).forcelimit_enabled.set(False)
             await ctx.send("ForceLimit module is now disabled on this server")
@@ -66,6 +68,12 @@ class VoiceTools(commands.Cog):
 
     @forcelimit.command(name="ignorelist")
     async def forcelimit_ignorelist(self, ctx):
+        """
+        Shows ignorelist of ForceLimit module
+
+        This can include members and roles which bypass forcelimit
+        and voice channels which won't be checked
+        """
         guild_conf = self.config.guild(ctx.guild)
         ignore_member_list = await guild_conf.forcelimit_ignore_member_list()
         ignore_role_list = await guild_conf.forcelimit_ignore_role_list()
@@ -98,8 +106,17 @@ class VoiceTools(commands.Cog):
         await menus.menu(ctx, embed_pages, menus.DEFAULT_CONTROLS)
 
     @forcelimit.command(name="ignore")
-    async def forcelimit_add(self, ctx,
-                             ignores: commands.Greedy[MemberOrRoleorVoiceChannel]):
+    async def forcelimit_ignore(self, ctx,
+                                ignores: commands.Greedy[MemberOrRoleorVoiceChannel]):
+        """
+        Adds members, roles or voice channels to ignorelist of ForceLimit module
+
+        Members and roles on ignorelist will bypass forcelimit
+        (meaning - not getting kicked)
+
+        Voice channels on ignorelist won't be checked
+        (as if ForceLimit module was disabled for them)
+        """
         guild_conf = self.config.guild(ctx.guild)
         ignore_member_list = await guild_conf.forcelimit_ignore_member_list()
         ignore_role_list = await guild_conf.forcelimit_ignore_role_list()
@@ -121,8 +138,17 @@ class VoiceTools(commands.Cog):
         await ctx.send("Ignore list updated")
 
     @forcelimit.command(name="unignore")
-    async def forcelimit_remove(self, ctx,
-                                ignores: commands.Greedy[MemberOrRoleorVoiceChannel]):
+    async def forcelimit_unignore(self, ctx,
+                                  ignores: commands.Greedy[MemberOrRoleorVoiceChannel]):
+        """
+        Adds members, roles or voice channels to ignorelist of ForceLimit module
+
+        Members and roles on ignorelist will bypass forcelimit
+        (meaning - not getting kicked)
+
+        Voice channels on ignorelist won't be checked
+        (as if ForceLimit module was disabled for them)
+        """
         guild_conf = self.config.guild(ctx.guild)
         ignore_member_list = await guild_conf.forcelimit_ignore_member_list()
         ignore_role_list = await guild_conf.forcelimit_ignore_role_list()
@@ -153,6 +179,7 @@ class VoiceTools(commands.Cog):
 
     @vip.command(name="enable")
     async def vip_enable(self, ctx):
+        """Enables VIP module"""
         if not await self.config.guild(ctx.guild).vip_enabled():
             await self.config.guild(ctx.guild).vip_enabled.set(True)
             await ctx.send("VIP module is now enabled on this server")
@@ -161,6 +188,7 @@ class VoiceTools(commands.Cog):
 
     @vip.command(name="disable")
     async def vip_disable(self, ctx):
+        """Disables VIP module"""
         if await self.config.guild(ctx.guild).vip_enabled():
             await self.config.guild(ctx.guild).vip_enabled.set(False)
             await ctx.send("VIP module is now disabled on this server")
@@ -169,6 +197,11 @@ class VoiceTools(commands.Cog):
 
     @vip.command(name="list")
     async def vip_list(self, ctx):
+        """
+        Shows vip list of VIP module
+
+        Members and roles specified here will not count to user limit in voice channel
+        """
         vip_member_list = await self.config.guild(ctx.guild).vip_member_list()
         vip_role_list = await self.config.guild(ctx.guild).vip_role_list()
         content_members = ", ".join([m.mention for m in map(ctx.guild.get_member,
@@ -195,6 +228,11 @@ class VoiceTools(commands.Cog):
 
     @vip.command(name="add")
     async def vip_add(self, ctx, vips: commands.Greedy[MemberOrRole]):
+        """
+        Adds members and roles to vip list of VIP module
+
+        VIP members and roles will not count to user limit in voice channel
+        """
         vip_member_list = await self.config.guild(ctx.guild).vip_member_list()
         vip_role_list = await self.config.guild(ctx.guild).vip_role_list()
         for vip in vips:
@@ -212,6 +250,11 @@ class VoiceTools(commands.Cog):
 
     @vip.command(name="remove")
     async def vip_remove(self, ctx, vips: commands.Greedy[MemberOrRole]):
+        """
+        Removes members and roles to vip list of VIP module
+
+        VIP members and roles will not count to user limit in voice channel
+        """
         vip_member_list = await self.config.guild(ctx.guild).vip_member_list()
         vip_role_list = await self.config.guild(ctx.guild).vip_role_list()
         for vip in vips:
@@ -260,6 +303,7 @@ class VoiceTools(commands.Cog):
                     ).format(vip_id=vip_id, vip_type=vip_type, channel_id=channel_id))
 
     async def _forcelimit_check(self, member, before, after):
+        """If user joins a channel with user limit, make sure it's not overcrowded"""
         guild_conf = self.config.guild(member.guild)
         ignore_member_list = await guild_conf.forcelimit_ignore_member_list()
         ignore_role_list = await guild_conf.forcelimit_ignore_role_list()
