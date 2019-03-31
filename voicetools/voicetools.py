@@ -117,6 +117,8 @@ class VoiceTools(commands.Cog):
         Voice channels on ignorelist won't be checked
         (as if ForceLimit module was disabled for them)
         """
+        if not ignores:
+            return await ctx.send_help()
         guild_conf = self.config.guild(ctx.guild)
         ignore_member_list = await guild_conf.forcelimit_ignore_member_list()
         ignore_role_list = await guild_conf.forcelimit_ignore_role_list()
@@ -149,6 +151,8 @@ class VoiceTools(commands.Cog):
         Voice channels on ignorelist won't be checked
         (as if ForceLimit module was disabled for them)
         """
+        if not ignores:
+            return await ctx.send_help()
         guild_conf = self.config.guild(ctx.guild)
         ignore_member_list = await guild_conf.forcelimit_ignore_member_list()
         ignore_role_list = await guild_conf.forcelimit_ignore_role_list()
@@ -233,6 +237,8 @@ class VoiceTools(commands.Cog):
 
         VIP members and roles will not count to user limit in voice channel
         """
+        if not vips:
+            return await ctx.send_help()
         vip_member_list = await self.config.guild(ctx.guild).vip_member_list()
         vip_role_list = await self.config.guild(ctx.guild).vip_role_list()
         for vip in vips:
@@ -255,6 +261,8 @@ class VoiceTools(commands.Cog):
 
         VIP members and roles will not count to user limit in voice channel
         """
+        if not vips:
+            return await ctx.send_help()
         vip_member_list = await self.config.guild(ctx.guild).vip_member_list()
         vip_role_list = await self.config.guild(ctx.guild).vip_role_list()
         for vip in vips:
