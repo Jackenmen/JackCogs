@@ -1,19 +1,19 @@
-import discord
-from redbot.core import commands, checks
-from redbot.core.config import Config
-from redbot.core.utils.predicates import ReactionPredicate
-from redbot.core.utils.menus import start_adding_reactions
-from redbot.core.data_manager import bundled_data_path
-
-import asyncio
-import aiohttp
-import xml.etree.ElementTree as ET
 from math import ceil
 from collections import defaultdict
 import re
 import logging
 from enum import Enum
 from io import BytesIO
+import asyncio
+import defusedxml.ElementTree as ET
+import aiohttp
+
+import discord
+from redbot.core import commands, checks
+from redbot.core.config import Config
+from redbot.core.utils.predicates import ReactionPredicate
+from redbot.core.utils.menus import start_adding_reactions
+from redbot.core.data_manager import bundled_data_path
 
 try:
     from PIL import Image, ImageDraw, ImageFont
@@ -82,13 +82,14 @@ class PlaylistKey(Enum):
 
     @property
     def friendly_name(self):
+        # pylint: disable=no-member
         return self.name.replace('_', ' ').title()
 
 
 class TierEstimates:
     __slots__ = ['playlist', 'tier', 'division', 'div_down', 'div_up',
                  'tier_down', 'tier_up']
-    tier_breakdown = None
+    TIER_BREAKDOWN = {}
 
     def __init__(self, playlist):
         self.playlist = playlist
@@ -106,133 +107,134 @@ class TierEstimates:
         playlist = self.playlist
         if (
             self.tier == 1 and self.division == 0 or
-            playlist.key not in self.tier_breakdown or
+            playlist.key not in self.TIER_BREAKDOWN or
             self.tier == 0
         ):
             self.div_down = None
-        else:
-            try:
-                divisions = self.tier_breakdown[playlist.key][self.tier]
-                self.div_down = int(
-                    ceil(
-                        divisions[self.division][0] - playlist.skill
-                    )
+            return
+        try:
+            divisions = self.TIER_BREAKDOWN[playlist.key][self.tier]
+            self.div_down = int(
+                ceil(
+                    divisions[self.division][0] - playlist.skill
                 )
-            except KeyError as e:
-                self.div_down = None
-                log.debug(str(e))
-                return
-            if self.div_down > 0:
-                self.div_down = -1
+            )
+        except KeyError as e:
+            self.div_down = None
+            log.debug(str(e))
+            return
+        if self.div_down > 0:
+            self.div_down = -1
 
     def _estimate_div_up(self):
         playlist = self.playlist
         if (
             self.tier == self.playlist.tier_max or
-            playlist.key not in self.tier_breakdown or
+            playlist.key not in self.TIER_BREAKDOWN or
             self.tier == 0
         ):
             self.div_up = None
-        else:
-            try:
-                divisions = self.tier_breakdown[playlist.key][self.tier]
-                if self.tier == self.division == 0:
-                    value = divisions[1][0]
-                else:
-                    value = divisions[self.division][1]
-                self.div_up = int(
-                    ceil(
-                        value - playlist.skill
-                    )
+            return
+        try:
+            divisions = self.TIER_BREAKDOWN[playlist.key][self.tier]
+            if self.tier == self.division == 0:
+                value = divisions[1][0]
+            else:
+                value = divisions[self.division][1]
+            self.div_up = int(
+                ceil(
+                    value - playlist.skill
                 )
-            except KeyError as e:
-                self.div_up = None
-                log.debug(str(e))
-                return
-            if self.div_up < 0:
-                self.div_up = 1
+            )
+        except KeyError as e:
+            self.div_up = None
+            log.debug(str(e))
+            return
+        if self.div_up < 0:
+            self.div_up = 1
 
     def _estimate_tier_down(self):
         playlist = self.playlist
         if (
             self.tier == 1 or
-            playlist.key not in self.tier_breakdown or
+            playlist.key not in self.TIER_BREAKDOWN or
             self.tier == 0
         ):
             self.tier_down = None
-        else:
-            try:
-                divisions = self.tier_breakdown[playlist.key][self.tier]
-                self.tier_down = int(
-                    ceil(
-                        divisions[0][0] - playlist.skill
-                    )
+            return
+        try:
+            divisions = self.TIER_BREAKDOWN[playlist.key][self.tier]
+            self.tier_down = int(
+                ceil(
+                    divisions[0][0] - playlist.skill
                 )
-            except KeyError as e:
-                self.tier_down = None
-                log.debug(str(e))
-                return
-            if self.tier_down > 0:
-                self.tier_down = -1
+            )
+        except KeyError as e:
+            self.tier_down = None
+            log.debug(str(e))
+            return
+        if self.tier_down > 0:
+            self.tier_down = -1
 
     def _estimate_tier_up(self):
         playlist = self.playlist
         if (
             self.tier == self.playlist.tier_max or
-            playlist.key not in self.tier_breakdown or
+            playlist.key not in self.TIER_BREAKDOWN or
             self.tier == 0
         ):
             self.tier_up = None
-        else:
-            try:
-                divisions = self.tier_breakdown[playlist.key][self.tier]
-                self.tier_up = int(
-                    ceil(
-                        divisions[3][1] - playlist.skill
-                    )
+            return
+        try:
+            divisions = self.TIER_BREAKDOWN[playlist.key][self.tier]
+            self.tier_up = int(
+                ceil(
+                    divisions[3][1] - playlist.skill
                 )
-            except KeyError as e:
-                self.tier_up = None
-                log.debug(str(e))
-                return
-            if self.tier_up < 0:
-                self.tier_up = 1
+            )
+        except KeyError as e:
+            self.tier_up = None
+            log.debug(str(e))
+            return
+        if self.tier_up < 0:
+            self.tier_up = 1
 
     def _estimate_current_tier(self):
         playlist = self.playlist
-        if playlist.key not in self.tier_breakdown:
+        if playlist.key not in self.TIER_BREAKDOWN:
             self.tier = playlist.tier
             self.division = playlist.division
             return
-        breakdown = self.tier_breakdown[playlist.key]
+        breakdown = self.TIER_BREAKDOWN[playlist.key]
         if playlist.skill < breakdown[1][1][0]:
             self.tier = 1
             self.division = 0
             return
-        elif playlist.skill > breakdown[playlist.tier_max][0][1]:
+        if playlist.skill > breakdown[playlist.tier_max][0][1]:
             self.tier = playlist.tier_max
             self.division = 0
             return
-        else:
-            for tier, divisions in breakdown.items():
-                for division, data in divisions.items():
-                    if data[0] <= playlist.skill <= data[1]:
-                        self.tier = tier
-                        self.division = division
-                        return
+        for tier, divisions in breakdown.items():
+            for division, data in divisions.items():
+                if data[0] <= playlist.skill <= data[1]:
+                    self.tier = tier
+                    self.division = division
+                    return
         self.tier = playlist.tier
         self.division = playlist.division
 
     @classmethod
     async def load_tier_breakdown(cls, config, update=False):
-        if await config.tier_breakdown() is None or update:
+        tier_breakdown = await config.tier_breakdown()
+        if not tier_breakdown or update:
             log.info("Downloading tier_breakdown...")
             await cls.get_tier_breakdown(config)
-        cls.tier_breakdown = cls._fix_numbers_dict(await config.tier_breakdown())
-        for k in cls.tier_breakdown.keys():
+            tier_breakdown = await config.tier_breakdown()
+        cls.TIER_BREAKDOWN = cls._fix_numbers_dict(tier_breakdown)
+        for k in cls.TIER_BREAKDOWN:
             try:
                 playlist_key = PlaylistKey(k)
-                cls.tier_breakdown[playlist_key] = cls.tier_breakdown.pop(k)
+                cls.TIER_BREAKDOWN[playlist_key] = cls.TIER_BREAKDOWN.pop(k)
             except ValueError:
                 pass
 
@@ -307,10 +309,7 @@ class Playlist:
         try:
             if self.tier in [0, self.tier_max]:
                 return RANKS[self.tier]
-            else:
-                return '{} Div {}'.format(
-                    RANKS[self.tier], DIVISIONS[self.division]
-                )
+            return '{} Div {}'.format(RANKS[self.tier], DIVISIONS[self.division])
         except IndexError:
             return 'Unknown'
 
@@ -411,6 +410,7 @@ class RLStats(commands.Cog):
     # rest of TODO in rlstats method
 
     def __init__(self, bot):
+        super().__init__()
         self.bot = bot
         self.config = Config.get_conf(self, identifier=6672039729,
                                       force_registration=True)
@@ -494,7 +494,7 @@ class RLStats(commands.Cog):
         # Remove it after creating everything
         if not players:
             return None
-        elif len(players) > 1:
+        if len(players) > 1:
             description = ''
             for idx, player in enumerate(players, 1):
                 description += "\n{}. {} account with username: {}".format(
@@ -515,8 +515,7 @@ class RLStats(commands.Cog):
             finally:
                 await msg.delete()
             return players[pred.result]
-        else:
-            return players[0]
+        return players[0]
 
     async def _find_profile(self, ctx, platform, player_id):
         pattern = getattr(PlatformPatterns, platform.name)
@@ -572,8 +571,8 @@ class RLStats(commands.Cog):
                 ids.append(steam_profile.find('steamID64').text)
             elif error.text != 'The specified profile could not be found.':
                 log.debug(
-                    "Steam threw error while searching profile using '{}' method: {}"
-                    .format(search_type, error.text)
+                    "Steam threw error while searching profile using '%s' method: %s",
+                    search_type, error.text
                 )
 
         return ids
@@ -597,10 +596,10 @@ class RLStats(commands.Cog):
                     raise PlayerNotFoundError(
                         "Player with provided username could not be found."
                     )
-                elif resp.status >= 400:
+                if resp.status >= 400:
                     log.error(
-                        "RL API threw client error (status code: {}) during request: {}"
-                        .format(resp.status, player['detail'])
+                        "RL API threw client error (status code: %s) during request: %s",
+                        resp.status, player['detail']
                     )
                     await ctx.send(
                         "An error occured while checking Rocket League Stats. "
@@ -648,16 +647,14 @@ class RLStats(commands.Cog):
         """Checks if token is set"""
         if await self._get_token() == "":
             return False
-        else:
-            return True
+        return True
 
     async def _get_player_data_by_member(self, member):
         """nwm"""
         player_id = await self.config.user(member).player_id()
         if player_id is not None:
             return player_id, Platform[await self.config.user(member).platform()]
-        else:
-            return None
+        return None
 
     @commands.command()
     async def rlstats(self, ctx, *, player_id=None):
@@ -982,5 +979,6 @@ class RLStats(commands.Cog):
     async def updatebreakdown(self, ctx):
         """Update tier breakdown"""
         await ctx.send("Updating tier breakdown...")
-        await TierEstimates.load_tier_breakdown(self.config, update=True)
+        async with ctx.typing():
+            await TierEstimates.load_tier_breakdown(self.config, update=True)
         await ctx.send("Tier breakdown updated.")
