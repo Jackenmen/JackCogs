@@ -1,11 +1,13 @@
+import logging
+from itertools import zip_longest
+
 import discord
 from redbot.core import commands
 from redbot.core.config import Config
 from redbot.core.utils import menus
 from redbot.core.utils.chat_formatting import pagify
-import logging
+
 from .converters import MemberOrRole, MemberOrRoleorVoiceChannel
-from itertools import zip_longest
 
 log = logging.getLogger('redbot.voicetools')
 
@@ -14,6 +16,7 @@ class VoiceTools(commands.Cog):
     """Various tools to make voice channels better!"""
 
     def __init__(self):
+        super().__init__()
         self.config = Config.get_conf(self, identifier=6672039729,
                                       force_registration=True)
         default_guild = {
@@ -27,30 +30,43 @@ class VoiceTools(commands.Cog):
         }
         self.config.register_guild(**default_guild)
 
+    async def voicekick(self, ctx, members: commands.Greedy[discord.Member]):
+        """
+        Kick users out of voice channels.
+
+        To kick user from voice channel, new voice channels is created,
+        member is moved to it and then the voice channel is removed,
+        what will cause disconnect - there's no endpoint for disconnecting user,
+        so this is a workaround for it.
+        """
+        if not members:
+            return await ctx.send_help()
+        await self._kick_from_voice(members, ctx.guild)
+        await ctx.send("Members kicked out of voice channels")
+
     @commands.guild_only()
-    @commands.is_owner()
+    @commands.admin()
     @commands.group()
     async def voicetools(self, ctx):
-        """Settings for voice tools"""
+        """Settings for voice tools."""
 
     @voicetools.group()
     async def forcelimit(self, ctx):
         """
-        Settings for ForceLimit module:
-        Force user limit to all members of the server including admins,
-        (when someone goes over the limit, new voice channels is created,
-        member is moved to it and then the voice channel is removed,
-        what will cause disconnect - there's no endpoint for disconnecting user,
-        so this a workaround for it)
+        Settings for ForceLimit module.
+
+        Force user limit to all members of the server including admins
+        (Kicking is done the same way as in `[p]voicekick`)
+
         When combined with VIP module, this won't kick VIPs going over limit
         You can also add user or role to this module's ignore list,
         if you want to ignore going over limit while not raising user limit for channel
-        or you can ignore chosen channels to stop bot from kicking users from it
+        or you can ignore chosen channels to stop bot from kicking users from it.
         """
 
     @forcelimit.command(name="enable")
     async def forcelimit_enable(self, ctx):
-        """Enables ForceLimit module"""
+        """Enables ForceLimit module."""
         if not await self.config.guild(ctx.guild).forcelimit_enabled():
             await self.config.guild(ctx.guild).forcelimit_enabled.set(True)
             await ctx.send("ForceLimit module is now enabled on this server")
@@ -59,7 +75,7 @@ class VoiceTools(commands.Cog):
 
     @forcelimit.command(name="disable")
     async def forcelimit_disable(self, ctx):
-        """Disables ForceLimit module"""
+        """Disables ForceLimit module."""
         if await self.config.guild(ctx.guild).forcelimit_enabled():
             await self.config.guild(ctx.guild).forcelimit_enabled.set(False)
             await ctx.send("ForceLimit module is now disabled on this server")
@@ -69,10 +85,10 @@ class VoiceTools(commands.Cog):
     @forcelimit.command(name="ignorelist")
     async def forcelimit_ignorelist(self, ctx):
         """
-        Shows ignorelist of ForceLimit module
+        Shows ignorelist of ForceLimit module.
 
         This can include members and roles which bypass forcelimit
-        and voice channels which won't be checked
+        and voice channels which won't be checked.
         """
         guild_conf = self.config.guild(ctx.guild)
         ignore_member_list = await guild_conf.forcelimit_ignore_member_list()
@@ -87,7 +103,7 @@ class VoiceTools(commands.Cog):
         pages_members = list(pagify(content_members, page_length=1024))
         pages_roles = list(pagify(content_roles, page_length=1024))
         pages_vcs = list(pagify(content_vcs, page_length=1024))
-        if len(pages_members) == len(pages_roles) == len(pages_vcs) == 0:
+        if not (pages_members or pages_roles or pages_vcs):
             return await ctx.send("Ignore list is empty")
         embed_pages = []
         pages = list(zip_longest(pages_members, pages_roles,
@@ -109,7 +125,7 @@ class VoiceTools(commands.Cog):
     async def forcelimit_ignore(self, ctx,
                                 ignores: commands.Greedy[MemberOrRoleorVoiceChannel]):
         """
-        Adds members, roles or voice channels to ignorelist of ForceLimit module
+        Adds members, roles or voice channels to ignorelist of ForceLimit module.
 
         Members and roles on ignorelist will bypass forcelimit
         (meaning - not getting kicked)
@@ -176,14 +192,15 @@ class VoiceTools(commands.Cog):
     @voicetools.group()
     async def vip(self, ctx):
         """
-        Settings for VIP module:
+        Settings for VIP module.
+
         Set members and roles to not count to user limit in voice channel
         (limit will be raised accordingly after they join to make it possible)
         """
 
     @vip.command(name="enable")
     async def vip_enable(self, ctx):
-        """Enables VIP module"""
+        """Enables VIP module."""
         if not await self.config.guild(ctx.guild).vip_enabled():
             await self.config.guild(ctx.guild).vip_enabled.set(True)
             await ctx.send("VIP module is now enabled on this server")
@@ -192,7 +209,7 @@ class VoiceTools(commands.Cog):
 
     @vip.command(name="disable")
     async def vip_disable(self, ctx):
-        """Disables VIP module"""
+        """Disables VIP module."""
         if await self.config.guild(ctx.guild).vip_enabled():
             await self.config.guild(ctx.guild).vip_enabled.set(False)
             await ctx.send("VIP module is now disabled on this server")
@@ -202,9 +219,9 @@ class VoiceTools(commands.Cog):
     @vip.command(name="list")
     async def vip_list(self, ctx):
         """
-        Shows vip list of VIP module
+        Shows vip list of VIP module.
 
-        Members and roles specified here will not count to user limit in voice channel
+        Members and roles specified here will not count to user limit in voice channel.
         """
         vip_member_list = await self.config.guild(ctx.guild).vip_member_list()
         vip_role_list = await self.config.guild(ctx.guild).vip_role_list()
@@ -214,7 +231,7 @@ class VoiceTools(commands.Cog):
                                                           vip_role_list)])
         pages_members = list(pagify(content_members, page_length=1024))
         pages_roles = list(pagify(content_roles, page_length=1024))
-        if len(pages_members) == len(pages_roles) == 0:
+        if not (pages_members or pages_roles):
             return await ctx.send("VIP list is empty")
         embed_pages = []
         pages = list(zip_longest(pages_members, pages_roles, fillvalue="None"))
@@ -233,9 +250,9 @@ class VoiceTools(commands.Cog):
     @vip.command(name="add")
     async def vip_add(self, ctx, vips: commands.Greedy[MemberOrRole]):
         """
-        Adds members and roles to vip list of VIP module
+        Adds members and roles to vip list of VIP module.
 
-        VIP members and roles will not count to user limit in voice channel
+        VIP members and roles will not count to user limit in voice channel.
         """
         if not vips:
             return await ctx.send_help()
@@ -257,9 +274,9 @@ class VoiceTools(commands.Cog):
     @vip.command(name="remove")
     async def vip_remove(self, ctx, vips: commands.Greedy[MemberOrRole]):
         """
-        Removes members and roles to vip list of VIP module
+        Removes members and roles to vip list of VIP module.
 
-        VIP members and roles will not count to user limit in voice channel
+        VIP members and roles will not count to user limit in voice channel.
         """
         if not vips:
             return await ctx.send_help()
@@ -285,7 +302,7 @@ class VoiceTools(commands.Cog):
             await self._forcelimit_check(member, before, after)
 
     async def _vip_check(self, member, before, after):
-        """If VIP joins/leaves a channel with user limit, modify it accordingly"""
+        """If VIP joins/leaves a channel with user limit, modify it accordingly."""
         vip_member_list = await self.config.guild(member.guild).vip_member_list()
         vip_role_list = await self.config.guild(member.guild).vip_role_list()
         if before.channel is not after.channel:
@@ -298,20 +315,20 @@ class VoiceTools(commands.Cog):
                     await before.channel.edit(user_limit=before.channel.user_limit-1)
                     channel_id = before.channel.id
                     log.info((
-                        "VIP with ID {vip_id} ({vip_type}) "
-                        "left voice channel with ID {channel_id}, lowering user limit!"
-                    ).format(vip_id=vip_id, vip_type=vip_type, channel_id=channel_id))
+                        "VIP with ID %s (%s) "
+                        "left voice channel with ID %s, lowering user limit!"
+                    ), vip_id, vip_type, channel_id)
 
                 if after.channel is not None and after.channel.user_limit != 0:
                     await after.channel.edit(user_limit=after.channel.user_limit+1)
                     channel_id = after.channel.id
                     log.info((
-                        "VIP with ID {vip_id} ({vip_type}) "
-                        "left voice channel with ID {channel_id}, raising user limit!"
-                    ).format(vip_id=vip_id, vip_type=vip_type, channel_id=channel_id))
+                        "VIP with ID %s (%s) "
+                        "left voice channel with ID %s, raising user limit!"
+                    ), vip_id, vip_type, channel_id)
 
     async def _forcelimit_check(self, member, before, after):
-        """If user joins a channel with user limit, make sure it's not overcrowded"""
+        """If user joins a channel with user limit, make sure it's not overcrowded."""
         guild_conf = self.config.guild(member.guild)
         ignore_member_list = await guild_conf.forcelimit_ignore_member_list()
         ignore_role_list = await guild_conf.forcelimit_ignore_role_list()
@@ -323,24 +340,27 @@ class VoiceTools(commands.Cog):
                 or any(role.id in ignore_role_list for role in member.roles)
                     or channel.id in ignore_vc_list):
                 return
-            guild = channel.guild
-            overwrites = {
-                guild.default_role: discord.PermissionOverwrite(read_messages=False),
-                guild.me: discord.PermissionOverwrite(read_messages=True)
-            }
-            category = await guild.create_category(
-                "Temporary Category (ForceLimit Module)",
-                overwrites=overwrites
-            )
-            vc = await guild.create_voice_channel(
-                "Temporary Channel (ForceLimit Module)",
-                overwrites=overwrites,
-                category=category
-            )
-            await member.move_to(vc)
-            await vc.delete()
-            await category.delete()
+            await self._kick_from_voice([member], member.guild)
             log.info((
-                "Member with ID {member_id} joined voice channel with ID {channel_id} "
+                "Member with ID %s joined voice channel with ID %s "
                 "exceeding its limit, disconnecting!"
-            ).format(member_id=member.id, channel_id=channel.id))
+            ), member.id, channel.id)
+
+    async def _kick_from_voice(self, members, guild):
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(read_messages=False),
+            guild.me: discord.PermissionOverwrite(read_messages=True)
+        }
+        category = await guild.create_category(
+            "Temporary Category (Kicking user from voice)",
+            overwrites=overwrites
+        )
+        vc = await guild.create_voice_channel(
+            "Temporary Channel (Kicking user from voice)",
+            overwrites=overwrites,
+            category=category
+        )
+        for member in members:
+            await member.move_to(vc)
+        await vc.delete()
+        await category.delete()
