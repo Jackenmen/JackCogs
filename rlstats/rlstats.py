@@ -1,12 +1,8 @@
-from math import ceil
-from collections import defaultdict
-import re
-import logging
-from enum import Enum
-from io import BytesIO
 import asyncio
-import defusedxml.ElementTree as ET
-import aiohttp
+import contextlib
+import logging
+from io import BytesIO
+from typing import List, Tuple, Optional, Iterable
 
 import discord
 from redbot.core import commands, checks
@@ -20,409 +16,24 @@ try:
 except ImportError:
     raise RuntimeError("Can't load pillow. Do 'pip3 install pillow'.")
 
+from . import rlapi
+from .figures import Point, Rectangle
+from . import errors
+
 log = logging.getLogger('redbot.rlstats')
-
-RANKS = (
-    'Unranked',
-    'Bronze I',
-    'Bronze II',
-    'Bronze III',
-    'Silver I',
-    'Silver II',
-    'Silver III',
-    'Gold I',
-    'Gold II',
-    'Gold III',
-    'Platinum I',
-    'Platinum II',
-    'Platinum III',
-    'Diamond I',
-    'Diamond II',
-    'Diamond III',
-    'Champion I',
-    'Champion II',
-    'Champion III',
-    'Grand Champion'
-)
-DIVISIONS = ('I', 'II', 'III', 'IV')
-
-
-class Error(Exception):
-    """RLStats base error"""
-
-
-class UnallowedCharactersError(Error):
-    """Username has unallowed characters"""
-
-
-class NoChoiceError(Error):
-    """User didn't choose profile which he wants to check"""
-
-
-class PlayerNotFoundError(Error):
-    """Username could not be found"""
-
-
-class ServerError(Error):
-    """Server returned 5xx HTTP error"""
-
-
-class PlaylistKey(Enum):
-    SOLO_DUEL = 10
-    DOUBLES = 11
-    SOLO_STANDARD = 12
-    STANDARD = 13
-    HOOPS = 27
-    RUMBLE = 28
-    DROPSHOT = 29
-    SNOW_DAY = 30
-
-    def __str__(self):
-        return str(self.value)
-
-    @property
-    def friendly_name(self):
-        # pylint: disable=no-member
-        return self.name.replace('_', ' ').title()
-
-
-class TierEstimates:
-    __slots__ = ['playlist', 'tier', 'division', 'div_down', 'div_up',
-                 'tier_down', 'tier_up']
-    TIER_BREAKDOWN = {}
-
-    def __init__(self, playlist):
-        self.playlist = playlist
-        if playlist.tier == 0:
-            self._estimate_current_tier()
-        else:
-            self.tier = playlist.tier
-            self.division = playlist.division
-        self._estimate_div_down()
-        self._estimate_div_up()
-        self._estimate_tier_down()
-        self._estimate_tier_up()
-
-    def _estimate_div_down(self):
-        playlist = self.playlist
-        if (
-            self.tier == 1 and self.division == 0 or
-            playlist.key not in self.TIER_BREAKDOWN or
-            self.tier == 0
-        ):
-            self.div_down = None
-            return
-        try:
-            divisions = self.TIER_BREAKDOWN[playlist.key][self.tier]
-            self.div_down = int(
-                ceil(
-                    divisions[self.division][0] - playlist.skill
-                )
-            )
-        except KeyError as e:
-            self.div_down = None
-            log.debug(str(e))
-            return
-        if self.div_down > 0:
-            self.div_down = -1
-
-    def _estimate_div_up(self):
-        playlist = self.playlist
-        if (
-            self.tier == self.playlist.tier_max or
-            playlist.key not in self.TIER_BREAKDOWN or
-            self.tier == 0
-        ):
-            self.div_up = None
-            return
-        try:
-            divisions = self.TIER_BREAKDOWN[playlist.key][self.tier]
-            if self.tier == self.division == 0:
-                value = divisions[1][0]
-            else:
-                value = divisions[self.division][1]
-            self.div_up = int(
-                ceil(
-                    value - playlist.skill
-                )
-            )
-        except KeyError as e:
-            self.div_up = None
-            log.debug(str(e))
-            return
-        if self.div_up < 0:
-            self.div_up = 1
-
-    def _estimate_tier_down(self):
-        playlist = self.playlist
-        if (
-            self.tier == 1 or
-            playlist.key not in self.TIER_BREAKDOWN or
-            self.tier == 0
-        ):
-            self.tier_down = None
-            return
-        try:
-            divisions = self.TIER_BREAKDOWN[playlist.key][self.tier]
-            self.tier_down = int(
-                ceil(
-                    divisions[0][0] - playlist.skill
-                )
-            )
-        except KeyError as e:
-            self.tier_down = None
-            log.debug(str(e))
-            return
-        if self.tier_down > 0:
-            self.tier_down = -1
-
-    def _estimate_tier_up(self):
-        playlist = self.playlist
-        if (
-            self.tier == self.playlist.tier_max or
-            playlist.key not in self.TIER_BREAKDOWN or
-            self.tier == 0
-        ):
-            self.tier_up = None
-            return
-        try:
-            divisions = self.TIER_BREAKDOWN[playlist.key][self.tier]
-            self.tier_up = int(
-                ceil(
-                    divisions[3][1] - playlist.skill
-                )
-            )
-        except KeyError as e:
-            self.tier_up = None
-            log.debug(str(e))
-            return
-        if self.tier_up < 0:
-            self.tier_up = 1
-
-    def _estimate_current_tier(self):
-        playlist = self.playlist
-        if playlist.key not in self.TIER_BREAKDOWN:
-            self.tier = playlist.tier
-            self.division = playlist.division
-            return
-        breakdown = self.TIER_BREAKDOWN[playlist.key]
-        if playlist.skill < breakdown[1][1][0]:
-            self.tier = 1
-            self.division = 0
-            return
-        if playlist.skill > breakdown[playlist.tier_max][0][1]:
-            self.tier = playlist.tier_max
-            self.division = 0
-            return
-        for tier, divisions in breakdown.items():
-            for division, data in divisions.items():
-                if data[0] <= playlist.skill <= data[1]:
-                    self.tier = tier
-                    self.division = division
-                    return
-        self.tier = playlist.tier
-        self.division = playlist.division
-
-    @classmethod
-    async def load_tier_breakdown(cls, config, update=False):
-        tier_breakdown = await config.tier_breakdown()
-        if not tier_breakdown or update:
-            log.info("Downloading tier_breakdown...")
-            await cls.get_tier_breakdown(config)
-            tier_breakdown = await config.tier_breakdown()
-        cls.TIER_BREAKDOWN = cls._fix_numbers_dict(tier_breakdown)
-        for k in cls.TIER_BREAKDOWN:
-            try:
-                playlist_key = PlaylistKey(k)
-                cls.TIER_BREAKDOWN[playlist_key] = cls.TIER_BREAKDOWN.pop(k)
-            except ValueError:
-                pass
-
-    @staticmethod
-    async def get_tier_breakdown(config):
-        # {10:{},11:{},12:{},13:{}}
-        tier_breakdown = defaultdict(lambda: defaultdict(dict))
-
-        session = aiohttp.ClientSession()
-        for i in range(1, 20):
-            try:
-                async with session.get(
-                    'http://rltracker.pro/tier_breakdown/get_division_stats?tier_id={}'
-                    .format(i)
-                ) as resp:
-                    tier = await resp.json()
-            except (aiohttp.ClientResponseError, aiohttp.ClientError):
-                log.error('Downloading tier breakdown did not succeed.')
-                raise
-
-            for breakdown in tier:
-                playlist_id = breakdown['playlist_id']
-                division = breakdown['division']
-                begin = breakdown['from']
-                end = breakdown['to']
-                tier_breakdown[playlist_id][i][division] = [begin, end]
-
-        await config.tier_breakdown.set(tier_breakdown)
-
-    @classmethod
-    def _fix_numbers_dict(cls, d: dict):
-        """Converts (recursively) dictionary's keys with numbers to integers"""
-        new = {}
-        for k, v in d.items():
-            if isinstance(v, dict):
-                v = cls._fix_numbers_dict(v)
-            elif isinstance(v, list):
-                v = cls._fix_numbers_list(v)
-            new[int(k)] = v
-        return new
-
-    @classmethod
-    def _fix_numbers_list(cls, l: list):
-        """Converts (recursively) list's values with numbers to floats"""
-        new = []
-        for v in l:
-            if isinstance(v, dict):
-                v = cls._fix_numbers_dict(v)
-            elif isinstance(v, list):
-                v = cls._fix_numbers_list(v)
-            new.append(float(v))
-        return new
-
-
-class Playlist:
-    __slots__ = ['key', 'tier', 'division', 'mu', 'skill',  'sigma',
-                 'win_streak', 'matches_played', 'tier_max', 'tier_estimates']
-
-    def __init__(self, **kwargs):
-        self.key = kwargs.get('key')
-        self.tier = kwargs.get('tier', 0)
-        self.division = kwargs.get('division', 0)
-        self.mu = kwargs.get('mu', 25)
-        self.skill = kwargs.get('skill', self.mu*20+100)
-        self.sigma = kwargs.get('sigma', 8.333)
-        self.win_streak = kwargs.get('win_streak', 0)
-        self.matches_played = kwargs.get('matches_played', 0)
-        self.tier_max = kwargs.get('tier_max', 19)
-        self.tier_estimates = TierEstimates(self)
-
-    def __str__(self):
-        try:
-            if self.tier in [0, self.tier_max]:
-                return RANKS[self.tier]
-            return '{} Div {}'.format(RANKS[self.tier], DIVISIONS[self.division])
-        except IndexError:
-            return 'Unknown'
-
-
-class Platform(Enum):
-    steam = 'Steam'
-    ps4 = 'Playstation 4'
-    xboxone = 'Xbox One'
-
-    def __str__(self):
-        return self.value
-
-
-class PlatformPatterns:
-    steam = re.compile(r"""
-        (?:
-            (?:https?:\/\/(?:www\.)?)?steamcommunity\.com\/
-            (id|profiles)\/         # group 1 - None if input is only a username/id
-        )?
-        ([a-zA-Z0-9_-]{2,32})\/?    # group 2
-    """, re.VERBOSE)
-    ps4 = re.compile('[a-zA-Z][a-zA-Z0-9_-]{2,15}')
-    xboxone = re.compile('[a-zA-Z](?=.{0,15}$)([a-zA-Z0-9-_]+ ?)+')
-
-
-class SeasonRewards:
-    __slots__ = ['level', 'wins', 'reward_ready']
-
-    def __init__(self, **kwargs):
-        self.level = kwargs.get('level', 0)
-        if self.level is None:
-            self.level = 0
-        self.wins = kwargs.get('wins', 0)
-        if self.wins is None:
-            self.wins = 0
-        highest_tier = kwargs.get('highest_tier', 0)
-        if self.level == 0 or self.level * 3 < highest_tier:
-            self.reward_ready = True
-        else:
-            self.reward_ready = False
-
-
-class Player:
-    """Represents Rocket League Player
-
-    Attributes
-    -----------
-    platform : Platform
-        Player's platform. There is a chance that the type will be ``int`` if
-        the platform type is not within the ones recognised by the enumerator.
-
-    """
-    __slots__ = ['platform', 'user_name', 'player_id', 'playlists',
-                 'highest_tier', 'season_rewards']
-
-    def __init__(self, **kwargs):
-        self.platform = kwargs.get('platform')
-        try:
-            self.platform = Platform[self.platform]
-        except KeyError:
-            pass
-        self.user_name = kwargs.get('user_name')
-        self.player_id = kwargs.get('user_id', self.user_name)
-        self.playlists = {}
-        self._prepare_playlists(kwargs.get('player_skills', []))
-        if self.playlists:
-            self.highest_tier = []
-            for playlist in self.playlists.values():
-                self.highest_tier.append(playlist.tier)
-            self.highest_tier = max(self.highest_tier)
-        else:
-            self.highest_tier = 0
-        self.season_rewards = kwargs.get('season_rewards', {})
-        self.season_rewards['highest_tier'] = self.highest_tier
-        self.season_rewards = SeasonRewards(**self.season_rewards)
-
-    def get_playlist(self, playlist_key):
-        return self.playlists.get(playlist_key)
-
-    def add_playlist(self, playlist):
-        playlist['key'] = playlist.pop('playlist')
-        try:
-            playlist['key'] = PlaylistKey(playlist['key'])
-        except ValueError:
-            pass
-
-        self.playlists[playlist['key']] = Playlist(**playlist)
-
-    def _prepare_playlists(self, player_skills):
-        for playlist in player_skills:
-            self.add_playlist(playlist)
 
 
 class RLStats(commands.Cog):
     """Get your Rocket League stats with a single command!"""
-    # TODO:
-    # add rltracker cog functionality to this cog
-    # rest of TODO in rlstats method
 
     def __init__(self, bot):
         super().__init__()
         self.bot = bot
         self.config = Config.get_conf(self, identifier=6672039729,
                                       force_registration=True)
-        self.config.register_global(tier_breakdown=None)
+        self.config.register_global(tier_breakdown={})
         self.config.register_user(player_id=None, platform=None)
-        self.session = aiohttp.ClientSession()
-        self.emoji = {
-            1: "1⃣",
-            2: "2⃣",
-            3: "3⃣",
-            4: "4⃣"
-        }
+        self.rlapi_client = None
         self.size = (1920, 1080)
         self.data_path = bundled_data_path(self)
         self.fonts = {
@@ -436,186 +47,64 @@ class RLStats(commands.Cog):
                 str(self.data_path / "fonts/RobotoRegular.ttf"), 74)
         }
         self.offsets = {
-            PlaylistKey.SOLO_DUEL: (0, 0),
-            PlaylistKey.DOUBLES: (960, 0),
-            PlaylistKey.SOLO_STANDARD: (0, 383),
-            PlaylistKey.STANDARD: (960, 383)
+            rlapi.PlaylistKey.SOLO_DUEL: (0, 0),
+            rlapi.PlaylistKey.DOUBLES: (960, 0),
+            rlapi.PlaylistKey.SOLO_STANDARD: (0, 383),
+            rlapi.PlaylistKey.STANDARD: (960, 383)
         }
         self.coords = {
-            'username': (960, 71),
-            'playlist_name': (243, 197),
-            'rank_image': (153, 248),
-            'rank_text': (242, 453),  # center of rank text
-            'matches_played': (822, 160),
-            'win_streak': (492, 216),
-            'skill': (729, 272),
-            'gain': (715, 328),
-            'div_down': (552, 384),
-            'div_up': (727, 384),
-            'tier_down': (492, 446),
-            'tier_up': (667, 446),
-            'rewards': (914, 921)
+            'username': Point(960, 71),
+            'playlist_name': Point(243, 197),
+            'rank_image': Point(153, 248),
+            'rank_text': Point(242, 453),  # center of rank text
+            'matches_played': Point(822, 160),
+            'win_streak': Point(492, 216),
+            'skill': Point(729, 272),
+            'gain': Point(715, 328),
+            'div_down': Point(552, 384),
+            'div_up': Point(727, 384),
+            'tier_down': Point(492, 446),
+            'tier_up': Point(667, 446),
+            'rewards': Point(914, 921)
         }
         self.rank_size = (179, 179)
         self.tier_size = (49, 49)
 
     async def initialize(self):
-        await TierEstimates.load_tier_breakdown(self.config)
+        tier_breakdown = self.config.tier_breakdown
+        self.rlapi_client = rlapi.Client(
+            await self._get_token(),
+            loop=self.bot.loop,
+            tier_breakdown=self._convert_numbers_in_breakdown(await tier_breakdown())
+        )
+        await self.rlapi_client.setup
+        await tier_breakdown.set(self.rlapi_client.tier_breakdown)
 
     def __unload(self):
-        self.session.detach()
+        self.rlapi_client.destroy()
 
     __del__ = __unload
 
-    def _add_coords(self, coords1, coords2):
-        """Adds two tuples with coordinates (x,y)"""
-        x = coords1[0] + coords2[0]
-        y = coords1[1] + coords2[1]
-        return (x, y)
+    def _convert_numbers_in_breakdown(self, d: dict, curr_lvl: int = 0):
+        """Converts (recursively) dictionary's keys with numbers to integers"""
+        new = {}
+        func = self._convert_numbers_in_breakdown if curr_lvl < 2 else lambda v, _: v
+        for k, v in d.items():
+            v = func(v, curr_lvl+1)
+            new[int(k)] = v
+        return new
 
     def _get_coords(self, playlist_id, coords_name):
         """Gets coords for given element in chosen playlist"""
         coords = self.coords[coords_name]
         offset = self.offsets[playlist_id]
-        return self._add_coords(coords, offset)
+        return coords + offset
 
     async def _get_token(self):
-        rocketleague = await self.bot.db.api_tokens.get_raw("rocketleague",
-                                                            default={"user_token": ""})
-        return rocketleague['user_token']
-
-    async def _get_player(self, ctx, player_id):
-        players = []
-        for platform in Platform:
-            try:
-                players += await self._find_profile(ctx, platform, player_id)
-            except UnallowedCharactersError as e:
-                log.debug(str(e))
-        # Remove it after creating everything
-        if not players:
-            return None
-        if len(players) > 1:
-            description = ''
-            for idx, player in enumerate(players, 1):
-                description += "\n{}. {} account with username: {}".format(
-                    idx, player.platform, player.user_name
-                )
-
-            msg = await ctx.send(embed=discord.Embed(
-                title="There are multiple accounts with provided name:",
-                description=description
-            ))
-            emojis = ReactionPredicate.NUMBER_EMOJIS[1:len(players)+1]
-            start_adding_reactions(msg, emojis)
-            pred = ReactionPredicate.with_emojis(emojis, msg)
-            try:
-                await ctx.bot.wait_for("reaction_add", check=pred, timeout=15)
-            except asyncio.TimeoutError:
-                raise NoChoiceError("User didn't choose profile he wants to check")
-            finally:
-                await msg.delete()
-            return players[pred.result]
-        return players[0]
-
-    async def _find_profile(self, ctx, platform, player_id):
-        pattern = getattr(PlatformPatterns, platform.name)
-        match = pattern.fullmatch(player_id)
-        if not match:
-            raise UnallowedCharactersError(
-                "Provided username doesn't match provided pattern: {}"
-                .format(pattern)
-            )
-
-        players = []
-        if platform == Platform.steam:
-            ids = await self._find_steam_ids(ctx, match)
-        else:
-            ids = [player_id]
-
-        for player_id in ids:
-            try:
-                player = await self._get_stats(ctx, player_id, platform)
-                if player not in players:
-                    players.append(player)
-            except PlayerNotFoundError as e:
-                log.debug(
-                    str(e)
-                )
-
-        return players
-
-    async def _find_steam_ids(self, ctx, match):
-        player_id = match.group(2)
-        search_type = match.group(1)
-        if search_type is None:
-            search_types = ['profiles', 'id']
-        else:
-            search_types = [search_type]
-        ids = []
-        for search_type in search_types:
-            try:
-                async with self.session.get(
-                    'https://steamcommunity.com/{}/{}/?xml=1'
-                    .format(search_type, player_id)
-                ) as resp:
-                    steam_profile = ET.fromstring(await resp.text())
-            except (aiohttp.ClientResponseError, aiohttp.ClientError):
-                await ctx.send(
-                    "An error occured while searching for Steam profile. "
-                    "If this happens again, please inform bot owner about the issue."
-                )
-                raise
-
-            error = steam_profile.find('error')
-            if error is None:
-                ids.append(steam_profile.find('steamID64').text)
-            elif error.text != 'The specified profile could not be found.':
-                log.debug(
-                    "Steam threw error while searching profile using '%s' method: %s",
-                    search_type, error.text
-                )
-
-        return ids
-
-    async def _get_stats(self, ctx, player_id, platform):
-        try:
-            async with self.session.get(
-                'https://api.rocketleague.com/api/v1/{}/playerskills/{}/'
-                .format(platform.name, player_id),
-                headers={
-                    'Authorization': 'Token {}'.format(await self._get_token())
-                }
-            ) as resp:
-                if resp.status >= 500:
-                    raise ServerError(
-                        "RL API threw server error (status code: {}) during request: {}"
-                        .format(resp.status, await resp.text())
-                    )
-                player = await resp.json()
-                if resp.status == 400 and 'not found' in player['detail']:
-                    raise PlayerNotFoundError(
-                        "Player with provided username could not be found."
-                    )
-                if resp.status >= 400:
-                    log.error(
-                        "RL API threw client error (status code: %s) during request: %s",
-                        resp.status, player['detail']
-                    )
-                    await ctx.send(
-                        "An error occured while checking Rocket League Stats. "
-                        "If this happens again, "
-                        "please inform bot owner about the issue."
-                    )
-                    return
-        except (aiohttp.ClientResponseError, aiohttp.ClientError):
-            await ctx.send(
-                "An error occured while checking Rocket League Stats. "
-                "If this will happen again, please inform bot owner about the issue."
-            )
-            raise
-
-        player[0]['platform'] = platform
-        return Player(**player[0])
+        rocket_league = await self.bot.db.api_tokens.get_raw(
+            "rocket_league", default={"user_token": ""}
+        )
+        return rocket_league.get('user_token', "")
 
     @checks.is_owner()
     @commands.group(name="rlset")
@@ -639,103 +128,120 @@ class RLStats(commands.Cog):
             "6. Hope that Psyonix will reply to you\n"
             "7. When you get API access, copy your user token "
             "from your account on Rocket League API website\n"
-            "`{}set api rocketleague user_token,your_user_token`".format(ctx.prefix)
+            f"`{ctx.prefix}set api rocket_league user_token,your_user_token`"
         )
         await ctx.maybe_send_embed(message)
 
-    async def _is_token_set(self):
-        """Checks if token is set"""
-        if await self._get_token() == "":
-            return False
-        return True
-
-    async def _get_player_data_by_member(self, member):
+    async def _get_player_data_by_user(self, user):
         """nwm"""
-        player_id = await self.config.user(member).player_id()
+        user_data = await self.config.user(user).all()
+        player_id, platform = user_data['player_id'], user_data['platform']
         if player_id is not None:
-            return player_id, Platform[await self.config.user(member).platform()]
-        return None
+            return (player_id, rlapi.Platform[platform])
+        raise errors.PlayerDataNotFound(
+            f"Couldn't find player data for discord user with ID {user.id}"
+        )
+
+    async def _get_players(self, player_ids):
+        players = []
+        for player_id, platform in player_ids:
+            with contextlib.suppress(rlapi.PlayerNotFound):
+                players += await self.rlapi_client.get_player(player_id, platform)
+        if not players:
+            raise rlapi.PlayerNotFound
+        return tuple(players)
+
+    async def _choose_player(self, ctx, players: Iterable[rlapi.Player]):
+        players_len = len(players)
+        if players_len > 1:
+            description = ''
+            for idx, player in enumerate(players, 1):
+                description += "\n{}. {} account with username: {}".format(
+                    idx, player.platform, player.user_name
+                )
+            msg = await ctx.send(embed=discord.Embed(
+                title="There are multiple accounts with provided name:",
+                description=description
+            ))
+
+            emojis = ReactionPredicate.NUMBER_EMOJIS[1:players_len+1]
+            start_adding_reactions(msg, emojis)
+            pred = ReactionPredicate.with_emojis(emojis, msg)
+
+            try:
+                await ctx.bot.wait_for("reaction_add", check=pred, timeout=15)
+            except asyncio.TimeoutError:
+                raise errors.NoChoiceError(
+                    "User didn't choose profile he wants to check"
+                )
+            finally:
+                await msg.delete()
+
+            return players[pred.result]
+        return players[0]
 
     @commands.command()
     async def rlstats(self, ctx, *, player_id=None):
         """Checks for your or given player's Rocket League stats"""
-        # TODO:
-        # add icons for platforms
-        # add ranked sports
-        # add number of wins (there's no text right now, only bars)
-        # make Tier and division estimates shorter (create some additional methods)
-
         await ctx.trigger_typing()
 
-        if not await self._is_token_set():
-            await ctx.send((
+        token = await self._get_token()
+        if not token:
+            return await ctx.send((
                 "`This cog wasn't configured properly. "
                 "If you're the owner, setup the cog using {}rlset`"
             ).format(ctx.prefix))
-            return
+        self.rlapi_client.update_token(token)
 
-        platform = None
+        player_ids: List[Tuple[str, Optional[rlapi.Platform]]] = []
         if player_id is None:
             try:
-                player_id, platform = await self._get_player_data_by_member(ctx.author)
-            except TypeError:
+                player_ids.append(await self._get_player_data_by_user(ctx.author))
+            except errors.PlayerDataNotFound:
                 await ctx.send((
                     "Your game account is not connected with Discord. "
-                    "If you want to get stats, either give your ID after a command: "
-                    "`{0}rlstats <ID>`"
+                    "If you want to get stats, "
+                    "either give your player ID after a command: "
+                    "`{0}rlstats <player_id>`"
                     " or connect your account using command: "
-                    "`{0}rlconnect <ID>`"
+                    "`{0}rlconnect <player_id>`"
                 ).format(ctx.prefix))
                 return
         else:
             try:
-                member = await commands.MemberConverter().convert(ctx, player_id)
+                user = await commands.MemberConverter().convert(ctx, player_id)
             except commands.BadArgument:
                 pass
             else:
-                try:
-                    player_id, platform = await self._get_player_data_by_member(member)
-                except TypeError:
-                    await ctx.send((
-                        "This user hasn't connected his game account with Discord. "
-                        "You need to search for his stats using his ID: "
-                        "`{0}rlstats <ID>`"
-                    ).format(ctx.prefix))
-                    return
+                with contextlib.suppress(errors.PlayerDataNotFound):
+                    player_ids.append(await self._get_player_data_by_user(user))
+            player_ids.append((player_id, None))
 
-        playlists = [PlaylistKey.SOLO_DUEL, PlaylistKey.DOUBLES,
-                     PlaylistKey.SOLO_STANDARD, PlaylistKey.STANDARD]
+        playlists = [
+            rlapi.PlaylistKey.SOLO_DUEL,
+            rlapi.PlaylistKey.DOUBLES,
+            rlapi.PlaylistKey.SOLO_STANDARD,
+            rlapi.PlaylistKey.STANDARD
+        ]
 
         try:
-            if platform is not None:
-                player = await self._get_stats(ctx, player_id, platform)
-            else:
-                player = await self._get_player(ctx, player_id)
-        except ServerError as e:
+            players = await self._get_players(player_ids)
+        except rlapi.HTTPException as e:
             log.error(str(e))
-            await ctx.send(
+            return await ctx.send(
                 "Rocket League API experiences some issues right now. Try again later."
             )
-            return
-        except NoChoiceError as e:
+        except rlapi.PlayerNotFound as e:
             log.debug(str(e))
-            await ctx.send(
-                "You didn't choose profile you want to check."
-            )
-            return
-        except PlayerNotFoundError as e:
-            log.debug(str(e))
-            await ctx.send(
+            return await ctx.send(
                 "The specified profile could not be found."
             )
-            return
 
-        if player is None:
-            log.debug("The specified profile could not be found.")
-            await ctx.send(
-                "The specified profile could not be found."
-            )
-            return
+        try:
+            player = await self._choose_player(ctx, players)
+        except errors.NoChoiceError as e:
+            log.debug(e)
+            return await ctx.send("You didn't choose profile you want to check.")
 
         for playlist_key in playlists:
             if playlist_key not in player.playlists:
@@ -747,7 +253,7 @@ class RLStats(commands.Cog):
 
         # Draw - username
         w, h = self.fonts["RobotoCondensedBold90"].getsize(player.user_name)
-        coords = self._add_coords(self.coords['username'], (-w/2, -h/2))
+        coords = self.coords['username'] - (w/2, h/2)
         draw.text(coords, player.user_name,
                   font=self.fonts["RobotoCondensedBold90"], fill="white")
 
@@ -756,7 +262,7 @@ class RLStats(commands.Cog):
             # Draw - playlist name
             w, h = self.fonts["RobotoRegular74"].getsize(playlist_key.friendly_name)
             coords = self._get_coords(playlist_key, 'playlist_name')
-            coords = self._add_coords(coords, (-w/2, -h/2))
+            coords = coords - (w/2, h/2)
             draw.text(
                 coords, playlist_key.friendly_name,
                 font=self.fonts["RobotoRegular74"], fill="white"
@@ -770,7 +276,7 @@ class RLStats(commands.Cog):
             ).convert('RGBA')
             temp_image.thumbnail(self.rank_size, Image.ANTIALIAS)
             coords = self._get_coords(playlist_key, 'rank_image')
-            temp.paste(temp_image, coords)
+            temp.paste(temp_image, Rectangle(coords, temp_image.size))
             process = Image.alpha_composite(process, temp)
             draw = ImageDraw.Draw(process)
 
@@ -778,7 +284,7 @@ class RLStats(commands.Cog):
 
             w, h = self.fonts["RobotoLight45"].getsize(str(playlist))
             coords = self._get_coords(playlist_key, 'rank_text')
-            coords = self._add_coords(coords, (-w/2, -h/2))
+            coords = coords - (w/2, h/2)
             draw.text(
                 coords, str(playlist),
                 font=self.fonts["RobotoLight45"], fill="white"
@@ -798,7 +304,7 @@ class RLStats(commands.Cog):
                 text = "Win Streak:"
             w, h = self.fonts["RobotoLight45"].getsize(text)
             coords_text = self._get_coords(playlist_key, 'win_streak')
-            coords_amount = self._add_coords(coords_text, (11+w, 0))
+            coords_amount = coords_text + (11+w, 0)
             # Draw - "Win Streak" or "Losing Streak"
             draw.text(coords_text, text, font=self.fonts["RobotoLight45"], fill="white")
             # Draw - amount of won/lost games
@@ -846,7 +352,9 @@ class RLStats(commands.Cog):
             tier_down_image = Image.open(tier_down).convert('RGBA')
             tier_down_image.thumbnail(self.tier_size, Image.ANTIALIAS)
             coords_image = self._get_coords(playlist_key, 'tier_down')
-            tier_down_temp.paste(tier_down_image, coords_image)
+            tier_down_temp.paste(
+                tier_down_image, Rectangle(coords_image, tier_down_image.size)
+            )
             process = Image.alpha_composite(process, tier_down_temp)
             draw = ImageDraw.Draw(process)
             # Points
@@ -854,7 +362,7 @@ class RLStats(commands.Cog):
                 tier_down = 'N/A'
             else:
                 tier_down = '{0:+d}'.format(playlist.tier_estimates.tier_down)
-            coords_text = self._add_coords(coords_image, (self.tier_size[0]+11, -5))
+            coords_text = coords_image + (self.tier_size[0]+11, -5)
             draw.text(
                 coords_text, tier_down,
                 font=self.fonts["RobotoBold45"], fill="white"
@@ -878,11 +386,13 @@ class RLStats(commands.Cog):
             tier_up_image = Image.open(tier_up).convert('RGBA')
             tier_up_image.thumbnail(self.tier_size, Image.ANTIALIAS)
             coords_image = self._get_coords(playlist_key, 'tier_up')
-            tier_up_temp.paste(tier_up_image, coords_image)
+            tier_up_temp.paste(
+                tier_up_image, Rectangle(coords_image, tier_up_image.size)
+            )
             process = Image.alpha_composite(process, tier_up_temp)
             draw = ImageDraw.Draw(process)
             # Points
-            coords_text = self._add_coords(coords_image, (self.tier_size[0]+11, -5))
+            coords_text = coords_image + (self.tier_size[0]+11, -5)
             if playlist.tier_estimates.tier_up is None:
                 tier_up = 'N/A'
             else:
@@ -921,11 +431,17 @@ class RLStats(commands.Cog):
                 ).convert('RGBA')
             for win in range(0, 10):
                 reward_bars_temp = Image.new('RGBA', self.size)
-                coords = self._add_coords(self.coords['rewards'], (win*83, 0))
+                coords = self.coords['rewards'] + (win*83, 0)
                 if rewards.wins > win:
-                    reward_bars_temp.paste(reward_bars_win_image, coords)
+                    reward_bars_temp.paste(
+                        reward_bars_win_image,
+                        Rectangle(coords, reward_bars_win_image.size)
+                    )
                 else:
-                    reward_bars_temp.paste(reward_bars_nowin_image, coords)
+                    reward_bars_temp.paste(
+                        reward_bars_nowin_image,
+                        Rectangle(coords, reward_bars_nowin_image.size)
+                    )
                 process = Image.alpha_composite(process, reward_bars_temp)
                 draw = ImageDraw.Draw(process)
 
@@ -946,25 +462,25 @@ class RLStats(commands.Cog):
     async def rlconnect(self, ctx, player_id):
         """Connects game profile with Discord."""
         try:
-            player = await self._get_player(ctx, player_id)
-        except ServerError as e:
+            players = await self.rlapi_client.get_player(player_id)
+        except rlapi.HTTPException as e:
             log.error(str(e))
-            await ctx.send(
+            return await ctx.send(
                 "Rocket League API expierences some issues right now. Try again later."
             )
-            return
-        except NoChoiceError as e:
+        except rlapi.PlayerNotFound as e:
             log.debug(str(e))
-            await ctx.send(
-                "You didn't choose profile you want to connect."
-            )
-            return
-
-        if player is None:
-            await ctx.send(
+            return await ctx.send(
                 "The specified profile could not be found."
             )
-            return
+
+        try:
+            player = await self._choose_player(ctx, players)
+        except errors.NoChoiceError as e:
+            log.debug(str(e))
+            return await ctx.send(
+                "You didn't choose profile you want to connect."
+            )
 
         await self.config.user(ctx.author).platform.set(player.platform.name)
         await self.config.user(ctx.author).player_id.set(player.player_id)
@@ -980,5 +496,6 @@ class RLStats(commands.Cog):
         """Update tier breakdown"""
         await ctx.send("Updating tier breakdown...")
         async with ctx.typing():
-            await TierEstimates.load_tier_breakdown(self.config, update=True)
+            await self.rlapi_client.update_tier_breakdown()
+            await self.config.tier_breakdown.set(self.rlapi_client.tier_breakdown)
         await ctx.send("Tier breakdown updated.")
