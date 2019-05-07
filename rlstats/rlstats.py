@@ -221,6 +221,17 @@ class RLStats(commands.Cog):
         )
         await self._rlstats_logic(ctx, playlists, player_id)
 
+    @commands.command()
+    async def rlsports(self, ctx, *, player_id=None):
+        """Checks for your or given player's Rocket League extra modes stats"""
+        playlists = (
+            rlapi.PlaylistKey.HOOPS,
+            rlapi.PlaylistKey.RUMBLE,
+            rlapi.PlaylistKey.DROPSHOT,
+            rlapi.PlaylistKey.SNOW_DAY
+        )
+        await self._rlstats_logic(ctx, playlists, player_id)
+
     async def _rlstats_logic(self, ctx, playlists, player_id):
         await ctx.trigger_typing()
 
