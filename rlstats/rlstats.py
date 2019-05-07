@@ -12,19 +12,52 @@ from redbot.core.utils.menus import start_adding_reactions
 from redbot.core.data_manager import bundled_data_path
 
 try:
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import ImageFont
 except ImportError:
     raise RuntimeError("Can't load pillow. Do 'pip3 install pillow'.")
 
 from . import rlapi
-from .figures import Point, Rectangle
+from .figures import Point
 from . import errors
+from .image import CoordsInfo, RLStatsImageTemplate
 
 log = logging.getLogger('redbot.rlstats')
 
 
 class RLStats(commands.Cog):
     """Get your Rocket League stats with a single command!"""
+
+    RANK_SIZE = (179, 179)
+    TIER_SIZE = (49, 49)
+    OFFSETS = {
+        # competitive
+        rlapi.PlaylistKey.SOLO_DUEL: (0, 0),
+        rlapi.PlaylistKey.DOUBLES: (960, 0),
+        rlapi.PlaylistKey.SOLO_STANDARD: (0, 383),
+        rlapi.PlaylistKey.STANDARD: (960, 383),
+        # extra modes
+        rlapi.PlaylistKey.HOOPS: (0, 0),
+        rlapi.PlaylistKey.RUMBLE: (960, 0),
+        rlapi.PlaylistKey.DROPSHOT: (0, 383),
+        rlapi.PlaylistKey.SNOW_DAY: (960, 383)
+    }
+    COORDS = {
+        'username': CoordsInfo(Point(960, 71), 'RobotoCondensedBold90'),
+        'playlist_name': CoordsInfo(Point(243, 197), 'RobotoRegular74'),
+        'rank_image': CoordsInfo(Point(153, 248), None),
+        'rank_text': CoordsInfo(Point(242, 453), 'RobotoLight45'),
+        'matches_played': CoordsInfo(Point(822, 160), 'RobotoBold45'),
+        'win_streak_text': CoordsInfo(Point(492, 216), 'RobotoLight45'),
+        'win_streak_amount': CoordsInfo(Point(503, 216), 'RobotoBold45'),
+        'skill': CoordsInfo(Point(729, 272), 'RobotoBold45'),
+        'gain': CoordsInfo(Point(715, 328), 'RobotoBold45'),
+        'div_down': CoordsInfo(Point(552, 384), 'RobotoBold45'),
+        'div_up': CoordsInfo(Point(727, 384), 'RobotoBold45'),
+        'tier_down': CoordsInfo(Point(492, 446), 'RobotoBold45'),
+        'tier_up': CoordsInfo(Point(667, 446), 'RobotoBold45'),
+        'season_rewards_lvl': CoordsInfo(Point(150, 886), None),
+        'season_rewards_bars': CoordsInfo(Point(831, 921), None)
+    }
 
     def __init__(self, bot):
         super().__init__()
@@ -34,41 +67,44 @@ class RLStats(commands.Cog):
         self.config.register_global(tier_breakdown={})
         self.config.register_user(player_id=None, platform=None)
         self.rlapi_client = None
-        self.size = (1920, 1080)
         self.data_path = bundled_data_path(self)
         self.fonts = {
             'RobotoCondensedBold90': ImageFont.truetype(
-                str(self.data_path / "fonts/RobotoCondensedBold.ttf"), 90),
-            'RobotoBold45': ImageFont.truetype(
-                str(self.data_path / "fonts/RobotoBold.ttf"), 45),
-            'RobotoLight45': ImageFont.truetype(
-                str(self.data_path / "fonts/RobotoLight.ttf"), 45),
+                str(self.data_path / "fonts/RobotoCondensedBold.ttf"), 90
+            ),
             'RobotoRegular74': ImageFont.truetype(
-                str(self.data_path / "fonts/RobotoRegular.ttf"), 74)
+                str(self.data_path / "fonts/RobotoRegular.ttf"), 74
+            ),
+            'RobotoBold45': ImageFont.truetype(
+                str(self.data_path / "fonts/RobotoBold.ttf"), 45
+            ),
+            'RobotoLight45': ImageFont.truetype(
+                str(self.data_path / "fonts/RobotoLight.ttf"), 45
+            )
         }
-        self.offsets = {
-            rlapi.PlaylistKey.SOLO_DUEL: (0, 0),
-            rlapi.PlaylistKey.DOUBLES: (960, 0),
-            rlapi.PlaylistKey.SOLO_STANDARD: (0, 383),
-            rlapi.PlaylistKey.STANDARD: (960, 383)
+        self.images = {
+            'tier_image': str(self.data_path) + '/images/ranks/{}.png',
+            'season_rewards_lvl': str(self.data_path) + '/images/rewards/{:d}_{:d}.png',
+            'season_rewards_bars_win': (
+                str(self.data_path) + '/images/rewards/bars/Bar_{:d}_Win.png'
+            ),
+            'season_rewards_bars_nowin': (
+                str(self.data_path) + '/images/rewards/bars/Bar_{:d}_NoWin.png'
+            ),
+            'season_rewards_bars_red': (
+                str(self.data_path) + '/images/rewards/bars/Bar_Red.png'
+            ),
         }
-        self.coords = {
-            'username': Point(960, 71),
-            'playlist_name': Point(243, 197),
-            'rank_image': Point(153, 248),
-            'rank_text': Point(242, 453),  # center of rank text
-            'matches_played': Point(822, 160),
-            'win_streak': Point(492, 216),
-            'skill': Point(729, 272),
-            'gain': Point(715, 328),
-            'div_down': Point(552, 384),
-            'div_up': Point(727, 384),
-            'tier_down': Point(492, 446),
-            'tier_up': Point(667, 446),
-            'rewards': Point(914, 921)
-        }
-        self.rank_size = (179, 179)
-        self.tier_size = (49, 49)
+        self.bg_image = self.data_path / 'rank_bg.png'
+        self.image_template = RLStatsImageTemplate(
+            rank_size=self.RANK_SIZE,
+            tier_size=self.TIER_SIZE,
+            offsets=self.OFFSETS,
+            coords=self.COORDS,
+            fonts=self.fonts,
+            bg_image=self.bg_image,
+            images=self.images
+        )
 
     async def initialize(self):
         tier_breakdown = self.config.tier_breakdown
@@ -93,12 +129,6 @@ class RLStats(commands.Cog):
             v = func(v, curr_lvl+1)
             new[int(k)] = v
         return new
-
-    def _get_coords(self, playlist_id, coords_name):
-        """Gets coords for given element in chosen playlist"""
-        coords = self.coords[coords_name]
-        offset = self.offsets[playlist_id]
-        return coords + offset
 
     async def _get_token(self):
         rocket_league = await self.bot.db.api_tokens.get_raw(
@@ -182,7 +212,16 @@ class RLStats(commands.Cog):
 
     @commands.command()
     async def rlstats(self, ctx, *, player_id=None):
-        """Checks for your or given player's Rocket League stats"""
+        """Checks for your or given player's Rocket League competitive stats"""
+        playlists = (
+            rlapi.PlaylistKey.SOLO_DUEL,
+            rlapi.PlaylistKey.DOUBLES,
+            rlapi.PlaylistKey.SOLO_STANDARD,
+            rlapi.PlaylistKey.STANDARD
+        )
+        await self._rlstats_logic(ctx, playlists, player_id)
+
+    async def _rlstats_logic(self, ctx, playlists, player_id):
         await ctx.trigger_typing()
 
         token = await self._get_token()
@@ -198,7 +237,7 @@ class RLStats(commands.Cog):
             try:
                 player_ids.append(await self._get_player_data_by_user(ctx.author))
             except errors.PlayerDataNotFound:
-                await ctx.send((
+                return await ctx.send((
                     "Your game account is not connected with Discord. "
                     "If you want to get stats, "
                     "either give your player ID after a command: "
@@ -206,7 +245,6 @@ class RLStats(commands.Cog):
                     " or connect your account using command: "
                     "`{0}rlconnect <player_id>`"
                 ).format(ctx.prefix))
-                return
         else:
             try:
                 user = await commands.MemberConverter().convert(ctx, player_id)
@@ -216,13 +254,6 @@ class RLStats(commands.Cog):
                 with contextlib.suppress(errors.PlayerDataNotFound):
                     player_ids.append(await self._get_player_data_by_user(user))
             player_ids.append((player_id, None))
-
-        playlists = [
-            rlapi.PlaylistKey.SOLO_DUEL,
-            rlapi.PlaylistKey.DOUBLES,
-            rlapi.PlaylistKey.SOLO_STANDARD,
-            rlapi.PlaylistKey.STANDARD
-        ]
 
         try:
             players = await self._get_players(player_ids)
@@ -247,206 +278,7 @@ class RLStats(commands.Cog):
             if playlist_key not in player.playlists:
                 player.add_playlist({'playlist': playlist_key})
 
-        result = Image.open(self.data_path / 'rank_bg.png').convert('RGBA')
-        process = Image.new('RGBA', self.size)
-        draw = ImageDraw.Draw(process)
-
-        # Draw - username
-        w, h = self.fonts["RobotoCondensedBold90"].getsize(player.user_name)
-        coords = self.coords['username'] - (w/2, h/2)
-        draw.text(coords, player.user_name,
-                  font=self.fonts["RobotoCondensedBold90"], fill="white")
-
-        # Draw - rank details
-        for playlist_key in playlists:
-            # Draw - playlist name
-            w, h = self.fonts["RobotoRegular74"].getsize(playlist_key.friendly_name)
-            coords = self._get_coords(playlist_key, 'playlist_name')
-            coords = coords - (w/2, h/2)
-            draw.text(
-                coords, playlist_key.friendly_name,
-                font=self.fonts["RobotoRegular74"], fill="white"
-            )
-
-            # Draw - rank image
-            playlist = player.get_playlist(playlist_key)
-            temp = Image.new('RGBA', self.size)
-            temp_image = Image.open(
-                self.data_path / 'images/ranks/{}.png'.format(playlist.tier)
-            ).convert('RGBA')
-            temp_image.thumbnail(self.rank_size, Image.ANTIALIAS)
-            coords = self._get_coords(playlist_key, 'rank_image')
-            temp.paste(temp_image, Rectangle(coords, temp_image.size))
-            process = Image.alpha_composite(process, temp)
-            draw = ImageDraw.Draw(process)
-
-            # Draw - rank name (e.g. Diamond 3 Div 1)
-
-            w, h = self.fonts["RobotoLight45"].getsize(str(playlist))
-            coords = self._get_coords(playlist_key, 'rank_text')
-            coords = coords - (w/2, h/2)
-            draw.text(
-                coords, str(playlist),
-                font=self.fonts["RobotoLight45"], fill="white"
-            )
-
-            # Draw - matches played
-            coords = self._get_coords(playlist_key, 'matches_played')
-            draw.text(
-                coords, str(playlist.matches_played),
-                font=self.fonts["RobotoBold45"], fill="white"
-            )
-
-            # Draw - Win/Losing Streak
-            if playlist.win_streak < 0:
-                text = "Losing Streak:"
-            else:
-                text = "Win Streak:"
-            w, h = self.fonts["RobotoLight45"].getsize(text)
-            coords_text = self._get_coords(playlist_key, 'win_streak')
-            coords_amount = coords_text + (11+w, 0)
-            # Draw - "Win Streak" or "Losing Streak"
-            draw.text(coords_text, text, font=self.fonts["RobotoLight45"], fill="white")
-            # Draw - amount of won/lost games
-            draw.text(
-                coords_amount, str(playlist.win_streak),
-                font=self.fonts["RobotoBold45"], fill="white"
-            )
-
-            # Draw - Skill Rating
-            coords = self._get_coords(playlist_key, 'skill')
-            draw.text(
-                coords, str(playlist.skill),
-                font=self.fonts["RobotoBold45"], fill="white"
-            )
-
-            # Draw - Gain/Loss
-            # TODO: rltracker rewrite needed to support this
-            gain = 0
-
-            coords = self._get_coords(playlist_key, 'gain')
-            if gain == 0:
-                draw.text(coords, "N/A", font=self.fonts["RobotoBold45"], fill="white")
-            else:
-                draw.text(
-                    coords, str(round(gain, 3)),
-                    font=self.fonts["RobotoBold45"], fill="white"
-                )
-
-            # Draw - Tier and division estimates
-            # Draw - Division Down
-            coords = self._get_coords(playlist_key, 'div_down')
-            if playlist.tier_estimates.div_down is None:
-                div_down = 'N/A'
-            else:
-                div_down = '{0:+d}'.format(playlist.tier_estimates.div_down)
-            draw.text(coords, div_down, font=self.fonts["RobotoBold45"], fill="white")
-
-            # Draw - Tier Down
-            # Icon
-            tier = playlist.tier_estimates.tier
-            tier_down = self.data_path / 'images/ranks/{}.png'.format(
-                tier-1 if tier > 0 else 0
-            )
-            tier_down_temp = Image.new('RGBA', self.size)
-            tier_down_image = Image.open(tier_down).convert('RGBA')
-            tier_down_image.thumbnail(self.tier_size, Image.ANTIALIAS)
-            coords_image = self._get_coords(playlist_key, 'tier_down')
-            tier_down_temp.paste(
-                tier_down_image, Rectangle(coords_image, tier_down_image.size)
-            )
-            process = Image.alpha_composite(process, tier_down_temp)
-            draw = ImageDraw.Draw(process)
-            # Points
-            if playlist.tier_estimates.tier_down is None:
-                tier_down = 'N/A'
-            else:
-                tier_down = '{0:+d}'.format(playlist.tier_estimates.tier_down)
-            coords_text = coords_image + (self.tier_size[0]+11, -5)
-            draw.text(
-                coords_text, tier_down,
-                font=self.fonts["RobotoBold45"], fill="white"
-            )
-
-            # Draw - Division Up
-            coords = self._get_coords(playlist_key, 'div_up')
-            if playlist.tier_estimates.div_up is None:
-                div_up = 'N/A'
-            else:
-                div_up = '{0:+d}'.format(playlist.tier_estimates.div_up)
-            draw.text(coords, div_up, font=self.fonts["RobotoBold45"], fill="white")
-
-            # Draw - Tier Up
-            # Icon
-            tier = playlist.tier_estimates.tier
-            tier_up = self.data_path / 'images/ranks/{}.png'.format(
-                tier+1 if 0 < tier < playlist.tier_max else 0
-            )
-            tier_up_temp = Image.new('RGBA', self.size)
-            tier_up_image = Image.open(tier_up).convert('RGBA')
-            tier_up_image.thumbnail(self.tier_size, Image.ANTIALIAS)
-            coords_image = self._get_coords(playlist_key, 'tier_up')
-            tier_up_temp.paste(
-                tier_up_image, Rectangle(coords_image, tier_up_image.size)
-            )
-            process = Image.alpha_composite(process, tier_up_temp)
-            draw = ImageDraw.Draw(process)
-            # Points
-            coords_text = coords_image + (self.tier_size[0]+11, -5)
-            if playlist.tier_estimates.tier_up is None:
-                tier_up = 'N/A'
-            else:
-                tier_up = '{0:+d}'.format(playlist.tier_estimates.tier_up)
-            draw.text(
-                coords_text, tier_up,
-                font=self.fonts["RobotoBold45"], fill="white"
-            )
-
-        # Season Reward Level
-        rewards = player.season_rewards
-
-        reward_temp = Image.new('RGBA', self.size)
-        reward_image = Image.open(
-            self.data_path / 'images/rewards/{:d}_{:d}.png'.format(
-                rewards.level, rewards.reward_ready
-            )
-        ).convert('RGBA')
-        reward_temp.paste(reward_image, (150, 886))
-        process = Image.alpha_composite(process, reward_temp)
-        draw = ImageDraw.Draw(process)
-        # Season Reward Bars
-        if player.season_rewards.level != 7:
-            reward_bars_win_image = Image.open(
-                self.data_path / 'images/rewards/bars/Bar_{:d}_Win.png'
-                .format(rewards.level)
-            ).convert('RGBA')
-            if player.season_rewards.reward_ready:
-                reward_bars_nowin_image = Image.open(
-                    self.data_path / 'images/rewards/bars/Bar_{:d}_NoWin.png'
-                    .format(rewards.level)
-                ).convert('RGBA')
-            else:
-                reward_bars_nowin_image = Image.open(
-                    self.data_path / 'images/rewards/bars/Bar_Red.png'
-                ).convert('RGBA')
-            for win in range(0, 10):
-                reward_bars_temp = Image.new('RGBA', self.size)
-                coords = self.coords['rewards'] + (win*83, 0)
-                if rewards.wins > win:
-                    reward_bars_temp.paste(
-                        reward_bars_win_image,
-                        Rectangle(coords, reward_bars_win_image.size)
-                    )
-                else:
-                    reward_bars_temp.paste(
-                        reward_bars_nowin_image,
-                        Rectangle(coords, reward_bars_nowin_image.size)
-                    )
-                process = Image.alpha_composite(process, reward_bars_temp)
-                draw = ImageDraw.Draw(process)
-
-        # save result
-        result = Image.alpha_composite(result, process)
+        result = self.image_template.generate_image(player, playlists)
         fp = BytesIO()
         result.save(fp, 'PNG', quality=100)
         fp.seek(0)

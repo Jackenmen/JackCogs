@@ -2,12 +2,14 @@ import asyncio
 import logging
 from collections import defaultdict
 from math import ceil
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import aiohttp
 
 from . import errors
 from .utils import json_or_text
+if TYPE_CHECKING:
+    from .player import Playlist
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +27,7 @@ class TierEstimates:
         'tier_up'
     )
 
-    def __init__(self, playlist):
+    def __init__(self, playlist: 'Playlist'):
         self.playlist = playlist
         if playlist.tier == 0:
             self._estimate_current_tier()
