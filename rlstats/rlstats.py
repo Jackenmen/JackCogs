@@ -287,7 +287,7 @@ class RLStats(commands.Cog):
                 'Rocket League Stats for **{}** '
                 '*(arrows show amount of points for division down/up)*'
             ).format(player.user_name),
-            file=discord.File(fp, '{}_profile.png'.format(player_id))
+            file=discord.File(fp, '{}_profile.png'.format(player.player_id))
         )
 
     @commands.command()
