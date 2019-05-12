@@ -285,9 +285,10 @@ class RLStats(commands.Cog):
             log.debug(e)
             return await ctx.send("You didn't choose profile you want to check.")
 
+        # TODO: This should probably be handled in rlapi module
         for playlist_key in playlists:
             if playlist_key not in player.playlists:
-                player.add_playlist({'playlist': playlist_key})
+                player.add_playlist({'playlist': playlist_key.value})
 
         result = self.image_template.generate_image(player, playlists)
         fp = BytesIO()

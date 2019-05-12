@@ -55,7 +55,7 @@ class TierEstimates:
 
     def _estimate_div_up(self):
         playlist = self.playlist
-        if self.tier == self.playlist.tier_max or self.tier == 0:
+        if self.tier == playlist.tier_max or self.tier == 0:
             self.div_up = None
             return
         try:
@@ -97,7 +97,7 @@ class TierEstimates:
 
     def _estimate_tier_up(self):
         playlist = self.playlist
-        if self.tier in {0, self.playlist.tier_max}:
+        if self.tier in {0, playlist.tier_max}:
             self.tier_up = None
             return
         try:
@@ -120,12 +120,38 @@ class TierEstimates:
             self.tier = playlist.tier
             self.division = playlist.division
             return
+
+        lowest_diff = None
         for tier, divisions in playlist.breakdown.items():
-            for division, data in divisions.items():
-                if data[0] <= playlist.skill <= data[1]:
+            for division, (begin, end) in divisions.items():
+                if begin <= playlist.skill <= end:
                     self.tier = tier
                     self.division = division
                     return
-        self.tier = playlist.tier
-        self.division = playlist.division
+                diff, incr = min(
+                    (abs(playlist.skill-begin), -1),
+                    (abs(playlist.skill-end), 1)
+                )
+                try:
+                    condition = diff <= lowest_diff
+                except TypeError:
+                    condition = True
+                if condition:
+                    lowest_diff = diff
+                    lowest_diff_tier = tier
+                    lowest_diff_division = division+incr
 
+        if lowest_diff_division == -1:
+            self.tier = lowest_diff_tier-1
+            self.division = 3
+            if self.tier < 1:
+                self.tier = 1
+                self.division = 0
+        elif lowest_diff_division == 4:
+            self.tier = lowest_diff_tier+1
+            self.division = 0
+            if self.tier > playlist.tier_max:
+                self.tier = playlist.tier_max
+        else:
+            self.tier = lowest_diff_tier
+            self.division = lowest_diff_division
