@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import re
-from typing import Tuple, Set, List, Dict, Optional
+from typing import Tuple, Set, List, Dict, Optional, Union
 
 import defusedxml.ElementTree as ET
 import aiohttp
@@ -9,7 +9,7 @@ import aiohttp
 from . import errors
 from .enums import Platform, PlatformPatterns
 from .player import Player
-from .tier_estimates import TierEstimates
+from .tier_breakdown.rocketleaguetrackernetwork import get_tier_breakdown
 from .utils import json_or_text
 
 log = logging.getLogger(__name__)
@@ -26,7 +26,9 @@ class Client:
         token: str,
         *,
         loop: Optional[asyncio.AbstractEventLoop] = None,
-        tier_breakdown: Optional[Dict[int, Dict[int, Dict[int, List[float]]]]] = None
+        tier_breakdown: Optional[
+            Dict[int, Dict[int, Dict[int, List[Union[float, int]]]]]
+        ] = None
     ):
         self.loop = asyncio.get_event_loop() if loop is None else loop
         self._session = aiohttp.ClientSession(loop=self.loop)
@@ -45,9 +47,7 @@ class Client:
     __del__ = destroy
 
     async def update_tier_breakdown(self):
-        self.tier_breakdown = await TierEstimates.get_tier_breakdown(
-            session=self._session
-        )
+        self.tier_breakdown = await get_tier_breakdown(self)
 
     def update_token(self, token: str):
         self._token = token
@@ -57,19 +57,22 @@ class Client:
         headers = {
             'Authorization': f'Token {self._token}'
         }
+        return await self._request(url, headers)
+
+    async def _request(self, url, headers: Optional[dict] = None):
         for tries in range(5):
             async with self._session.get(url, headers=headers) as resp:
                 data = await json_or_text(resp)
                 if 300 > resp.status >= 200:
                     return data
 
-                # received 500 or 502 error, RL API has some troubles, retrying
+                # received 500 or 502 error, API has some troubles, retrying
                 if resp.status in {500, 502}:
                     await asyncio.sleep(1 + tries * 2, loop=self.loop)
                     continue
                 # token is invalid
                 if resp.status == 401:
-                    raise errors.Unauthorized(resp, data['detail'])
+                    raise errors.Unauthorized(resp, data)
                 # generic error
                 raise errors.HTTPException(resp, data)
         # still failed after 5 tries
