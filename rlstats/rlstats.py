@@ -116,10 +116,10 @@ class RLStats(commands.Cog):
         await self.rlapi_client.setup
         await tier_breakdown.set(self.rlapi_client.tier_breakdown)
 
-    def __unload(self):
+    def cog_unload(self):
         self.rlapi_client.destroy()
 
-    __del__ = __unload
+    __del__ = cog_unload
 
     def _convert_numbers_in_breakdown(self, d: dict, curr_lvl: int = 0):
         """Converts (recursively) dictionary's keys with numbers to integers"""
