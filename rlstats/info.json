@@ -4,6 +4,7 @@
     "short": "Shows you Rocket League player statistics. Needs access to Rocket League API which is currently in closed beta.",
     "description": "Shows you Rocket League player statistics. Cog works just fine, but I plan more features in near future. The cog needs access to Rocket League API which is currently in closed beta.",
     "install_msg": "Thanks for installing RLStats. Before you will be able to check player's stats you need to configure a Rocket League API user token using command [p]rlset token",
+    "min_bot_version": "3.1.0",
     "requirements": ["pillow", "defusedxml", "lxml"],
     "tags": ["tools", "gaming", "rocketleague", "api"],
     "disabled": false
