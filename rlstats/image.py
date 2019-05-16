@@ -23,6 +23,8 @@ class RLStatsImageTemplate:
         coords: Dict[str, CoordsInfo],
         fonts: Dict[str, ImageFont.ImageFont],
         bg_image: Path,
+        bg_overlay: int,
+        rank_base: Path,
         images: Dict[str, str]
     ):
         self.rank_size = rank_size
@@ -31,6 +33,8 @@ class RLStatsImageTemplate:
         self.coords = coords
         self.fonts = fonts
         self.bg_image = bg_image
+        self.bg_overlay = bg_overlay
+        self.rank_base = rank_base
         self.images = images
 
     def get_coords(self, coords_name: str, playlist_key: Optional[PlaylistKey] = None):
@@ -83,10 +87,24 @@ class RLStatsImage(RLStatsImageMixin):
         self._generate_image()
 
     def _generate_image(self):
+        self._draw_bg_overlay()
+        self._draw_rank_base()
         self._draw_username()
         for playlist_key in self.playlists:
             self.alpha_composite(RLStatsImagePlaylist(self, playlist_key))
         self._draw_season_rewards()
+
+    def _draw_bg_overlay(self):
+        self.alpha_composite(
+            Image.new(
+                'RGBA',
+                self.size,
+                color=(0, 0, 0, int(self.template.bg_overlay*255/100))
+            )
+        )
+
+    def _draw_rank_base(self):
+        self.alpha_composite(Image.open(self.template.rank_base).convert('RGBA'))
 
     def _draw_username(self):
         coords, font_name = self.template.get_coords('username')

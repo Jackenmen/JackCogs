@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import logging
+import os
 from io import BytesIO
 from typing import List, Tuple, Optional, Iterable
 
@@ -9,10 +10,10 @@ from redbot.core import commands, checks
 from redbot.core.config import Config
 from redbot.core.utils.predicates import ReactionPredicate
 from redbot.core.utils.menus import start_adding_reactions
-from redbot.core.data_manager import bundled_data_path
+from redbot.core.data_manager import bundled_data_path, cog_data_path
 
 try:
-    from PIL import ImageFont
+    from PIL import Image, ImageFont
 except ImportError:
     raise RuntimeError("Can't load pillow. Do 'pip3 install pillow'.")
 
@@ -64,45 +65,69 @@ class RLStats(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=6672039729,
                                       force_registration=True)
-        self.config.register_global(tier_breakdown={})
+        self.config.register_global(
+            tier_breakdown={}, competitive_overlay=40, extramodes_overlay=70
+        )
         self.config.register_user(player_id=None, platform=None)
         self.rlapi_client = None
-        self.data_path = bundled_data_path(self)
+        self.bundled_data_path = bundled_data_path(self)
+        self.cog_data_path = cog_data_path(self)
         self.fonts = {
             'RobotoCondensedBold90': ImageFont.truetype(
-                str(self.data_path / "fonts/RobotoCondensedBold.ttf"), 90
+                str(self.bundled_data_path / "fonts/RobotoCondensedBold.ttf"), 90
             ),
             'RobotoRegular74': ImageFont.truetype(
-                str(self.data_path / "fonts/RobotoRegular.ttf"), 74
+                str(self.bundled_data_path / "fonts/RobotoRegular.ttf"), 74
             ),
             'RobotoBold45': ImageFont.truetype(
-                str(self.data_path / "fonts/RobotoBold.ttf"), 45
+                str(self.bundled_data_path / "fonts/RobotoBold.ttf"), 45
             ),
             'RobotoLight45': ImageFont.truetype(
-                str(self.data_path / "fonts/RobotoLight.ttf"), 45
+                str(self.bundled_data_path / "fonts/RobotoLight.ttf"), 45
             )
         }
         self.images = {
-            'tier_image': str(self.data_path) + '/images/ranks/{}.png',
-            'season_rewards_lvl': str(self.data_path) + '/images/rewards/{:d}_{:d}.png',
+            'tier_image': str(self.bundled_data_path) + '/images/ranks/{}.png',
+            'season_rewards_lvl': (
+                str(self.bundled_data_path) + '/images/rewards/{:d}_{:d}.png'
+            ),
             'season_rewards_bars_win': (
-                str(self.data_path) + '/images/rewards/bars/Bar_{:d}_Win.png'
+                str(self.bundled_data_path) + '/images/rewards/bars/Bar_{:d}_Win.png'
             ),
             'season_rewards_bars_nowin': (
-                str(self.data_path) + '/images/rewards/bars/Bar_{:d}_NoWin.png'
+                str(self.bundled_data_path) + '/images/rewards/bars/Bar_{:d}_NoWin.png'
             ),
             'season_rewards_bars_red': (
-                str(self.data_path) + '/images/rewards/bars/Bar_Red.png'
+                str(self.bundled_data_path) + '/images/rewards/bars/Bar_Red.png'
             ),
         }
-        self.bg_image = self.data_path / 'rank_bg.png'
-        self.image_template = RLStatsImageTemplate(
+        self.rank_base = self.bundled_data_path / 'rank_base.png'
+        bg_image = self.cog_data_path / 'bgs/competitive.png'
+        if not bg_image.is_file():
+            bg_image = self.bundled_data_path / 'bgs/competitive.png'
+        self.competitive_template = RLStatsImageTemplate(
             rank_size=self.RANK_SIZE,
             tier_size=self.TIER_SIZE,
             offsets=self.OFFSETS,
             coords=self.COORDS,
             fonts=self.fonts,
-            bg_image=self.bg_image,
+            bg_image=bg_image,
+            bg_overlay=40,
+            rank_base=self.rank_base,
+            images=self.images
+        )
+        bg_image = self.cog_data_path / 'bgs/extramodes.png'
+        if not bg_image.is_file():
+            bg_image = self.bundled_data_path / 'bgs/extramodes.png'
+        self.extramodes_template = RLStatsImageTemplate(
+            rank_size=self.RANK_SIZE,
+            tier_size=self.TIER_SIZE,
+            offsets=self.OFFSETS,
+            coords=self.COORDS,
+            fonts=self.fonts,
+            bg_image=bg_image,
+            bg_overlay=70,
+            rank_base=self.rank_base,
             images=self.images
         )
 
@@ -115,6 +140,8 @@ class RLStats(commands.Cog):
         )
         await self.rlapi_client.setup
         await tier_breakdown.set(self.rlapi_client.tier_breakdown)
+        self.extramodes_template.bg_overlay = await self.config.extramodes_overlay()
+        self.competitive_template.bg_overlay = await self.config.competitive_overlay()
 
     def cog_unload(self):
         self.rlapi_client.destroy()
@@ -141,7 +168,6 @@ class RLStats(commands.Cog):
     async def rlset(self, ctx):
         """RLStats configuration options."""
 
-    @checks.is_owner()
     @rlset.command()
     async def token(self, ctx):
         """Instructions to set the Rocket League API tokens."""
@@ -161,6 +187,149 @@ class RLStats(commands.Cog):
             f"`{ctx.prefix}set api rocket_league user_token,your_user_token`"
         )
         await ctx.maybe_send_embed(message)
+
+    @rlset.command(name="updatebreakdown")
+    async def updatebreakdown(self, ctx):
+        """Update tier breakdown."""
+        await ctx.send("Updating tier breakdown...")
+        async with ctx.typing():
+            await self.rlapi_client.update_tier_breakdown()
+            await self.config.tier_breakdown.set(self.rlapi_client.tier_breakdown)
+        await ctx.send("Tier breakdown updated.")
+
+    @rlset.group(name="image")
+    async def rlset_bgimage(self, ctx):
+        """Set background for stats image."""
+
+    @rlset_bgimage.group(name="extramodes")
+    async def rlset_bgimage_extramodes(self, ctx):
+        """Options for background for extra modes stats image."""
+
+    @rlset_bgimage_extramodes.command("set")
+    async def rlset_bgimage_extramodes_set(self, ctx):
+        """
+        Set background for extra modes stats image.
+
+        Use `[p]rlset bgimage extramodes reset` to reset to default.
+        """
+        await self._rlset_bgimage_set(
+            ctx, self.cog_data_path / 'bgs/extramodes.png', self.extramodes_template
+        )
+
+    @rlset_bgimage_extramodes.command("reset")
+    async def rlset_bgimage_extramodes_reset(self, ctx):
+        """Reset background for extra modes stats image to default."""
+        await self._rlset_bgimage_reset(
+            ctx,
+            'extra modes',
+            self.cog_data_path / 'bgs/extramodes.png',
+            self.bundled_data_path / 'bgs/extramodes.png',
+            self.extramodes_template
+        )
+
+    @rlset_bgimage_extramodes.command("overlay")
+    async def rlset_bgimage_extramodes_overlay(
+        self, ctx, percentage: Optional[int] = None
+    ):
+        """
+        Set overlay percentage for extra modes stats image.
+
+        Leave empty to reset to default (70)
+        """
+        await self._rlset_bgimage_overlay(
+            ctx, percentage,
+            'extra modes',
+            self.config.extramodes_overlay,
+            self.extramodes_template
+        )
+
+    @rlset_bgimage.group(name="competitive")
+    async def rlset_bgimage_competitive(self, ctx):
+        """Options for background for competitive stats image."""
+
+    @rlset_bgimage_competitive.command("set")
+    async def rlset_bgimage_competitive_set(self, ctx):
+        """
+        Set background for competitive stats image.
+
+        Use `[p]rlset bgimage competitive reset` to reset to default.
+        """
+        await self._rlset_bgimage_set(
+            ctx, self.cog_data_path / 'bgs/competitive.png', self.competitive_template
+        )
+
+    @rlset_bgimage_competitive.command("reset")
+    async def rlset_bgimage_competitive_reset(self, ctx):
+        """Reset background for competitive stats image to default."""
+        await self._rlset_bgimage_reset(
+            ctx,
+            'competitive',
+            self.cog_data_path / 'bgs/competitive.png',
+            self.bundled_data_path / 'bgs/competitive.png',
+            self.competitive_template
+        )
+
+    @rlset_bgimage_competitive.command("overlay")
+    async def rlset_bgimage_competitive_overlay(
+        self, ctx, percentage: Optional[int] = None
+    ):
+        """
+        Set overlay percentage for competitive stats image.
+
+        Leave empty to reset to default (40)
+        """
+        await self._rlset_bgimage_overlay(
+            ctx, percentage,
+            'competitive',
+            self.config.competitive_overlay,
+            self.competitive_template
+        )
+
+    async def _rlset_bgimage_set(self, ctx, filename, template):
+        if not ctx.message.attachments:
+            return await ctx.send("You have to send background image.")
+        if len(ctx.message.attachments) > 1:
+            return await ctx.send("You can send only one attachment.")
+        a = ctx.message.attachments[0]
+        fp = BytesIO()
+        await a.save(fp)
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        try:
+            im = Image.open(fp)
+        except IOError:
+            return await ctx.send("Attachment couldn't be open.")
+        try:
+            im.convert('RGBA').save(filename, 'PNG', quality=100)
+        except FileNotFoundError:
+            return await ctx.send("Attachment couldn't be saved.")
+        template.bg_image = filename
+        return await ctx.send("Background image was successfully set.")
+
+    async def _rlset_bgimage_reset(
+        self, ctx, mode, custom_filename, default_filename, template
+    ):
+        try:
+            os.remove(custom_filename)
+        except FileNotFoundError:
+            await ctx.send(
+                f"There was no custom background set for {mode} stats image."
+            )
+        else:
+            await ctx.send(
+                f"Background for {mode} stats image is changed back to default."
+            )
+            template.bg_image = default_filename
+
+    async def _rlset_bgimage_overlay(self, ctx, percentage, mode, value_obj, template):
+        if percentage is None:
+            await value_obj.clear()
+            template.bg_overlay = await value_obj()
+            return await ctx.send(f"Overlay percentage for {mode} stats image reset.")
+        if not 0 <= percentage <= 100:
+            return await ctx.send("Percentage value has to be in range 0-100.")
+        await value_obj.set(percentage)
+        template.bg_overlay = percentage
+        await ctx.send(f"Overlay percentage for {mode} stats set to {percentage}%")
 
     async def _get_player_data_by_user(self, user):
         """nwm"""
@@ -219,7 +388,7 @@ class RLStats(commands.Cog):
             rlapi.PlaylistKey.SOLO_STANDARD,
             rlapi.PlaylistKey.STANDARD
         )
-        await self._rlstats_logic(ctx, playlists, player_id)
+        await self._rlstats_logic(ctx, self.competitive_template, playlists, player_id)
 
     @commands.command()
     async def rlsports(self, ctx, *, player_id=None):
@@ -230,9 +399,9 @@ class RLStats(commands.Cog):
             rlapi.PlaylistKey.DROPSHOT,
             rlapi.PlaylistKey.SNOW_DAY
         )
-        await self._rlstats_logic(ctx, playlists, player_id)
+        await self._rlstats_logic(ctx, self.extramodes_template, playlists, player_id)
 
-    async def _rlstats_logic(self, ctx, playlists, player_id):
+    async def _rlstats_logic(self, ctx, template, playlists, player_id):
         await ctx.trigger_typing()
 
         token = await self._get_token()
@@ -290,7 +459,7 @@ class RLStats(commands.Cog):
             if playlist_key not in player.playlists:
                 player.add_playlist({'playlist': playlist_key.value})
 
-        result = self.image_template.generate_image(player, playlists)
+        result = template.generate_image(player, playlists)
         fp = BytesIO()
         result.save(fp, 'PNG', quality=100)
         fp.seek(0)
@@ -333,13 +502,3 @@ class RLStats(commands.Cog):
             "You successfully connected your {} account with Discord!"
             .format(player.platform)
         )
-
-    @checks.is_owner()
-    @rlset.command(name="updatebreakdown")
-    async def updatebreakdown(self, ctx):
-        """Update tier breakdown"""
-        await ctx.send("Updating tier breakdown...")
-        async with ctx.typing():
-            await self.rlapi_client.update_tier_breakdown()
-            await self.config.tier_breakdown.set(self.rlapi_client.tier_breakdown)
-        await ctx.send("Tier breakdown updated.")

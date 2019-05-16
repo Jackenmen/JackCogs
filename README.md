@@ -39,4 +39,6 @@ Redjumpman and PaddoInWonderlands, for this neat readme file template :D
 # License
 Please see MIT License for details. This project is open source and you are free to modify and use my work as long as you credit me.
 
-This project uses Roboto font which is distributed on Apache License 2.0
+This project bundles fonts from [Roboto family](https://fonts.google.com/specimen/Roboto) which is distributed on Apache License 2.0
+
+This project bundles screenshot done by reddit user [CastleintheMist](https://www.reddit.com/user/CastleintheMist/)
