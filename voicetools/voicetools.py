@@ -30,20 +30,6 @@ class VoiceTools(commands.Cog):
         }
         self.config.register_guild(**default_guild)
 
-    async def voicekick(self, ctx, members: commands.Greedy[discord.Member]):
-        """
-        Kick users out of voice channels.
-
-        To kick user from voice channel, new voice channels is created,
-        member is moved to it and then the voice channel is removed,
-        what will cause disconnect - there's no endpoint for disconnecting user,
-        so this is a workaround for it.
-        """
-        if not members:
-            return await ctx.send_help()
-        await self._kick_from_voice(members, ctx.guild)
-        await ctx.send("Members kicked out of voice channels")
-
     @commands.guild_only()
     @commands.admin()
     @commands.group()
@@ -295,6 +281,7 @@ class VoiceTools(commands.Cog):
         await self.config.guild(ctx.guild).vip_role_list.set(vip_role_list)
         await ctx.send("VIP list updated")
 
+    @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         if await self.config.guild(member.guild).vip_enabled():
             await self._vip_check(member, before, after)
