@@ -284,12 +284,17 @@ class VoiceTools(commands.Cog):
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         if await self.config.guild(member.guild).vip_enabled():
-            await self._vip_check(member, before, after)
+            if await self._vip_check(member, before, after):
+                return
         if await self.config.guild(member.guild).forcelimit_enabled():
             await self._forcelimit_check(member, before, after)
 
     async def _vip_check(self, member, before, after):
-        """If VIP joins/leaves a channel with user limit, modify it accordingly."""
+        """
+        If VIP joins/leaves a channel with user limit, modify it accordingly.
+
+        Returns True, if user or user's role is VIP
+        """
         vip_member_list = await self.config.guild(member.guild).vip_member_list()
         vip_role_list = await self.config.guild(member.guild).vip_role_list()
         if before.channel is not after.channel:
@@ -305,6 +310,7 @@ class VoiceTools(commands.Cog):
                         "VIP with ID %s (%s) "
                         "left voice channel with ID %s, lowering user limit!"
                     ), vip_id, vip_type, channel_id)
+                    return True
 
                 if after.channel is not None and after.channel.user_limit != 0:
                     await after.channel.edit(user_limit=after.channel.user_limit+1)
@@ -313,6 +319,8 @@ class VoiceTools(commands.Cog):
                         "VIP with ID %s (%s) "
                         "left voice channel with ID %s, raising user limit!"
                     ), vip_id, vip_type, channel_id)
+                    return True
+        return False
 
     async def _forcelimit_check(self, member, before, after):
         """If user joins a channel with user limit, make sure it's not overcrowded."""
