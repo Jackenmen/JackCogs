@@ -327,27 +327,8 @@ class VoiceTools(commands.Cog):
                 or any(role.id in ignore_role_list for role in member.roles)
                     or channel.id in ignore_vc_list):
                 return
-            await self._kick_from_voice([member], member.guild)
+            await member.move_to(discord.Object(id=None))
             log.info((
                 "Member with ID %s joined voice channel with ID %s "
                 "exceeding its limit, disconnecting!"
             ), member.id, channel.id)
-
-    async def _kick_from_voice(self, members, guild):
-        overwrites = {
-            guild.default_role: discord.PermissionOverwrite(read_messages=False),
-            guild.me: discord.PermissionOverwrite(read_messages=True)
-        }
-        category = await guild.create_category(
-            "Temporary Category (Kicking user from voice)",
-            overwrites=overwrites
-        )
-        vc = await guild.create_voice_channel(
-            "Temporary Channel (Kicking user from voice)",
-            overwrites=overwrites,
-            category=category
-        )
-        for member in members:
-            await member.move_to(vc)
-        await vc.delete()
-        await category.delete()
