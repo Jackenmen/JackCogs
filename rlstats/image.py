@@ -2,9 +2,9 @@ import contextlib
 from pathlib import Path
 from typing import Tuple, Dict, NamedTuple, Optional, Sequence
 
+from rlapi import PlaylistKey, Player
 from PIL import Image, ImageDraw, ImageFont
 
-from .rlapi import PlaylistKey, Player
 from .figures import Point
 
 
@@ -186,11 +186,12 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
     def _draw_playlist_name(self):
         coords, font_name = self.get_coords('playlist_name')
         font = self.fonts[font_name]
-        w, h = font.getsize(self.playlist_key.friendly_name)
+        playlist_name = str(self.playlist_key)
+        w, h = font.getsize(playlist_name)
         coords -= (w/2, h/2)
         self._draw.text(
             xy=coords,
-            text=self.playlist_key.friendly_name,
+            text=playlist_name,
             font=font,
             fill="white"
         )

@@ -17,7 +17,8 @@ try:
 except ImportError:
     raise RuntimeError("Can't load pillow. Do 'pip3 install pillow'.")
 
-from . import rlapi
+import rlapi
+from rlapi.ext.tier_breakdown.trackernetwork import get_tier_breakdown
 from .figures import Point
 from . import errors
 from .image import CoordsInfo, RLStatsImageTemplate
@@ -32,15 +33,15 @@ class RLStats(commands.Cog):
     TIER_SIZE = (49, 49)
     OFFSETS = {
         # competitive
-        rlapi.PlaylistKey.SOLO_DUEL: (0, 0),
-        rlapi.PlaylistKey.DOUBLES: (960, 0),
-        rlapi.PlaylistKey.SOLO_STANDARD: (0, 383),
-        rlapi.PlaylistKey.STANDARD: (960, 383),
+        rlapi.PlaylistKey.solo_duel: (0, 0),
+        rlapi.PlaylistKey.doubles: (960, 0),
+        rlapi.PlaylistKey.solo_standard: (0, 383),
+        rlapi.PlaylistKey.standard: (960, 383),
         # extra modes
-        rlapi.PlaylistKey.HOOPS: (0, 0),
-        rlapi.PlaylistKey.RUMBLE: (960, 0),
-        rlapi.PlaylistKey.DROPSHOT: (0, 383),
-        rlapi.PlaylistKey.SNOW_DAY: (960, 383)
+        rlapi.PlaylistKey.hoops: (0, 0),
+        rlapi.PlaylistKey.rumble: (960, 0),
+        rlapi.PlaylistKey.dropshot: (0, 383),
+        rlapi.PlaylistKey.snow_day: (960, 383)
     }
     COORDS = {
         'username': CoordsInfo(Point(960, 71), 'RobotoCondensedBold90'),
@@ -132,14 +133,14 @@ class RLStats(commands.Cog):
         )
 
     async def initialize(self):
-        tier_breakdown = self.config.tier_breakdown
-        self.rlapi_client = rlapi.Client(
-            await self._get_token(),
-            loop=self.bot.loop,
-            tier_breakdown=self._convert_numbers_in_breakdown(await tier_breakdown())
+        self.rlapi_client = rlapi.Client(await self._get_token(), loop=self.bot.loop)
+        tier_breakdown = self._convert_numbers_in_breakdown(
+            await self.config.tier_breakdown()
         )
-        await self.rlapi_client.setup
-        await tier_breakdown.set(self.rlapi_client.tier_breakdown)
+        if not tier_breakdown:
+            tier_breakdown = await get_tier_breakdown(self.rlapi_client)
+            await self.config.tier_breakdown.set(tier_breakdown)
+        self.rlapi_client.tier_breakdown = tier_breakdown
         self.extramodes_template.bg_overlay = await self.config.extramodes_overlay()
         self.competitive_template.bg_overlay = await self.config.competitive_overlay()
 
@@ -193,8 +194,9 @@ class RLStats(commands.Cog):
         """Update tier breakdown."""
         await ctx.send("Updating tier breakdown...")
         async with ctx.typing():
-            await self.rlapi_client.update_tier_breakdown()
-            await self.config.tier_breakdown.set(self.rlapi_client.tier_breakdown)
+            tier_breakdown = await get_tier_breakdown(self.rlapi_client)
+            await self.config.tier_breakdown.set(tier_breakdown)
+            self.rlapi_client.tier_breakdown = tier_breakdown
         await ctx.send("Tier breakdown updated.")
 
     @rlset.group(name="image")
@@ -383,10 +385,10 @@ class RLStats(commands.Cog):
     async def rlstats(self, ctx, *, player_id=None):
         """Checks for your or given player's Rocket League competitive stats"""
         playlists = (
-            rlapi.PlaylistKey.SOLO_DUEL,
-            rlapi.PlaylistKey.DOUBLES,
-            rlapi.PlaylistKey.SOLO_STANDARD,
-            rlapi.PlaylistKey.STANDARD
+            rlapi.PlaylistKey.solo_duel,
+            rlapi.PlaylistKey.doubles,
+            rlapi.PlaylistKey.solo_standard,
+            rlapi.PlaylistKey.standard
         )
         await self._rlstats_logic(ctx, self.competitive_template, playlists, player_id)
 
@@ -394,10 +396,10 @@ class RLStats(commands.Cog):
     async def rlsports(self, ctx, *, player_id=None):
         """Checks for your or given player's Rocket League extra modes stats"""
         playlists = (
-            rlapi.PlaylistKey.HOOPS,
-            rlapi.PlaylistKey.RUMBLE,
-            rlapi.PlaylistKey.DROPSHOT,
-            rlapi.PlaylistKey.SNOW_DAY
+            rlapi.PlaylistKey.hoops,
+            rlapi.PlaylistKey.rumble,
+            rlapi.PlaylistKey.dropshot,
+            rlapi.PlaylistKey.snow_day
         )
         await self._rlstats_logic(ctx, self.extramodes_template, playlists, player_id)
 
@@ -410,7 +412,7 @@ class RLStats(commands.Cog):
                 "`This cog wasn't configured properly. "
                 "If you're the owner, setup the cog using {}rlset`"
             ).format(ctx.prefix))
-        self.rlapi_client.update_token(token)
+        self.rlapi_client.change_token(token)
 
         player_ids: List[Tuple[str, Optional[rlapi.Platform]]] = []
         if player_id is None:
@@ -439,8 +441,14 @@ class RLStats(commands.Cog):
             players = await self._get_players(player_ids)
         except rlapi.HTTPException as e:
             log.error(str(e))
+            if e.status >= 500:
+                return await ctx.send(
+                    "Rocket League API experiences some issues right now."
+                    " Try again later."
+                )
             return await ctx.send(
-                "Rocket League API experiences some issues right now. Try again later."
+                "Rocket League API can't process this request."
+                " If this keeps happening, inform bot's owner about this error."
             )
         except rlapi.PlayerNotFound as e:
             log.debug(str(e))
