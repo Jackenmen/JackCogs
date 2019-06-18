@@ -141,6 +141,7 @@ class CogBoard(commands.Cog):
             )
             best_matches = sorted(name_matches + desc_matches, key=lambda m: m[1], reverse=True)
             pages = []
+            embed_color = await ctx.embed_color()
             for match in best_matches:
                 cog = match[0]
                 repo = repo_list.get(
@@ -151,7 +152,7 @@ class CogBoard(commands.Cog):
                         "branch": "Unknown"
                     }
                 )
-                embed = discord.Embed(title=cog["name"])
+                embed = discord.Embed(title=cog["name"], color=embed_color)
                 embed.add_field(name="Description", value=cog["description"])
                 embed.add_field(name="Author", value=repo["author"])
                 embed.add_field(name="Repo url", value=repo["repo_url"])
