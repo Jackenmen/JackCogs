@@ -4,11 +4,9 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 
 # JackCogs
+**Red V2 has reached end of life and V2 cogs in this repo will no longer be maintained nor will I provide support for them. I recommend installing Red V3 and using `v3` branch of this repo.**
+
 Cogs created by jack1142 (Jackenmen#6607 on Discord) for Red-DiscordBot. Red-DiscordBot is a multipurpose bot for Discord developed by Twentysix26 and the Core Developer team. Feel free to create issues, if you want to see some function in one of my cogs. If you see a bug in one of my cogs, do that as well ;)
-
-If you're developer, you can also send pull requests and I will happily merge your commits, if it doesn't conflict with anything developed before.
-
-Also I suggest to join [Red - Cog Support server](https://discord.gg/GET4DVk) and if you will ever need help with any of my cogs, just mention me (@Jackenmen#6607) on #support_othercogs channel.
 
 # My cogs
   * **raiselimit** - Automatically raises limit of users in voice channel with user limit, when bot joins.
@@ -20,7 +18,7 @@ To install the cogs, Follow the given steps:
 **Step 1** - Adding the repo.
 > To add the repo, type this into the chat:
 > 
-> ``[p]cog repo add JackCogs https://github.com/jack1142/JackCogs``
+> ``[p]cog repo add JackCogs https://github.com/jack1142/JackCogs@unsupported-v2``
 > 
 > Then type,"I agree".
 
