@@ -1,0 +1,10 @@
+{
+    "name": "Mee6Rank",
+    "author": ["jack1142"],
+    "short": "Shows you Mee6 rank.",
+    "description": "Shows you Mee6 rank.",
+    "install_msg": "Thanks for installing RLStats. Before you will be able to check player's stats you need to configure a Rocket League API user token using command [p]rlset token",
+    "requirements": ["pillow"],
+    "tags": ["tools", "rank", "mee6", "api"],
+    "disabled": false
+}
