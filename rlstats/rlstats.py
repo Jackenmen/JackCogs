@@ -533,6 +533,7 @@ class RLStats(commands.Cog):
 
         result = template.generate_image(player, playlists)
         fp = BytesIO()
+        result.thumbnail((960, 540))
         result.save(fp, "PNG")
         fp.seek(0)
         await ctx.send(
