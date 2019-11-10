@@ -70,6 +70,16 @@ class RLStats(commands.Cog):
     def __init__(self, bot: Red) -> None:
         super().__init__()
         self.bot = bot
+        if hasattr(bot, "db"):
+            # compatibility layer with Red 3.1.x
+            async def get_shared_api_tokens(service_name: str) -> Dict[str, str]:
+                tokens = await bot.db.api_tokens.get_raw(service_name, default={})
+                # api_tokens spec defines it's a dict of strings
+                return cast(Dict[str, str], tokens)
+
+            self.get_shared_api_tokens = get_shared_api_tokens
+        else:
+            self.get_shared_api_tokens = bot.get_shared_api_tokens
         self.config = Config.get_conf(
             self, identifier=6672039729, force_registration=True
         )
@@ -175,9 +185,7 @@ class RLStats(commands.Cog):
         return new
 
     async def _get_token(self) -> str:
-        rocket_league = await self.bot.db.api_tokens.get_raw(
-            "rocket_league", default={"user_token": ""}
-        )
+        rocket_league = await self.get_shared_api_tokens("rocket_league")
         return rocket_league.get("user_token", "")
 
     @checks.is_owner()
