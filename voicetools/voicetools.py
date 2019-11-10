@@ -9,7 +9,7 @@ from redbot.core.utils.chat_formatting import pagify
 
 from .converters import MemberOrRole, MemberOrRoleorVoiceChannel
 
-log = logging.getLogger("redbot.voicetools")
+log = logging.getLogger("red.jackcogs.voicetools")
 
 
 class VoiceTools(commands.Cog):

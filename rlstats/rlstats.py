@@ -27,7 +27,7 @@ except ImportError:
     raise RuntimeError("Can't load pillow. Do 'pip3 install pillow'.")
 
 
-log = logging.getLogger("redbot.rlstats")
+log = logging.getLogger("red.jackcogs.rlstats")
 
 T = TypeVar("T")
 
