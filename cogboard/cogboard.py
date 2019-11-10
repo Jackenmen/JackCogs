@@ -1,16 +1,32 @@
 import re
 import time
+from typing import Dict, List, Tuple
 
-from redbot.core import commands
-from redbot.core.config import Config
-from redbot.core.utils.menus import menu, DEFAULT_CONTROLS
-from yarl import URL
 import aiohttp
 import discord
 import fuzzywuzzy.process
 import fuzzywuzzy.utils
+from redbot.core import commands
+from redbot.core.bot import Red
+from redbot.core.config import Config
+from redbot.core.utils.menus import DEFAULT_CONTROLS, menu
+from typing_extensions import TypedDict
+from yarl import URL
 
 from . import errors
+
+
+class RepoItem(TypedDict):
+    author: str
+    repo_url: str
+    branch: str
+    repo_name: str
+
+
+class CogItem(TypedDict):
+    repo_name: str
+    name: str
+    description: str
 
 
 class CogBoard(commands.Cog):
@@ -24,7 +40,7 @@ class CogBoard(commands.Cog):
         \|\ *(?P<branch>[^\n|]*[^ \n|])\ *
         $
         """,
-        re.VERBOSE | re.MULTILINE
+        re.VERBOSE | re.MULTILINE,
     )
     COG_LIST_REGEX = re.compile(
         r"""
@@ -32,28 +48,27 @@ class CogBoard(commands.Cog):
         \*{2}(?P<repo_name>[^\n*]*)\*{2}
         \n{2}(?P<cog_list>.*?(?=\n{2,}))
         """,
-        re.VERBOSE | re.DOTALL
+        re.VERBOSE | re.DOTALL,
     )
 
-    def __init__(self, bot):
+    def __init__(self, bot: Red) -> None:
         self.bot = bot
         self.config = Config.get_conf(
             self, identifier=176070082584248320, force_registration=True
         )
         self.config.register_global(
-            repo_list={},
-            cog_list=[],
-            last_update=0,
-            cache_expire=3600
+            repo_list={}, cog_list=[], last_update=0, cache_expire=3600
         )
         self.session = aiohttp.ClientSession()
 
-    def cog_unload(self):
+    def cog_unload(self) -> None:
         self.session.detach()
 
     __del__ = cog_unload
 
-    async def get_repos_and_cogs(self, *, force_refresh=False):
+    async def get_repos_and_cogs(
+        self, *, force_refresh: bool = False
+    ) -> Tuple[Dict[str, RepoItem], List[CogItem]]:
         cfg = await self.config.all()
         current_time = int(time.time())
         last_update, cache_expire = cfg["last_update"], cfg["cache_expire"]
@@ -70,16 +85,18 @@ class CogBoard(commands.Cog):
             # fallback to cache
             return cfg["repo_list"], cfg["cog_list"]
         await self.config.last_update.set(current_time)
-        repo_list = {}
-        cog_list = []
+        repo_list: Dict[str, RepoItem] = {}
+        cog_list: List[CogItem] = []
         start_index = 0
         for match in self.REPOS_REGEX.finditer(raw_content):
             repo_url = match.group("repo_url")
-            repo_list[URL(repo_url.rstrip("/")).name] = repo = {}
-            repo["author"] = match.group("author")
-            repo["repo_url"] = repo_url
-            repo["branch"] = match.group("branch")
-            repo["repo_name"] = match.group("repo_name")
+            repo: RepoItem = {
+                "author": match.group("author"),
+                "repo_url": repo_url,
+                "branch": match.group("branch"),
+                "repo_name": match.group("repo_name"),
+            }
+            repo_list[URL(repo_url.rstrip("/")).name] = repo
             start_index = match.end()
         for match in self.COG_LIST_REGEX.finditer(raw_content, start_index):
             repo_name = match.group("repo_name")
@@ -97,12 +114,12 @@ class CogBoard(commands.Cog):
         return repo_list, cog_list
 
     @commands.group()
-    async def cogboard(self, ctx):
+    async def cogboard(self, ctx: commands.Context) -> None:
         """CogBoard commands."""
 
     @cogboard.command(name="refreshcache")
     @commands.is_owner()
-    async def cogboard_refreshcache(self, ctx):
+    async def cogboard_refreshcache(self, ctx: commands.Context) -> None:
         """Refresh CogBoard cache."""
         failed = False
         async with ctx.typing():
@@ -117,29 +134,34 @@ class CogBoard(commands.Cog):
 
     @cogboard.command(name="updateevery")
     @commands.is_owner()
-    async def cogboard_cacheexpire(self, ctx, expire_time: int):
+    async def cogboard_cacheexpire(
+        self, ctx: commands.Context, expire_time: int
+    ) -> None:
         """Set cache expire time (in seconds)"""
         if expire_time < 0:
-            return await ctx.send("Cache expire time can't be negative!")
+            await ctx.send("Cache expire time can't be negative!")
+            return
         await self.config.cache_expire.set(expire_time)
         await ctx.send(f"Cache expire time set to {expire_time} seconds.")
 
     @cogboard.command(name="search")
-    async def cogboard_search(self, ctx, query):
+    async def cogboard_search(self, ctx: commands.Context, query: str) -> None:
         """Find cog on CogBoard by name."""
         async with ctx.typing():
             repo_list, cog_list = await self.get_repos_and_cogs()
             name_matches = fuzzywuzzy.process.extract(
                 {"name": query},
                 cog_list,
-                processor=lambda c: fuzzywuzzy.utils.full_process(c["name"])
+                processor=lambda c: fuzzywuzzy.utils.full_process(c["name"]),
             )
             desc_matches = fuzzywuzzy.process.extract(
                 {"description": query},
                 cog_list,
-                processor=lambda c: fuzzywuzzy.utils.full_process(c["description"])
+                processor=lambda c: fuzzywuzzy.utils.full_process(c["description"]),
             )
-            best_matches = sorted(name_matches + desc_matches, key=lambda m: m[1], reverse=True)
+            best_matches = sorted(
+                name_matches + desc_matches, key=lambda m: m[1], reverse=True
+            )
             pages = []
             embed_color = await ctx.embed_color()
             for match in best_matches:
@@ -149,8 +171,9 @@ class CogBoard(commands.Cog):
                     {
                         "author": "Unknown",
                         "repo_url": "Unknown",
-                        "branch": "Unknown"
-                    }
+                        "branch": "Unknown",
+                        "repo_name": cog["repo_name"],
+                    },
                 )
                 embed = discord.Embed(title=cog["name"], color=embed_color)
                 embed.add_field(name="Description", value=cog["description"])

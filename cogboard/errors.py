@@ -19,12 +19,8 @@ class HTTPException(CogBoardException):
     status: int
         The status code of the HTTP request.
     """
-    def __init__(
-        self,
-        response: aiohttp.ClientResponse
-    ):
+
+    def __init__(self, response: aiohttp.ClientResponse):
         self.response = response
         self.status = response.status
-        super().__init__(
-            f"{self.response.reason} (status code: {self.status})"
-        )
+        super().__init__(f"{self.response.reason} (status code: {self.status})")

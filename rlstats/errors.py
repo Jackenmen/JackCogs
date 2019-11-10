@@ -1,8 +1,4 @@
-__all__ = (
-    'RLStatsException',
-    'PlayerDataNotFound',
-    'NoChoiceError'
-)
+__all__ = ("RLStatsException", "PlayerDataNotFound", "NoChoiceError")
 
 
 class RLStatsException(Exception):

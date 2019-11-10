@@ -3,27 +3,33 @@ import contextlib
 import logging
 import os
 from io import BytesIO
-from typing import List, Tuple, Optional, Iterable
+from pathlib import Path
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, TypeVar, cast
 
 import discord
-from redbot.core import commands, checks
-from redbot.core.config import Config
-from redbot.core.utils.predicates import ReactionPredicate
-from redbot.core.utils.menus import start_adding_reactions
+import rlapi
+from redbot.core import checks, commands
+from redbot.core.bot import Red
+from redbot.core.config import Config, Value
 from redbot.core.data_manager import bundled_data_path, cog_data_path
+from redbot.core.utils.chat_formatting import bold
+from redbot.core.utils.menus import start_adding_reactions
+from redbot.core.utils.predicates import ReactionPredicate
+from rlapi.ext.tier_breakdown.trackernetwork import get_tier_breakdown
+
+from . import errors
+from .figures import Point
+from .image import CoordsInfo, RLStatsImageTemplate
 
 try:
     from PIL import Image, ImageFont
 except ImportError:
     raise RuntimeError("Can't load pillow. Do 'pip3 install pillow'.")
 
-import rlapi
-from rlapi.ext.tier_breakdown.trackernetwork import get_tier_breakdown
-from .figures import Point
-from . import errors
-from .image import CoordsInfo, RLStatsImageTemplate
 
-log = logging.getLogger('redbot.rlstats')
+log = logging.getLogger("redbot.rlstats")
+
+T = TypeVar("T")
 
 
 class RLStats(commands.Cog):
@@ -41,71 +47,72 @@ class RLStats(commands.Cog):
         rlapi.PlaylistKey.hoops: (0, 0),
         rlapi.PlaylistKey.rumble: (960, 0),
         rlapi.PlaylistKey.dropshot: (0, 383),
-        rlapi.PlaylistKey.snow_day: (960, 383)
+        rlapi.PlaylistKey.snow_day: (960, 383),
     }
     COORDS = {
-        'username': CoordsInfo(Point(960, 71), 'RobotoCondensedBold90'),
-        'playlist_name': CoordsInfo(Point(243, 197), 'RobotoRegular74'),
-        'rank_image': CoordsInfo(Point(153, 248), None),
-        'rank_text': CoordsInfo(Point(242, 453), 'RobotoLight45'),
-        'matches_played': CoordsInfo(Point(822, 160), 'RobotoBold45'),
-        'win_streak_text': CoordsInfo(Point(492, 216), 'RobotoLight45'),
-        'win_streak_amount': CoordsInfo(Point(503, 216), 'RobotoBold45'),
-        'skill': CoordsInfo(Point(729, 272), 'RobotoBold45'),
-        'gain': CoordsInfo(Point(715, 328), 'RobotoBold45'),
-        'div_down': CoordsInfo(Point(552, 384), 'RobotoBold45'),
-        'div_up': CoordsInfo(Point(727, 384), 'RobotoBold45'),
-        'tier_down': CoordsInfo(Point(492, 446), 'RobotoBold45'),
-        'tier_up': CoordsInfo(Point(667, 446), 'RobotoBold45'),
-        'season_rewards_lvl': CoordsInfo(Point(150, 886), None),
-        'season_rewards_bars': CoordsInfo(Point(831, 921), None)
+        "username": CoordsInfo(Point(960, 71), "RobotoCondensedBold90"),
+        "playlist_name": CoordsInfo(Point(243, 197), "RobotoRegular74"),
+        "rank_image": CoordsInfo(Point(153, 248), None),
+        "rank_text": CoordsInfo(Point(242, 453), "RobotoLight45"),
+        "matches_played": CoordsInfo(Point(822, 160), "RobotoBold45"),
+        "win_streak_text": CoordsInfo(Point(492, 216), "RobotoLight45"),
+        "win_streak_amount": CoordsInfo(Point(503, 216), "RobotoBold45"),
+        "skill": CoordsInfo(Point(729, 272), "RobotoBold45"),
+        "gain": CoordsInfo(Point(715, 328), "RobotoBold45"),
+        "div_down": CoordsInfo(Point(552, 384), "RobotoBold45"),
+        "div_up": CoordsInfo(Point(727, 384), "RobotoBold45"),
+        "tier_down": CoordsInfo(Point(492, 446), "RobotoBold45"),
+        "tier_up": CoordsInfo(Point(667, 446), "RobotoBold45"),
+        "season_rewards_lvl": CoordsInfo(Point(150, 886), None),
+        "season_rewards_bars": CoordsInfo(Point(831, 921), None),
     }
 
-    def __init__(self, bot):
+    def __init__(self, bot: Red) -> None:
         super().__init__()
         self.bot = bot
-        self.config = Config.get_conf(self, identifier=6672039729,
-                                      force_registration=True)
+        self.config = Config.get_conf(
+            self, identifier=6672039729, force_registration=True
+        )
         self.config.register_global(
             tier_breakdown={}, competitive_overlay=40, extramodes_overlay=70
         )
         self.config.register_user(player_id=None, platform=None)
-        self.rlapi_client = None
+        self.rlapi_client: rlapi.Client = None
         self.bundled_data_path = bundled_data_path(self)
         self.cog_data_path = cog_data_path(self)
         self.fonts = {
-            'RobotoCondensedBold90': ImageFont.truetype(
+            "RobotoCondensedBold90": ImageFont.truetype(
                 str(self.bundled_data_path / "fonts/RobotoCondensedBold.ttf"), 90
             ),
-            'RobotoRegular74': ImageFont.truetype(
+            "RobotoRegular74": ImageFont.truetype(
                 str(self.bundled_data_path / "fonts/RobotoRegular.ttf"), 74
             ),
-            'RobotoBold45': ImageFont.truetype(
+            "RobotoBold45": ImageFont.truetype(
                 str(self.bundled_data_path / "fonts/RobotoBold.ttf"), 45
             ),
-            'RobotoLight45': ImageFont.truetype(
+            "RobotoLight45": ImageFont.truetype(
                 str(self.bundled_data_path / "fonts/RobotoLight.ttf"), 45
-            )
+            ),
         }
         self.images = {
-            'tier_image': str(self.bundled_data_path) + '/images/ranks/{}.png',
-            'season_rewards_lvl': (
-                str(self.bundled_data_path) + '/images/rewards/{:d}_{:d}.png'
+            "tier_image": str(self.bundled_data_path) + "/images/ranks/{}.png",
+            "season_rewards_lvl": (
+                str(self.bundled_data_path) + "/images/rewards/{:d}_{:d}.png"
             ),
-            'season_rewards_bars_win': (
-                str(self.bundled_data_path) + '/images/rewards/bars/Bar_{:d}_Win.png'
+            "season_rewards_bars_win": (
+                str(self.bundled_data_path) + "/images/rewards/bars/Bar_{:d}_Win.png"
             ),
-            'season_rewards_bars_nowin': (
-                str(self.bundled_data_path) + '/images/rewards/bars/Bar_{:d}_NoWin.png'
+            "season_rewards_bars_nowin": (
+                str(self.bundled_data_path) + "/images/rewards/bars/Bar_{:d}_NoWin.png"
             ),
-            'season_rewards_bars_red': (
-                str(self.bundled_data_path) + '/images/rewards/bars/Bar_Red.png'
+            "season_rewards_bars_red": (
+                str(self.bundled_data_path) + "/images/rewards/bars/Bar_Red.png"
             ),
         }
-        self.rank_base = self.bundled_data_path / 'rank_base.png'
-        bg_image = self.cog_data_path / 'bgs/competitive.png'
+        self.rank_base = self.bundled_data_path / "rank_base.png"
+        bg_image = self.cog_data_path / "bgs/competitive.png"
         if not bg_image.is_file():
-            bg_image = self.bundled_data_path / 'bgs/competitive.png'
+            bg_image = self.bundled_data_path / "bgs/competitive.png"
         self.competitive_template = RLStatsImageTemplate(
             rank_size=self.RANK_SIZE,
             tier_size=self.TIER_SIZE,
@@ -115,11 +122,11 @@ class RLStats(commands.Cog):
             bg_image=bg_image,
             bg_overlay=40,
             rank_base=self.rank_base,
-            images=self.images
+            images=self.images,
         )
-        bg_image = self.cog_data_path / 'bgs/extramodes.png'
+        bg_image = self.cog_data_path / "bgs/extramodes.png"
         if not bg_image.is_file():
-            bg_image = self.bundled_data_path / 'bgs/extramodes.png'
+            bg_image = self.bundled_data_path / "bgs/extramodes.png"
         self.extramodes_template = RLStatsImageTemplate(
             rank_size=self.RANK_SIZE,
             tier_size=self.TIER_SIZE,
@@ -129,10 +136,10 @@ class RLStats(commands.Cog):
             bg_image=bg_image,
             bg_overlay=70,
             rank_base=self.rank_base,
-            images=self.images
+            images=self.images,
         )
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         self.rlapi_client = rlapi.Client(await self._get_token(), loop=self.bot.loop)
         tier_breakdown = self._convert_numbers_in_breakdown(
             await self.config.tier_breakdown()
@@ -144,33 +151,42 @@ class RLStats(commands.Cog):
         self.extramodes_template.bg_overlay = await self.config.extramodes_overlay()
         self.competitive_template.bg_overlay = await self.config.competitive_overlay()
 
-    def cog_unload(self):
+    def cog_unload(self) -> None:
         self.rlapi_client.destroy()
 
     __del__ = cog_unload
 
-    def _convert_numbers_in_breakdown(self, d: dict, curr_lvl: int = 0):
+    def _convert_numbers_in_breakdown(
+        self, d: Dict[str, Any], curr_lvl: int = 0
+    ) -> Dict[int, Any]:
         """Converts (recursively) dictionary's keys with numbers to integers"""
         new = {}
-        func = self._convert_numbers_in_breakdown if curr_lvl < 2 else lambda v, _: v
+        func: Callable[[Any, int], Any]
+        if curr_lvl < 2:
+            func = self._convert_numbers_in_breakdown
+        else:
+            # just return value on lvl 2 (should be list)
+            def func(v: T, _: int) -> T:
+                return v
+
         for k, v in d.items():
-            v = func(v, curr_lvl+1)
+            v = func(v, curr_lvl + 1)
             new[int(k)] = v
         return new
 
-    async def _get_token(self):
+    async def _get_token(self) -> str:
         rocket_league = await self.bot.db.api_tokens.get_raw(
             "rocket_league", default={"user_token": ""}
         )
-        return rocket_league.get('user_token', "")
+        return rocket_league.get("user_token", "")
 
     @checks.is_owner()
     @commands.group(name="rlset")
-    async def rlset(self, ctx):
+    async def rlset(self, ctx: commands.Context) -> None:
         """RLStats configuration options."""
 
     @rlset.command()
-    async def token(self, ctx):
+    async def token(self, ctx: commands.Context) -> None:
         """Instructions to set the Rocket League API tokens."""
         message = (
             "**Getting API access from Psyonix is very hard right now, "
@@ -190,7 +206,7 @@ class RLStats(commands.Cog):
         await ctx.maybe_send_embed(message)
 
     @rlset.command(name="updatebreakdown")
-    async def updatebreakdown(self, ctx):
+    async def updatebreakdown(self, ctx: commands.Context) -> None:
         """Update tier breakdown."""
         await ctx.send("Updating tier breakdown...")
         async with ctx.typing():
@@ -200,98 +216,104 @@ class RLStats(commands.Cog):
         await ctx.send("Tier breakdown updated.")
 
     @rlset.group(name="image")
-    async def rlset_bgimage(self, ctx):
+    async def rlset_bgimage(self, ctx: commands.Context) -> None:
         """Set background for stats image."""
 
     @rlset_bgimage.group(name="extramodes")
-    async def rlset_bgimage_extramodes(self, ctx):
+    async def rlset_bgimage_extramodes(self, ctx: commands.Context) -> None:
         """Options for background for extra modes stats image."""
 
     @rlset_bgimage_extramodes.command("set")
-    async def rlset_bgimage_extramodes_set(self, ctx):
+    async def rlset_bgimage_extramodes_set(self, ctx: commands.Context) -> None:
         """
         Set background for extra modes stats image.
 
         Use `[p]rlset bgimage extramodes reset` to reset to default.
         """
         await self._rlset_bgimage_set(
-            ctx, self.cog_data_path / 'bgs/extramodes.png', self.extramodes_template
+            ctx, self.cog_data_path / "bgs/extramodes.png", self.extramodes_template
         )
 
     @rlset_bgimage_extramodes.command("reset")
-    async def rlset_bgimage_extramodes_reset(self, ctx):
+    async def rlset_bgimage_extramodes_reset(self, ctx: commands.Context) -> None:
         """Reset background for extra modes stats image to default."""
         await self._rlset_bgimage_reset(
             ctx,
-            'extra modes',
-            self.cog_data_path / 'bgs/extramodes.png',
-            self.bundled_data_path / 'bgs/extramodes.png',
-            self.extramodes_template
+            "extra modes",
+            self.cog_data_path / "bgs/extramodes.png",
+            self.bundled_data_path / "bgs/extramodes.png",
+            self.extramodes_template,
         )
 
     @rlset_bgimage_extramodes.command("overlay")
     async def rlset_bgimage_extramodes_overlay(
-        self, ctx, percentage: Optional[int] = None
-    ):
+        self, ctx: commands.Context, percentage: int = None
+    ) -> None:
         """
         Set overlay percentage for extra modes stats image.
 
         Leave empty to reset to default (70)
         """
         await self._rlset_bgimage_overlay(
-            ctx, percentage,
-            'extra modes',
+            ctx,
+            percentage,
+            "extra modes",
             self.config.extramodes_overlay,
-            self.extramodes_template
+            self.extramodes_template,
         )
 
     @rlset_bgimage.group(name="competitive")
-    async def rlset_bgimage_competitive(self, ctx):
+    async def rlset_bgimage_competitive(self, ctx: commands.Context) -> None:
         """Options for background for competitive stats image."""
 
     @rlset_bgimage_competitive.command("set")
-    async def rlset_bgimage_competitive_set(self, ctx):
+    async def rlset_bgimage_competitive_set(self, ctx: commands.Context) -> None:
         """
         Set background for competitive stats image.
 
         Use `[p]rlset bgimage competitive reset` to reset to default.
         """
         await self._rlset_bgimage_set(
-            ctx, self.cog_data_path / 'bgs/competitive.png', self.competitive_template
+            ctx, self.cog_data_path / "bgs/competitive.png", self.competitive_template
         )
 
     @rlset_bgimage_competitive.command("reset")
-    async def rlset_bgimage_competitive_reset(self, ctx):
+    async def rlset_bgimage_competitive_reset(self, ctx: commands.Context) -> None:
         """Reset background for competitive stats image to default."""
         await self._rlset_bgimage_reset(
             ctx,
-            'competitive',
-            self.cog_data_path / 'bgs/competitive.png',
-            self.bundled_data_path / 'bgs/competitive.png',
-            self.competitive_template
+            "competitive",
+            self.cog_data_path / "bgs/competitive.png",
+            self.bundled_data_path / "bgs/competitive.png",
+            self.competitive_template,
         )
 
     @rlset_bgimage_competitive.command("overlay")
     async def rlset_bgimage_competitive_overlay(
-        self, ctx, percentage: Optional[int] = None
-    ):
+        self, ctx: commands.Context, percentage: int = None
+    ) -> None:
         """
         Set overlay percentage for competitive stats image.
 
         Leave empty to reset to default (40)
         """
         await self._rlset_bgimage_overlay(
-            ctx, percentage,
-            'competitive',
+            ctx,
+            percentage,
+            "competitive",
             self.config.competitive_overlay,
-            self.competitive_template
+            self.competitive_template,
         )
 
-    async def _rlset_bgimage_set(self, ctx, filename, template):
+    async def _rlset_bgimage_set(
+        self, ctx: commands.Context, filename: Path, template: RLStatsImageTemplate
+    ) -> None:
         if not ctx.message.attachments:
-            return await ctx.send("You have to send background image.")
+            await ctx.send("You have to send background image.")
+            return
         if len(ctx.message.attachments) > 1:
-            return await ctx.send("You can send only one attachment.")
+            await ctx.send("You can send only one attachment.")
+            return
         a = ctx.message.attachments[0]
         fp = BytesIO()
         await a.save(fp)
@@ -299,17 +321,24 @@ class RLStats(commands.Cog):
         try:
             im = Image.open(fp)
         except IOError:
-            return await ctx.send("Attachment couldn't be open.")
+            await ctx.send("Attachment couldn't be open.")
+            return
         try:
-            im.convert('RGBA').save(filename, 'PNG', quality=100)
+            im.convert("RGBA").save(filename, "PNG")
         except FileNotFoundError:
-            return await ctx.send("Attachment couldn't be saved.")
+            await ctx.send("Attachment couldn't be saved.")
+            return
         template.bg_image = filename
-        return await ctx.send("Background image was successfully set.")
+        await ctx.send("Background image was successfully set.")
 
     async def _rlset_bgimage_reset(
-        self, ctx, mode, custom_filename, default_filename, template
-    ):
+        self,
+        ctx: commands.Context,
+        mode: str,
+        custom_filename: Path,
+        default_filename: Path,
+        template: RLStatsImageTemplate,
+    ) -> None:
         try:
             os.remove(custom_filename)
         except FileNotFoundError:
@@ -322,29 +351,42 @@ class RLStats(commands.Cog):
             )
             template.bg_image = default_filename
 
-    async def _rlset_bgimage_overlay(self, ctx, percentage, mode, value_obj, template):
+    async def _rlset_bgimage_overlay(
+        self,
+        ctx: commands.Context,
+        percentage: Optional[int],
+        mode: str,
+        value_obj: Value,
+        template: RLStatsImageTemplate,
+    ) -> None:
         if percentage is None:
             await value_obj.clear()
             template.bg_overlay = await value_obj()
-            return await ctx.send(f"Overlay percentage for {mode} stats image reset.")
+            await ctx.send(f"Overlay percentage for {mode} stats image reset.")
+            return
         if not 0 <= percentage <= 100:
-            return await ctx.send("Percentage value has to be in range 0-100.")
+            await ctx.send("Percentage value has to be in range 0-100.")
+            return
         await value_obj.set(percentage)
         template.bg_overlay = percentage
         await ctx.send(f"Overlay percentage for {mode} stats set to {percentage}%")
 
-    async def _get_player_data_by_user(self, user):
+    async def _get_player_data_by_user(
+        self, user: discord.abc.User
+    ) -> Tuple[str, rlapi.Platform]:
         """nwm"""
         user_data = await self.config.user(user).all()
-        player_id, platform = user_data['player_id'], user_data['platform']
+        player_id, platform = user_data["player_id"], user_data["platform"]
         if player_id is not None:
             return (player_id, rlapi.Platform[platform])
         raise errors.PlayerDataNotFound(
             f"Couldn't find player data for discord user with ID {user.id}"
         )
 
-    async def _get_players(self, player_ids):
-        players = []
+    async def _get_players(
+        self, player_ids: List[Tuple[str, Optional[rlapi.Platform]]]
+    ) -> Tuple[rlapi.Player, ...]:
+        players: List[rlapi.Player] = []
         for player_id, platform in player_ids:
             with contextlib.suppress(rlapi.PlayerNotFound):
                 players += await self.rlapi_client.get_player(player_id, platform)
@@ -352,20 +394,24 @@ class RLStats(commands.Cog):
             raise rlapi.PlayerNotFound
         return tuple(players)
 
-    async def _choose_player(self, ctx, players: Iterable[rlapi.Player]):
+    async def _choose_player(
+        self, ctx: commands.Context, players: Tuple[rlapi.Player, ...]
+    ) -> rlapi.Player:
         players_len = len(players)
         if players_len > 1:
-            description = ''
+            description = ""
             for idx, player in enumerate(players, 1):
                 description += "\n{}. {} account with username: {}".format(
                     idx, player.platform, player.user_name
                 )
-            msg = await ctx.send(embed=discord.Embed(
-                title="There are multiple accounts with provided name:",
-                description=description
-            ))
+            msg = await ctx.send(
+                embed=discord.Embed(
+                    title="There are multiple accounts with provided name:",
+                    description=description,
+                )
+            )
 
-            emojis = ReactionPredicate.NUMBER_EMOJIS[1:players_len+1]
+            emojis = ReactionPredicate.NUMBER_EMOJIS[1 : players_len + 1]
             start_adding_reactions(msg, emojis)
             pred = ReactionPredicate.with_emojis(emojis, msg)
 
@@ -382,36 +428,43 @@ class RLStats(commands.Cog):
         return players[0]
 
     @commands.command()
-    async def rlstats(self, ctx, *, player_id=None):
+    async def rlstats(self, ctx: commands.Context, *, player_id: str = None) -> None:
         """Checks for your or given player's Rocket League competitive stats"""
         playlists = (
             rlapi.PlaylistKey.solo_duel,
             rlapi.PlaylistKey.doubles,
             rlapi.PlaylistKey.solo_standard,
-            rlapi.PlaylistKey.standard
+            rlapi.PlaylistKey.standard,
         )
         await self._rlstats_logic(ctx, self.competitive_template, playlists, player_id)
 
     @commands.command()
-    async def rlsports(self, ctx, *, player_id=None):
+    async def rlsports(self, ctx: commands.Context, *, player_id: str = None) -> None:
         """Checks for your or given player's Rocket League extra modes stats"""
         playlists = (
             rlapi.PlaylistKey.hoops,
             rlapi.PlaylistKey.rumble,
             rlapi.PlaylistKey.dropshot,
-            rlapi.PlaylistKey.snow_day
+            rlapi.PlaylistKey.snow_day,
         )
         await self._rlstats_logic(ctx, self.extramodes_template, playlists, player_id)
 
-    async def _rlstats_logic(self, ctx, template, playlists, player_id):
+    async def _rlstats_logic(
+        self,
+        ctx: commands.Context,
+        template: RLStatsImageTemplate,
+        playlists: Tuple[rlapi.PlaylistKey, ...],
+        player_id: Optional[str],
+    ) -> None:
         await ctx.trigger_typing()
 
         token = await self._get_token()
         if not token:
-            return await ctx.send((
-                "`This cog wasn't configured properly. "
-                "If you're the owner, setup the cog using {}rlset`"
-            ).format(ctx.prefix))
+            await ctx.send(
+                "This cog wasn't configured properly."
+                f" If you're the owner, setup the cog using `{ctx.prefix}rlset`"
+            )
+            return
         self.rlapi_client.change_token(token)
 
         player_ids: List[Tuple[str, Optional[rlapi.Platform]]] = []
@@ -419,14 +472,15 @@ class RLStats(commands.Cog):
             try:
                 player_ids.append(await self._get_player_data_by_user(ctx.author))
             except errors.PlayerDataNotFound:
-                return await ctx.send((
-                    "Your game account is not connected with Discord. "
-                    "If you want to get stats, "
-                    "either give your player ID after a command: "
-                    "`{0}rlstats <player_id>`"
-                    " or connect your account using command: "
-                    "`{0}rlconnect <player_id>`"
-                ).format(ctx.prefix))
+                await ctx.send(
+                    "Your game account is not connected with Discord."
+                    " If you want to get stats,"
+                    " either give your player ID after a command:"
+                    f" `{ctx.prefix}rlstats <player_id>`"
+                    " or connect your account using command:"
+                    f" `{ctx.prefix}rlconnect <player_id>`"
+                )
+                return
         else:
             try:
                 user = await commands.MemberConverter().convert(ctx, player_id)
@@ -442,71 +496,71 @@ class RLStats(commands.Cog):
         except rlapi.HTTPException as e:
             log.error(str(e))
             if e.status >= 500:
-                return await ctx.send(
+                await ctx.send(
                     "Rocket League API experiences some issues right now."
                     " Try again later."
                 )
-            return await ctx.send(
+                return
+            await ctx.send(
                 "Rocket League API can't process this request."
                 " If this keeps happening, inform bot's owner about this error."
             )
+            return
         except rlapi.PlayerNotFound as e:
             log.debug(str(e))
-            return await ctx.send(
-                "The specified profile could not be found."
-            )
+            await ctx.send("The specified profile could not be found.")
+            return
 
         try:
             player = await self._choose_player(ctx, players)
         except errors.NoChoiceError as e:
             log.debug(e)
-            return await ctx.send("You didn't choose profile you want to check.")
+            await ctx.send("You didn't choose profile you want to check.")
+            return
 
         # TODO: This should probably be handled in rlapi module
         for playlist_key in playlists:
             if playlist_key not in player.playlists:
-                player.add_playlist({'playlist': playlist_key.value})
+                player.add_playlist({"playlist": playlist_key.value})
 
         result = template.generate_image(player, playlists)
         fp = BytesIO()
-        result.save(fp, 'PNG', quality=100)
+        result.save(fp, "PNG")
         fp.seek(0)
         await ctx.send(
             (
-                'Rocket League Stats for **{}** '
-                '*(arrows show amount of points for division down/up)*'
-            ).format(player.user_name),
-            file=discord.File(fp, '{}_profile.png'.format(player.player_id))
+                f"Rocket League Stats for {bold(player.user_name)}"
+                " *(arrows show amount of points for division down/up)*"
+            ),
+            file=discord.File(fp, f"{player.player_id}_profile.png"),
         )
 
     @commands.command()
-    async def rlconnect(self, ctx, player_id):
+    async def rlconnect(self, ctx: commands.Context, player_id: str) -> None:
         """Connects game profile with Discord."""
         try:
             players = await self.rlapi_client.get_player(player_id)
         except rlapi.HTTPException as e:
             log.error(str(e))
-            return await ctx.send(
+            await ctx.send(
                 "Rocket League API expierences some issues right now. Try again later."
             )
+            return
         except rlapi.PlayerNotFound as e:
             log.debug(str(e))
-            return await ctx.send(
-                "The specified profile could not be found."
-            )
+            await ctx.send("The specified profile could not be found.")
+            return
 
         try:
             player = await self._choose_player(ctx, players)
         except errors.NoChoiceError as e:
             log.debug(str(e))
-            return await ctx.send(
-                "You didn't choose profile you want to connect."
-            )
+            await ctx.send("You didn't choose profile you want to connect.")
+            return
 
         await self.config.user(ctx.author).platform.set(player.platform.name)
         await self.config.user(ctx.author).player_id.set(player.player_id)
 
         await ctx.send(
-            "You successfully connected your {} account with Discord!"
-            .format(player.platform)
+            f"You successfully connected your {player.platform} account with Discord!"
         )
