@@ -437,7 +437,10 @@ class RLStats(commands.Cog):
 
     @commands.command()
     async def rlstats(self, ctx: commands.Context, *, player_id: str = None) -> None:
-        """Checks for your or given player's Rocket League competitive stats"""
+        """Show your or given player's Rocket League stats in competitive playlists.
+
+        Supported platforms: Steam, PlayStation 4, Xbox One
+        """
         playlists = (
             rlapi.PlaylistKey.solo_duel,
             rlapi.PlaylistKey.doubles,
@@ -448,7 +451,10 @@ class RLStats(commands.Cog):
 
     @commands.command()
     async def rlsports(self, ctx: commands.Context, *, player_id: str = None) -> None:
-        """Checks for your or given player's Rocket League extra modes stats"""
+        """Show your or given player's Rocket League stats in extra modes playlists.
+
+        Supported platforms: Steam, PlayStation 4, Xbox One
+        """
         playlists = (
             rlapi.PlaylistKey.hoops,
             rlapi.PlaylistKey.rumble,
@@ -546,7 +552,10 @@ class RLStats(commands.Cog):
 
     @commands.command()
     async def rlconnect(self, ctx: commands.Context, player_id: str) -> None:
-        """Connects game profile with Discord."""
+        """Connect game profile with your Discord account.
+
+        Supported platforms: Steam, PlayStation 4, Xbox One
+        """
         try:
             players = await self.rlapi_client.get_player(player_id)
         except rlapi.HTTPException as e:
