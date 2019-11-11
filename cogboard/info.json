@@ -5,6 +5,6 @@
     "description": "Search for cogs in approved repos on CogBoard.",
     "install_msg": "Thanks for installing CogBoard. If anything doesn't work, you can use issue tracker on https://github.com/jack1142/JackCogs/issues",
     "tags": ["tools", "cogboard", "cogs"],
-    "requirements": ["typing_extensions"],
+    "requirements": ["typing_extensions>=3.7.4"],
     "disabled": false
 }
