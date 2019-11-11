@@ -8,7 +8,7 @@ jobs:
       script:
         - pip install -U -r .ci/requirements/all_cogs.txt
         - python -m compileall ./
-    - stage: "Style check"
+    - name: "Style check"
       script:
         - pip install -U -r .ci/requirements/style.txt
         - black --check ./
