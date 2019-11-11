@@ -137,6 +137,9 @@ class RLStatsImage(RLStatsImageMixin):
         super().__init__()
         self._generate_image()
 
+    def __del__(self):
+        self._result.close()
+
     def _generate_image(self) -> None:
         self._draw_bg_overlay()
         self._draw_rank_base()
@@ -155,7 +158,8 @@ class RLStatsImage(RLStatsImageMixin):
         )
 
     def _draw_rank_base(self) -> None:
-        self.alpha_composite(Image.open(self.template.rank_base).convert("RGBA"))
+        with Image.open(self.template.rank_base) as im:
+            self.alpha_composite(im.convert("RGBA"))
 
     def _draw_username(self) -> None:
         coords, font_name = self.template.get_coords("username")
@@ -172,12 +176,12 @@ class RLStatsImage(RLStatsImageMixin):
     def _draw_season_reward_lvl(self) -> None:
         rewards = self.player.season_rewards
         coords, _ = self.template.get_coords("season_rewards_lvl")
-        reward_image = Image.open(
+        with Image.open(
             self.template.images["season_rewards_lvl"].format(
                 rewards.level, rewards.reward_ready
             )
-        ).convert("RGBA")
-        self.alpha_composite(reward_image, coords.to_tuple())
+        ) as reward_image:
+            self.alpha_composite(reward_image.convert("RGBA"), coords.to_tuple())
 
     def _draw_season_reward_bars(self) -> None:
         rewards = self.player.season_rewards
@@ -202,6 +206,8 @@ class RLStatsImage(RLStatsImageMixin):
                     self.alpha_composite(reward_bars_win_image, coords.to_tuple())
                 else:
                     self.alpha_composite(reward_bars_nowin_image, coords.to_tuple())
+            reward_bars_win_image.close()
+            reward_bars_nowin_image.close()
 
 
 class RLStatsImagePlaylist(RLStatsImageMixin):
@@ -242,12 +248,11 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
 
     def _draw_rank_image(self) -> None:
         playlist = self.player.get_playlist(self.playlist_key)
-        temp_image = Image.open(
-            self.template.images["tier_image"].format(playlist.tier)
-        ).convert("RGBA")
-        temp_image.thumbnail(self.template.rank_size, Image.ANTIALIAS)
-        coords, _ = self.get_coords("rank_image")
-        self.alpha_composite(temp_image, coords.to_tuple())
+        with Image.open(self.template.images["tier_image"].format(playlist.tier)) as im:
+            rank_image = im.convert("RGBA")
+            rank_image.thumbnail(self.template.rank_size, Image.ANTIALIAS)
+            coords, _ = self.get_coords("rank_image")
+            self.alpha_composite(rank_image, coords.to_tuple())
 
     def _draw_rank_name(self) -> None:
         coords, font_name = self.get_coords("rank_text")
@@ -328,12 +333,13 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
         tier_down = self.template.images["tier_image"].format(
             tier - 1 if tier > 0 else 0
         )
-        tier_down_image = Image.open(tier_down).convert("RGBA")
-        tier_down_image.thumbnail(self.template.tier_size, Image.ANTIALIAS)
         image_coords, font_name = self.get_coords("tier_down")
         font_name = cast(str, font_name)  # tier_down has font name defined
         font = self.fonts[font_name]
-        self.alpha_composite(tier_down_image, image_coords.to_tuple())
+        with Image.open(tier_down) as im:
+            tier_down_image = im.convert("RGBA")
+            tier_down_image.thumbnail(self.template.tier_size, Image.ANTIALIAS)
+            self.alpha_composite(tier_down_image, image_coords.to_tuple())
         # Points
         if self.playlist.tier_estimates.tier_down is None:
             text = "N/A"
@@ -358,12 +364,13 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
         tier_up = self.template.images["tier_image"].format(
             tier + 1 if 0 < tier < self.playlist.tier_max else 0
         )
-        tier_up_image = Image.open(tier_up).convert("RGBA")
-        tier_up_image.thumbnail(self.template.tier_size, Image.ANTIALIAS)
         image_coords, font_name = self.get_coords("tier_up")
         font_name = cast(str, font_name)  # tier_up has font name defined
         font = self.fonts[font_name]
-        self.alpha_composite(tier_up_image, image_coords.to_tuple())
+        with Image.open(tier_up) as im:
+            tier_up_image = im.convert("RGBA")
+            tier_up_image.thumbnail(self.template.tier_size, Image.ANTIALIAS)
+            self.alpha_composite(tier_up_image, image_coords.to_tuple())
         # Points
         if self.playlist.tier_estimates.tier_up is None:
             text = "N/A"
