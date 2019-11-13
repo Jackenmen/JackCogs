@@ -32,6 +32,18 @@ log = logging.getLogger("red.jackcogs.rlstats")
 T = TypeVar("T")
 
 
+SUPPORTED_PLATFORMS = """Supported platforms:
+- Steam - use steamID64, customURL or full URL to profile
+- PlayStation 4 - use PSN ID
+- Xbox One - use Xbox Gamertag"""
+
+RLSTATS_DOCS = f"""Show Rocket League stats in {{mode}} playlists for you or given player.
+
+{SUPPORTED_PLATFORMS}
+If the user connected their game profile with `[p]rlconnect`,
+you can also use their Discord tag to show their stats."""
+
+
 class RLStats(commands.Cog):
     """Get your Rocket League stats with a single command!"""
 
@@ -437,10 +449,6 @@ class RLStats(commands.Cog):
 
     @commands.command()
     async def rlstats(self, ctx: commands.Context, *, player_id: str = None) -> None:
-        """Show your or given player's Rocket League stats in competitive playlists.
-
-        Supported platforms: Steam, PlayStation 4, Xbox One
-        """
         playlists = (
             rlapi.PlaylistKey.solo_duel,
             rlapi.PlaylistKey.doubles,
@@ -449,12 +457,10 @@ class RLStats(commands.Cog):
         )
         await self._rlstats_logic(ctx, self.competitive_template, playlists, player_id)
 
+    rlstats.callback.__doc__ = RLSTATS_DOCS.format(mode="competitive")
+
     @commands.command()
     async def rlsports(self, ctx: commands.Context, *, player_id: str = None) -> None:
-        """Show your or given player's Rocket League stats in extra modes playlists.
-
-        Supported platforms: Steam, PlayStation 4, Xbox One
-        """
         playlists = (
             rlapi.PlaylistKey.hoops,
             rlapi.PlaylistKey.rumble,
@@ -462,6 +468,8 @@ class RLStats(commands.Cog):
             rlapi.PlaylistKey.snow_day,
         )
         await self._rlstats_logic(ctx, self.extramodes_template, playlists, player_id)
+
+    rlsports.callback.__doc__ = RLSTATS_DOCS.format(mode="extra modes")
 
     async def _rlstats_logic(
         self,
@@ -552,10 +560,7 @@ class RLStats(commands.Cog):
 
     @commands.command()
     async def rlconnect(self, ctx: commands.Context, player_id: str) -> None:
-        """Connect game profile with your Discord account.
-
-        Supported platforms: Steam, PlayStation 4, Xbox One
-        """
+        """Connect game profile with your Discord account."""
         try:
             players = await self.rlapi_client.get_player(player_id)
         except rlapi.HTTPException as e:
@@ -582,3 +587,5 @@ class RLStats(commands.Cog):
         await ctx.send(
             f"You successfully connected your {player.platform} account with Discord!"
         )
+
+    rlconnect.callback.__doc__ += f"\n\n{SUPPORTED_PLATFORMS}"
