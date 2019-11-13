@@ -334,21 +334,22 @@ class RLStats(commands.Cog):
         if len(ctx.message.attachments) > 1:
             await ctx.send("You can send only one attachment.")
             return
-        a = ctx.message.attachments[0]
-        fp = BytesIO()
-        await a.save(fp)
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
-        try:
-            im = Image.open(fp)
-        except IOError:
-            await ctx.send("Attachment couldn't be open.")
-            return
-        try:
-            im.convert("RGBA").save(filename, "PNG")
-        except FileNotFoundError:
-            await ctx.send("Attachment couldn't be saved.")
-            return
-        template.bg_image = filename
+        async with ctx.typing():
+            a = ctx.message.attachments[0]
+            fp = BytesIO()
+            await a.save(fp)
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
+            try:
+                im = Image.open(fp)
+            except IOError:
+                await ctx.send("Attachment couldn't be open.")
+                return
+            try:
+                im.convert("RGBA").save(filename, "PNG")
+            except FileNotFoundError:
+                await ctx.send("Attachment couldn't be saved.")
+                return
+            template.bg_image = filename
         await ctx.send("Background image was successfully set.")
 
     async def _rlset_bgimage_reset(
@@ -478,78 +479,77 @@ class RLStats(commands.Cog):
         playlists: Tuple[rlapi.PlaylistKey, ...],
         player_id: Optional[str],
     ) -> None:
-        await ctx.trigger_typing()
-
-        token = await self._get_token()
-        if not token:
-            await ctx.send(
-                "This cog wasn't configured properly."
-                f" If you're the owner, setup the cog using `{ctx.prefix}rlset`"
-            )
-            return
-        self.rlapi_client.change_token(token)
-
-        player_ids: List[Tuple[str, Optional[rlapi.Platform]]] = []
-        if player_id is None:
-            try:
-                player_ids.append(await self._get_player_data_by_user(ctx.author))
-            except errors.PlayerDataNotFound:
+        async with ctx.typing():
+            token = await self._get_token()
+            if not token:
                 await ctx.send(
-                    "Your game account is not connected with Discord."
-                    " If you want to get stats,"
-                    " either give your player ID after a command:"
-                    f" `{ctx.prefix}rlstats <player_id>`"
-                    " or connect your account using command:"
-                    f" `{ctx.prefix}rlconnect <player_id>`"
+                    "This cog wasn't configured properly."
+                    f" If you're the owner, setup the cog using `{ctx.prefix}rlset`"
                 )
                 return
-        else:
-            try:
-                user = await commands.MemberConverter().convert(ctx, player_id)
-            except commands.BadArgument:
-                pass
+            self.rlapi_client.change_token(token)
+
+            player_ids: List[Tuple[str, Optional[rlapi.Platform]]] = []
+            if player_id is None:
+                try:
+                    player_ids.append(await self._get_player_data_by_user(ctx.author))
+                except errors.PlayerDataNotFound:
+                    await ctx.send(
+                        "Your game account is not connected with Discord."
+                        " If you want to get stats,"
+                        " either give your player ID after a command:"
+                        f" `{ctx.prefix}rlstats <player_id>`"
+                        " or connect your account using command:"
+                        f" `{ctx.prefix}rlconnect <player_id>`"
+                    )
+                    return
             else:
-                with contextlib.suppress(errors.PlayerDataNotFound):
-                    player_ids.append(await self._get_player_data_by_user(user))
-            player_ids.append((player_id, None))
+                try:
+                    user = await commands.MemberConverter().convert(ctx, player_id)
+                except commands.BadArgument:
+                    pass
+                else:
+                    with contextlib.suppress(errors.PlayerDataNotFound):
+                        player_ids.append(await self._get_player_data_by_user(user))
+                player_ids.append((player_id, None))
 
-        try:
-            players = await self._get_players(player_ids)
-        except rlapi.HTTPException as e:
-            log.error(str(e))
-            if e.status >= 500:
+            try:
+                players = await self._get_players(player_ids)
+            except rlapi.HTTPException as e:
+                log.error(str(e))
+                if e.status >= 500:
+                    await ctx.send(
+                        "Rocket League API experiences some issues right now."
+                        " Try again later."
+                    )
+                    return
                 await ctx.send(
-                    "Rocket League API experiences some issues right now."
-                    " Try again later."
+                    "Rocket League API can't process this request."
+                    " If this keeps happening, inform bot's owner about this error."
                 )
                 return
-            await ctx.send(
-                "Rocket League API can't process this request."
-                " If this keeps happening, inform bot's owner about this error."
-            )
-            return
-        except rlapi.PlayerNotFound as e:
-            log.debug(str(e))
-            await ctx.send("The specified profile could not be found.")
-            return
+            except rlapi.PlayerNotFound as e:
+                log.debug(str(e))
+                await ctx.send("The specified profile could not be found.")
+                return
 
-        try:
-            player = await self._choose_player(ctx, players)
-        except errors.NoChoiceError as e:
-            log.debug(e)
-            await ctx.send("You didn't choose profile you want to check.")
-            return
+            try:
+                player = await self._choose_player(ctx, players)
+            except errors.NoChoiceError as e:
+                log.debug(e)
+                await ctx.send("You didn't choose profile you want to check.")
+                return
 
-        # TODO: This should probably be handled in rlapi module
-        for playlist_key in playlists:
-            if playlist_key not in player.playlists:
-                player.add_playlist({"playlist": playlist_key.value})
+            # TODO: This should probably be handled in rlapi module
+            for playlist_key in playlists:
+                if playlist_key not in player.playlists:
+                    player.add_playlist({"playlist": playlist_key.value})
 
-        result = template.generate_image(player, playlists)
-        fp = BytesIO()
-        result.thumbnail((960, 540))
-        result.save(fp, "PNG")
-        fp.seek(0)
+            result = template.generate_image(player, playlists)
+            fp = BytesIO()
+            result.thumbnail((960, 540))
+            result.save(fp, "PNG")
+            fp.seek(0)
         await ctx.send(
             (
                 f"Rocket League Stats for {bold(player.user_name)}"
@@ -561,28 +561,30 @@ class RLStats(commands.Cog):
     @commands.command()
     async def rlconnect(self, ctx: commands.Context, player_id: str) -> None:
         """Connect game profile with your Discord account."""
-        try:
-            players = await self.rlapi_client.get_player(player_id)
-        except rlapi.HTTPException as e:
-            log.error(str(e))
-            await ctx.send(
-                "Rocket League API expierences some issues right now. Try again later."
-            )
-            return
-        except rlapi.PlayerNotFound as e:
-            log.debug(str(e))
-            await ctx.send("The specified profile could not be found.")
-            return
+        async with ctx.typing():
+            try:
+                players = await self.rlapi_client.get_player(player_id)
+            except rlapi.HTTPException as e:
+                log.error(str(e))
+                await ctx.send(
+                    "Rocket League API experiences some issues right now."
+                    " Try again later."
+                )
+                return
+            except rlapi.PlayerNotFound as e:
+                log.debug(str(e))
+                await ctx.send("The specified profile could not be found.")
+                return
 
-        try:
-            player = await self._choose_player(ctx, players)
-        except errors.NoChoiceError as e:
-            log.debug(str(e))
-            await ctx.send("You didn't choose profile you want to connect.")
-            return
+            try:
+                player = await self._choose_player(ctx, players)
+            except errors.NoChoiceError as e:
+                log.debug(str(e))
+                await ctx.send("You didn't choose profile you want to connect.")
+                return
 
-        await self.config.user(ctx.author).platform.set(player.platform.name)
-        await self.config.user(ctx.author).player_id.set(player.player_id)
+            await self.config.user(ctx.author).platform.set(player.platform.name)
+            await self.config.user(ctx.author).player_id.set(player.player_id)
 
         await ctx.send(
             f"You successfully connected your {player.platform} account with Discord!"
