@@ -482,10 +482,13 @@ class RLStats(commands.Cog):
         async with ctx.typing():
             token = await self._get_token()
             if not token:
-                await ctx.send(
-                    "This cog wasn't configured properly."
-                    f" If you're the owner, setup the cog using `{ctx.prefix}rlset`"
-                )
+                if self.bot.is_owner(ctx.author):
+                    await ctx.send(
+                        "This cog wasn't configured properly."
+                        f" You can setup the cog using `{ctx.prefix}rlset`."
+                    )
+                else:
+                    await ctx.send("The bot owner didn't configure this cog properly.")
                 return
             self.rlapi_client.change_token(token)
 
