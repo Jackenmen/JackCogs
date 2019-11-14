@@ -448,6 +448,7 @@ class RLStats(commands.Cog):
             return players[pred.result]
         return players[0]
 
+    @commands.bot_has_permissions(attach_files=True)
     @commands.command()
     async def rlstats(self, ctx: commands.Context, *, player_id: str = None) -> None:
         playlists = (
@@ -460,6 +461,7 @@ class RLStats(commands.Cog):
 
     rlstats.callback.__doc__ = RLSTATS_DOCS.format(mode="competitive")
 
+    @commands.bot_has_permissions(attach_files=True)
     @commands.command()
     async def rlsports(self, ctx: commands.Context, *, player_id: str = None) -> None:
         playlists = (
