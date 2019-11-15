@@ -38,9 +38,7 @@ class PythonVersion(ScalarValidator):
         match = self.REGEX.fullmatch(chunk.contents)
         if match is None:
             raise YAMLValidationError(
-                self._matching_message,
-                "found non-matching string",
-                chunk
+                self._matching_message, "found non-matching string", chunk
             )
         return [int(group) for group in match.group(1, 2, 3)]
 

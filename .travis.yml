@@ -6,7 +6,7 @@ jobs:
     - stage: "Tests"
       name: "Compile all"
       script:
-        - pip install -U -r .ci/requirements/all_cogs.txt
+        - pip install -U -r .ci/requirements/tests.txt
         - python -m compileall ./
     - name: "Style check"
       script:
