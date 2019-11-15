@@ -1,5 +1,4 @@
-# this should be automated at later date
 Red-DiscordBot
+pillow~=6.0
 rlapi==0.1.0a1
-pillow>=6.0.0
 typing_extensions>=3.7.4

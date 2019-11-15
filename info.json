@@ -1,7 +1,9 @@
 {
-    "name": "Jack Cogs",
-    "author": ["jack1142"],
+    "name": "JackCogs",
+    "author": [
+        "jack1142"
+    ],
     "install_msg": "Thanks for using JackCogs. If you have any issues, check for more information in my repo: https://github.com/jack1142/JackCogs",
-    "short": "Unofficial cogs by jack1142",
-    "description": "Thanks for using JackCogs. If you have any issues, check for more information in my repo: https://github.com/jack1142/JackCogs"
+    "short": "Unofficial cogs by jack1142.",
+    "description": "Cogs requested by others and those that I wanted for Red myself."
 }
