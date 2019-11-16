@@ -4,7 +4,7 @@ import logging
 import os
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, TypeVar, cast
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, cast
 
 import discord
 import rlapi
@@ -63,6 +63,7 @@ class RLStats(commands.Cog):
     }
     COORDS = {
         "username": CoordsInfo(Point(960, 71), "RobotoCondensedBold90"),
+        "platform": CoordsInfo(Point(976, 83), None),
         "playlist_name": CoordsInfo(Point(243, 197), "RobotoRegular74"),
         "rank_image": CoordsInfo(Point(153, 248), None),
         "rank_text": CoordsInfo(Point(242, 453), "RobotoLight45"),
@@ -117,6 +118,7 @@ class RLStats(commands.Cog):
             ),
         }
         self.images = {
+            "platform_image": str(self.bundled_data_path) + "/images/platforms/{}.png",
             "tier_image": str(self.bundled_data_path) + "/images/ranks/{}.png",
             "season_rewards_lvl": (
                 str(self.bundled_data_path) + "/images/rewards/{:d}_{:d}.png"
@@ -495,9 +497,12 @@ class RLStats(commands.Cog):
             self.rlapi_client.change_token(token)
 
             player_ids: List[Tuple[str, Optional[rlapi.Platform]]] = []
+            registered_player = False
+            discord_user = None
             if player_id is None:
                 try:
                     player_ids.append(await self._get_player_data_by_user(ctx.author))
+                    discord_user = ctx.author
                 except errors.PlayerDataNotFound:
                     await ctx.send(
                         "Your game account is not connected with Discord."
@@ -510,12 +515,18 @@ class RLStats(commands.Cog):
                     return
             else:
                 try:
-                    user = await commands.MemberConverter().convert(ctx, player_id)
+                    discord_user = await commands.MemberConverter().convert(
+                        ctx, player_id
+                    )
                 except commands.BadArgument:
                     pass
                 else:
-                    with contextlib.suppress(errors.PlayerDataNotFound):
-                        player_ids.append(await self._get_player_data_by_user(user))
+                    try:
+                        player_ids.append(
+                            await self._get_player_data_by_user(discord_user)
+                        )
+                    except errors.PlayerDataNotFound:
+                        discord_user = None
                 player_ids.append((player_id, None))
 
             try:
@@ -555,10 +566,16 @@ class RLStats(commands.Cog):
             result.thumbnail((960, 540))
             result.save(fp, "PNG")
             fp.seek(0)
+        if discord_user is not None and player.player_id == player_ids[0][0]:
+            account_string = (
+                f"connected {str(player.platform)} account of {bold(str(discord_user))}"
+            )
+        else:
+            account_string = f"{str(player.platform)} account: {bold(player.user_name)}"
         await ctx.send(
             (
-                f"Rocket League Stats for {bold(player.user_name)}"
-                " *(arrows show amount of points for division down/up)*"
+                f"Rocket League Stats for {account_string}\n"
+                "*(arrows show amount of points for division down/up)*"
             ),
             file=discord.File(fp, f"{player.player_id}_profile.png"),
         )

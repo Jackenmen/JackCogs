@@ -162,12 +162,21 @@ class RLStatsImage(RLStatsImageMixin):
             self.alpha_composite(im.convert("RGBA"))
 
     def _draw_username(self) -> None:
-        coords, font_name = self.template.get_coords("username")
+        username_coords, font_name = self.template.get_coords("username")
         font_name = cast(str, font_name)  # username has font name defined
         font = self.template.fonts[font_name]
         w, h = font.getsize(self.player.user_name)
-        coords -= (w / 2, h / 2)
+        coords = username_coords - (w / 2, h / 2)
         self._draw.text(xy=coords, text=self.player.user_name, font=font, fill="white")
+        self._draw_platform(w)
+
+    def _draw_platform(self, w: int) -> None:
+        coords, font_name = self.template.get_coords("platform")
+        with Image.open(
+            self.template.images["platform_image"].format(self.player.platform.name)
+        ) as platform_image:
+            coords += (w // 2, -(platform_image.height // 2))
+            self.alpha_composite(platform_image.convert("RGBA"), coords.to_tuple())
 
     def _draw_season_rewards(self) -> None:
         self._draw_season_reward_lvl()
