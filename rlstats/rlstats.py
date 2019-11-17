@@ -78,6 +78,18 @@ class RLStats(commands.Cog):
         "tier_up": CoordsInfo(Point(667, 446), "RobotoBold45"),
         "season_rewards_lvl": CoordsInfo(Point(150, 886), None),
         "season_rewards_bars": CoordsInfo(Point(831, 921), None),
+        "season_rewards_wins_text": CoordsInfo(Point(1582, 956), None),
+        "season_rewards_wins_max": CoordsInfo(Point(1658, 954), "ArimoRegular56"),
+        "season_rewards_wins_amount": CoordsInfo(Point(1575, 954), "ArimoRegular56"),
+    }
+    SEASON_REWARDS_COLORS = {
+        -1: "#fc3f3f",
+        0: "#c18659",
+        1: "#b6b7b8",
+        2: "#cbb36b",
+        3: "#c8dcdc",
+        4: "#95d9d7",
+        5: "#d9caf0",
     }
 
     def __init__(self, bot: Red) -> None:
@@ -104,6 +116,9 @@ class RLStats(commands.Cog):
         self.bundled_data_path = bundled_data_path(self)
         self.cog_data_path = cog_data_path(self)
         self.fonts = {
+            "ArimoRegular56": ImageFont.truetype(
+                str(self.bundled_data_path / "fonts/ArimoRegular.ttf"), 56
+            ),
             "RobotoCondensedBold90": ImageFont.truetype(
                 str(self.bundled_data_path / "fonts/RobotoCondensedBold.ttf"), 90
             ),
@@ -132,6 +147,12 @@ class RLStats(commands.Cog):
             "season_rewards_bars_red": (
                 str(self.bundled_data_path) + "/images/rewards/bars/Bar_Red.png"
             ),
+            "season_rewards_wins_white": (
+                str(self.bundled_data_path) + "/images/rewards/bars/GlobalWhite.png"
+            ),
+            "season_rewards_wins_red": (
+                str(self.bundled_data_path) + "/images/rewards/bars/GlobalRed.png"
+            ),
         }
         self.rank_base = self.bundled_data_path / "rank_base.png"
         bg_image = self.cog_data_path / "bgs/competitive.png"
@@ -147,6 +168,7 @@ class RLStats(commands.Cog):
             bg_overlay=40,
             rank_base=self.rank_base,
             images=self.images,
+            season_rewards_colors=self.SEASON_REWARDS_COLORS,
         )
         bg_image = self.cog_data_path / "bgs/extramodes.png"
         if not bg_image.is_file():
@@ -161,6 +183,7 @@ class RLStats(commands.Cog):
             bg_overlay=70,
             rank_base=self.rank_base,
             images=self.images,
+            season_rewards_colors=self.SEASON_REWARDS_COLORS,
         )
 
     async def initialize(self) -> None:

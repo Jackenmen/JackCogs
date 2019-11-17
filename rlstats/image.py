@@ -39,6 +39,7 @@ class RLStatsImageTemplate:
         bg_overlay: int,
         rank_base: Path,
         images: Dict[str, str],
+        season_rewards_colors: Dict[int, str],
     ):
         self.rank_size = rank_size
         self.tier_size = tier_size
@@ -49,6 +50,7 @@ class RLStatsImageTemplate:
         self.bg_overlay = bg_overlay
         self.rank_base = rank_base
         self.images = images
+        self.season_rewards_colors = season_rewards_colors
 
     def get_coords(
         self, coords_name: str, playlist_key: Optional[PlaylistKey] = None
@@ -180,7 +182,9 @@ class RLStatsImage(RLStatsImageMixin):
 
     def _draw_season_rewards(self) -> None:
         self._draw_season_reward_lvl()
-        self._draw_season_reward_bars()
+        if self.player.season_rewards.level != 7:
+            self._draw_season_reward_bars()
+            self._draw_season_reward_wins()
 
     def _draw_season_reward_lvl(self) -> None:
         rewards = self.player.season_rewards
@@ -194,29 +198,60 @@ class RLStatsImage(RLStatsImageMixin):
 
     def _draw_season_reward_bars(self) -> None:
         rewards = self.player.season_rewards
-        if rewards.level != 7:
-            reward_bars_win_image = Image.open(
-                self.template.images["season_rewards_bars_win"].format(rewards.level)
+        reward_bars_win_image = Image.open(
+            self.template.images["season_rewards_bars_win"].format(rewards.level)
+        ).convert("RGBA")
+        if rewards.reward_ready:
+            reward_bars_nowin_image = Image.open(
+                self.template.images["season_rewards_bars_nowin"].format(rewards.level)
             ).convert("RGBA")
-            if rewards.reward_ready:
-                reward_bars_nowin_image = Image.open(
-                    self.template.images["season_rewards_bars_nowin"].format(
-                        rewards.level
-                    )
-                ).convert("RGBA")
+        else:
+            reward_bars_nowin_image = Image.open(
+                self.template.images["season_rewards_bars_red"]
+            ).convert("RGBA")
+        coords, _ = self.template.get_coords("season_rewards_bars")
+        for win in range(0, 10):
+            coords += (83, 0)
+            if rewards.wins > win:
+                self.alpha_composite(reward_bars_win_image, coords.to_tuple())
             else:
-                reward_bars_nowin_image = Image.open(
-                    self.template.images["season_rewards_bars_red"]
-                ).convert("RGBA")
-            coords, _ = self.template.get_coords("season_rewards_bars")
-            for win in range(0, 10):
-                coords += (83, 0)
-                if rewards.wins > win:
-                    self.alpha_composite(reward_bars_win_image, coords.to_tuple())
-                else:
-                    self.alpha_composite(reward_bars_nowin_image, coords.to_tuple())
-            reward_bars_win_image.close()
-            reward_bars_nowin_image.close()
+                self.alpha_composite(reward_bars_nowin_image, coords.to_tuple())
+        reward_bars_win_image.close()
+        reward_bars_nowin_image.close()
+
+    def _draw_season_reward_wins(self) -> None:
+        rewards = self.player.season_rewards
+        coords, _ = self.template.get_coords("season_rewards_wins_text")
+        if rewards.reward_ready:
+            wins_text_image = Image.open(
+                self.template.images["season_rewards_wins_white"]
+            )
+            fill = self.template.season_rewards_colors[rewards.level]
+        else:
+            wins_text_image = Image.open(
+                self.template.images["season_rewards_wins_red"]
+            )
+            fill = self.template.season_rewards_colors[-1]
+        with wins_text_image:
+            self.alpha_composite(wins_text_image, coords.to_tuple())
+
+        coords, font_name = self.template.get_coords("season_rewards_wins_max")
+        # season_rewards_wins_max has font name defined
+        font_name = cast(str, font_name)
+        font = self.template.fonts[font_name]
+        # TODO: rlapi package should define max
+        w, h = font.getsize("10")
+        coords -= (w, h / 2)
+        self._draw.text(xy=coords, text="10", font=font, fill=fill)
+
+        coords, font_name = self.template.get_coords("season_rewards_wins_amount")
+        # season_rewards_wins_amount has font name defined
+        font_name = cast(str, font_name)
+        font = self.template.fonts[font_name]
+        text = str(rewards.wins)
+        w, h = font.getsize(text)
+        coords -= (w, h / 2)
+        self._draw.text(xy=coords, text=text, font=font, fill=fill)
 
 
 class RLStatsImagePlaylist(RLStatsImageMixin):
