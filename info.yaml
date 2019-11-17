@@ -3,16 +3,16 @@
 repo:
   name: JackCogs
   author:
-    - jack1142
+    - jack1142 (Jackenmen#6607)
   install_msg: >-
     Thanks for using {repo_name}. If you have any issues,
     check for more information in my repo: https://github.com/jack1142/JackCogs
-  short: Unofficial cogs by jack1142.
+  short: Unofficial cogs by jack1142 (Jackenmen#6607).
   description: Cogs requested by others and those that I wanted for Red myself.
 
 shared_fields:
   author:
-    - jack1142
+    - jack1142 (Jackenmen#6607)
   disabled: false
   install_msg: >-
     Thanks for installing {cog_name}. If anything doesn't work, you can report it

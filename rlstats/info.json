@@ -1,6 +1,6 @@
 {
     "author": [
-        "jack1142"
+        "jack1142 (Jackenmen#6607)"
     ],
     "disabled": false,
     "install_msg": "Thanks for installing RLStats. Before you'll be able to check any stats, you need to configure a Rocket League API user token using command `[p]rlset token`.",
