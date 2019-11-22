@@ -89,7 +89,8 @@ class RLStats(commands.Cog):
         2: "#cbb36b",
         3: "#c8dcdc",
         4: "#95d9d7",
-        5: "#d9caf0",
+        5: "#c1afda",
+        6: "#d9caf0",
     }
 
     def __init__(self, bot: Red) -> None:
