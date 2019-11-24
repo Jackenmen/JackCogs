@@ -12,7 +12,7 @@ from redbot.core import checks, commands
 from redbot.core.bot import Red
 from redbot.core.config import Config, Value
 from redbot.core.data_manager import bundled_data_path, cog_data_path
-from redbot.core.utils.chat_formatting import bold
+from redbot.core.utils.chat_formatting import bold, inline
 from redbot.core.utils.menus import start_adding_reactions
 from redbot.core.utils.predicates import ReactionPredicate
 from rlapi.ext.tier_breakdown.trackernetwork import get_tier_breakdown
@@ -513,7 +513,7 @@ class RLStats(commands.Cog):
                 if self.bot.is_owner(ctx.author):
                     await ctx.send(
                         "This cog wasn't configured properly."
-                        f" You can setup the cog using `{ctx.prefix}rlset`."
+                        f" You can setup the cog using {inline(f'{ctx.prefix}rlset')}."
                     )
                 else:
                     await ctx.send("The bot owner didn't configure this cog properly.")
@@ -521,7 +521,6 @@ class RLStats(commands.Cog):
             self.rlapi_client.change_token(token)
 
             player_ids: List[Tuple[str, Optional[rlapi.Platform]]] = []
-            registered_player = False
             discord_user = None
             if player_id is None:
                 try:
@@ -555,6 +554,16 @@ class RLStats(commands.Cog):
 
             try:
                 players = await self._get_players(player_ids)
+            except rlapi.Unauthorized as e:
+                log.error(str(e))
+                if self.bot.is_owner(ctx.author):
+                    await ctx.send(
+                        f"Set token is invalid. Use {inline(f'{ctx.prefix}rlset')}"
+                        " to change the token."
+                    )
+                else:
+                    await ctx.send("The bot owner didn't configure this cog properly.")
+                return
             except rlapi.HTTPException as e:
                 log.error(str(e))
                 if e.status >= 500:
