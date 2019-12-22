@@ -1,0 +1,20 @@
+{
+    "author": [
+        "jack1142 (Jackenmen#6607)"
+    ],
+    "disabled": false,
+    "install_msg": "Thanks for installing LinkWarner. This cog comes with limited support from me, you can ping me on #support_othercogs in Cog Support server (discord.gg/GET4DVk) when you have some issue or feature request, but I might decide not to help.",
+    "type": "COG",
+    "hidden": false,
+    "name": "LinkWarner",
+    "short": "Remove messages and/or warn users for using links. Comes with whitelist for roles and url domains!",
+    "description": "Remove messages and/or warn users for using links. Comes with whitelist for roles and url domains!",
+    "tags": [
+        "linkwarner",
+        "moderation",
+        "tools",
+        "utility"
+    ],
+    "required_cogs": {},
+    "requirements": []
+}
