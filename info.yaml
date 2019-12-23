@@ -2,35 +2,35 @@
 
 repo:
   name: JackCogs
-  author:
-    - jack1142 (Jackenmen#6607)
+  short: Unofficial cogs by jack1142 (Jackenmen#6607).
+  description: Cogs requested by others and those that I wanted for Red myself.
   install_msg: >-
     Thanks for using {repo_name}. If you have any issues,
     check for more information in my repo: https://github.com/jack1142/JackCogs
-  short: Unofficial cogs by jack1142 (Jackenmen#6607).
-  description: Cogs requested by others and those that I wanted for Red myself.
-
-shared_fields:
   author:
     - jack1142 (Jackenmen#6607)
-  disabled: false
+
+shared_fields:
   install_msg: >-
     Thanks for installing {cog_name}. If anything doesn't work, you can report it
     on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.
-  type: COG
+  author:
+    - jack1142 (Jackenmen#6607)
   hidden: false
+  disabled: false
+  type: COG
 
 cogs:
   cogboard:
     name: CogBoard
     short: Search for cogs in approved repos on {cog_name}.
     description: Search for cogs in approved repos on {cog_name}.
+    requirements:
+      - typing_extensions>=3.7.4
     tags:
       - cogboard
       - tools
       - utility
-    requirements:
-      - typing_extensions>=3.7.4
   rlstats:
     name: RLStats
     short: >-
@@ -43,15 +43,15 @@ cogs:
     install_msg: >-
       Thanks for installing {cog_name}. Before you'll be able to check any stats, you
       need to configure a Rocket League API user token using command `[p]rlset token`.
-    min_bot_version: 3.1.0
     requirements:
-      - rlapi==0.1.0a1
       - pillow~=6.0
+      - rlapi==0.1.0a1
     tags:
       - api
       - gaming
       - rlstats
       - rocketleague
+    min_bot_version: 3.1.0
   voicetools:
     name: VoiceTools
     short: Various tools to make voice channels better!
@@ -64,9 +64,9 @@ cogs:
       (kick user when exceeding limit)
     install_msg: >-
       Thanks for installing {cog_name}. Use `[p]voicetools` to configure the cog.
-    min_bot_version: 3.1.0
     tags:
       - tools
       - utility
       - voice
       - voicetools
+    min_bot_version: 3.1.0

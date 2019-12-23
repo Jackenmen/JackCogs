@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from pathlib import Path
 import json
 import re
+import sys
 import typing
 
 from redbot import VersionInfo
@@ -73,6 +74,7 @@ class PythonVersion(ScalarValidator):
         )
 
 
+# TODO: allow author in COG_KEYS and merge them with repo/shared fields lists
 REPO_KEYS = {
     "name": Str(),  # Downloader doesn't use this but I can set friendlier name
     "short": Str(),
@@ -89,12 +91,11 @@ COMMON_KEYS = {
     Optional("type", "COG"): Enum(["COG", "SHARED_LIBRARY"]),
 }
 SHARED_FIELDS_KEYS = {
-    **COMMON_KEYS,
     "install_msg": Str(),
     "author": Seq(Str()),
+    **COMMON_KEYS,
 }
 COG_KEYS = {
-    **COMMON_KEYS,
     "name": Str(),  # Downloader doesn't use this but I can set friendlier name
     "short": Str(),
     "description": Str(),
@@ -102,6 +103,7 @@ COG_KEYS = {
     Optional("required_cogs", {}): EmptyDict() | MapPattern(Str(), Url()),
     Optional("requirements", []): EmptyList() | Seq(Str()),
     Optional("tags", []): EmptyList() | Seq(Str()),
+    **COMMON_KEYS,
 }
 SCHEMA = Map(
     {
@@ -110,12 +112,85 @@ SCHEMA = Map(
         "cogs": MapPattern(Str(), Map(COG_KEYS)),
     }
 )
+# TODO: auto-format to proper key order
+AUTOLINT_REPO_KEYS_ORDER = list(REPO_KEYS.keys())
+AUTOLINT_SHARED_FIELDS_KEYS_ORDER = list(
+    getattr(key, "key", key) for key in SHARED_FIELDS_KEYS
+)
+AUTOLINT_COG_KEYS_ORDER = list(getattr(key, "key", key) for key in COG_KEYS)
 
 
-def main() -> None:
+def check_order(data: dict) -> int:
+    """Temporary order checking, until strictyaml adds proper support for sorting."""
+    to_check = {
+        "repo": AUTOLINT_REPO_KEYS_ORDER,
+        "shared_fields": AUTOLINT_SHARED_FIELDS_KEYS_ORDER,
+    }
+    exit_code = 0
+    for key, order in to_check.items():
+        section = data[key]
+        original_keys = list(section.keys())
+        sorted_keys = sorted(section.keys(), key=order.index)
+        if original_keys != sorted_keys:
+            print(
+                "\033[93m\033[1mWARNING: \033[0m"
+                f"Keys in `{key}` section have wrong order - use this order: "
+                f"{', '.join(sorted_keys)}"
+            )
+            exit_code = 1
+
+    original_cog_names = list(data["cogs"].keys())
+    sorted_cog_names = sorted(data["cogs"].keys())
+    if original_cog_names != sorted_cog_names:
+        print(
+            "\033[93m\033[1mWARNING: \033[0m"
+            f"Cog names in `cogs` section aren't sorted. Use alphabetical order."
+        )
+        exit_code = 1
+
+    for pkg_name, cog_info in data["cogs"].items():
+        # strictyaml breaks ordering of keys for some reason
+        original_keys = list((k for k, v in cog_info.items() if v))
+        sorted_keys = sorted(
+            (k for k, v in cog_info.items() if v), key=AUTOLINT_COG_KEYS_ORDER.index
+        )
+        if original_keys != sorted_keys:
+            print(
+                "\033[93m\033[1mWARNING: \033[0m"
+                f"Keys in `cogs->{pkg_name}` section have wrong order"
+                f" - use this order: {', '.join(sorted_keys)}"
+            )
+            print(original_keys)
+            print(sorted_keys)
+            exit_code = 1
+        for key in ("required_cogs", "requirements", "tags"):
+            list_or_dict = cog_info[key]
+            if hasattr(list_or_dict, "keys"):
+                original_list = list(list_or_dict.keys())
+            else:
+                original_list = list_or_dict
+            sorted_list = sorted(original_list)
+            if original_list != sorted_list:
+                friendly_name = key.capitalize().replace("_", " ")
+                print(
+                    "\033[93m\033[1mWARNING: \033[0m"
+                    f"{friendly_name} for `{pkg_name}` cog aren't sorted."
+                    " Use alphabetical order."
+                )
+                print(original_list)
+                print(sorted_list)
+                exit_code = 1
+
+    return exit_code
+
+
+def main() -> int:
     print("Loading info.yaml...")
-    with open("info.yaml") as fp:
+    with open(ROOT_PATH / "info.yaml") as fp:
         data = yaml_load(fp.read(), SCHEMA).data
+
+    print("Checking order in sections...")
+    exit_code = check_order(data)
 
     print("Preparing repo's info.json...")
     repo_info = data["repo"]
@@ -132,8 +207,14 @@ def main() -> None:
     for pkg_name, cog_info in cogs.items():
         requirements.update(cog_info["requirements"])
         print(f"Preparing info.json for {pkg_name} cog...")
-        output = shared_fields.copy()
-        output.update(cog_info)
+        output = {}
+        for key in AUTOLINT_COG_KEYS_ORDER:
+            value = cog_info.get(key)
+            if value is None:
+                value = shared_fields.get(key)
+                if value is None:
+                    continue
+            output[key] = value
         replacements = {
             "repo_name": repo_info["name"],
             "cog_name": output["name"],
@@ -147,11 +228,37 @@ def main() -> None:
     print("Preparing requirements file for CI...")
     with open(ROOT_PATH / ".ci/requirements/all_cogs.txt", "w") as fp:
         fp.write("Red-DiscordBot\n")
-        for requirement in requirements:
+        for requirement in sorted(requirements):
             fp.write(f"{requirement}\n")
 
+    print("Preparing all cogs list in README.md...")
+    with open(ROOT_PATH / "README.md", "r+") as fp:
+        text = fp.read()
+        match = re.search(
+            r"# Cogs in this repo\n(.+)\n{2}# Installation", text, flags=re.DOTALL
+        )
+        if match is None:
+            print(
+                "\033[91m\033[1mERROR:\033[0m Couldn't find cogs sections in README.md!"
+            )
+            return 1
+        start, end = match.span(1)
+        lines = []
+        for pkg_name, cog_info in cogs.items():
+            replacements = {
+                "repo_name": repo_info["name"],
+                "cog_name": cog_info["name"],
+            }
+            desc = cog_info["short"].format_map(replacements)
+            lines.append(f"  * **{pkg_name}** - {desc}")
+        cogs_section = "\n".join(lines)
+        fp.seek(0)
+        fp.truncate()
+        fp.write(f"{text[:start]}{cogs_section}{text[end:]}")
+
     print("Done!")
+    return exit_code
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -1,21 +1,18 @@
 {
-    "author": [
-        "jack1142 (Jackenmen#6607)"
-    ],
-    "disabled": false,
-    "install_msg": "Thanks for installing CogBoard. If anything doesn't work, you can report it on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.",
-    "type": "COG",
-    "hidden": false,
     "name": "CogBoard",
     "short": "Search for cogs in approved repos on CogBoard.",
     "description": "Search for cogs in approved repos on CogBoard.",
+    "install_msg": "Thanks for installing CogBoard. If anything doesn't work, you can report it on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.",
+    "required_cogs": {},
+    "requirements": [
+        "typing_extensions>=3.7.4"
+    ],
     "tags": [
         "cogboard",
         "tools",
         "utility"
     ],
-    "requirements": [
-        "typing_extensions>=3.7.4"
-    ],
-    "required_cogs": {}
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
 }

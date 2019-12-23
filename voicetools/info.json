@@ -1,21 +1,18 @@
 {
-    "author": [
-        "jack1142 (Jackenmen#6607)"
-    ],
-    "disabled": false,
-    "install_msg": "Thanks for installing VoiceTools. Use `[p]voicetools` to configure the cog.",
-    "type": "COG",
-    "hidden": false,
     "name": "VoiceTools",
     "short": "Various tools to make voice channels better!",
     "description": "Available modules:\n- VIP - Set users and roles not counting to user limit on voice channel\n- ForceLimit - Force user limit to all members of the server including admins (kick user when exceeding limit)",
-    "min_bot_version": "3.1.0",
+    "install_msg": "Thanks for installing VoiceTools. Use `[p]voicetools` to configure the cog.",
+    "required_cogs": {},
+    "requirements": [],
     "tags": [
         "tools",
         "utility",
         "voice",
         "voicetools"
     ],
-    "required_cogs": {},
-    "requirements": []
+    "min_bot_version": "3.1.0",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
 }

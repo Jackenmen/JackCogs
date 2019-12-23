@@ -14,12 +14,15 @@ If you're developer, you can also send pull requests and I will happily merge yo
 
 Also I suggest to join [Red - Cog Support server](https://discord.gg/GET4DVk) and if you will ever need help with any of my cogs, just mention me (@Jackenmen#6607) on #support_othercogs channel.
 
-# My cogs
+# Cogs in this repo
+  * **cogboard** - Search for cogs in approved repos on CogBoard.
+  * **rlstats** - Shows you Rocket League player statistics. Needs access to Rocket League API which is currently in closed beta.
   * **voicetools** - Various tools to make voice channels better!
-  * **rlstats** - Shows you Rocket League player statistics. Needs access to [Rocket League API](https://support.rocketleague.com/hc/en-us/articles/115000159374-API-Requests) which is currently in closed beta.
 
 # Installation
 To install the cogs, Follow the given steps:
+
+`[p] is your prefix.`
 
 **Step 1** - Adding the repo.
 > To add the repo, type this into the chat:
@@ -31,7 +34,7 @@ To install the cogs, Follow the given steps:
 **Step 2** - Adding the cog.
 > To add the cog, type this into the chat:
 > 
-> ``[p]cog install JackCogs [cog_name]``
+> ``[p]cog install JackCogs <cog_name>``
 > 
 > Once the module has loaded up, type yes.
 
