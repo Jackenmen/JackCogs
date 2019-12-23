@@ -232,10 +232,10 @@ def main() -> int:
             fp.write(f"{requirement}\n")
 
     print("Preparing all cogs list in README.md...")
-    with open(ROOT_PATH / "README.md", "r+") as fp:
+    with open(ROOT_PATH / "README.md", "r+", encoding="utf-8") as fp:
         text = fp.read()
         match = re.search(
-            r"# Cogs in this repo\n(.+)\n{2}# Installation", text, flags=re.DOTALL
+            r"# Cogs in this repo\n{2}(.+)\n{2}# Installation", text, flags=re.DOTALL
         )
         if match is None:
             print(
@@ -250,7 +250,7 @@ def main() -> int:
                 "cog_name": cog_info["name"],
             }
             desc = cog_info["short"].format_map(replacements)
-            lines.append(f"  * **{pkg_name}** - {desc}")
+            lines.append(f"* **{pkg_name}** - {desc}")
         cogs_section = "\n".join(lines)
         fp.seek(0)
         fp.truncate()
