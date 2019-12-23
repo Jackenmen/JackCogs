@@ -24,6 +24,7 @@ class GuildData:
         Warning message template if message is set, otherwise `None`.
 
     """
+
     __slots__ = (
         "id",
         "enabled",
@@ -141,6 +142,7 @@ class ChannelData:
         in guild or channel, otherwise `None`.
 
     """
+
     __slots__ = (
         "id",
         "ignore",
