@@ -186,7 +186,7 @@ def check_order(data: dict) -> int:
 
 def main() -> int:
     print("Loading info.yaml...")
-    with open(ROOT_PATH / "info.yaml") as fp:
+    with open(ROOT_PATH / "info.yaml", encoding="utf-8") as fp:
         data = yaml_load(fp.read(), SCHEMA).data
 
     print("Checking order in sections...")
@@ -197,7 +197,7 @@ def main() -> int:
     repo_info["install_msg"] = repo_info["install_msg"].format_map(
         {"repo_name": repo_info["name"]}
     )
-    with open(ROOT_PATH / "info.json", "w") as fp:
+    with open(ROOT_PATH / "info.json", "w", encoding="utf-8") as fp:
         json.dump(repo_info, fp, indent=4)
 
     requirements: typing.Set[str] = set()
@@ -222,11 +222,11 @@ def main() -> int:
         for to_replace in ("short", "description", "install_msg"):
             output[to_replace] = output[to_replace].format_map(replacements)
 
-        with open(ROOT_PATH / pkg_name / "info.json", "w") as fp:
+        with open(ROOT_PATH / pkg_name / "info.json", "w", encoding="utf-8") as fp:
             json.dump(output, fp, indent=4)
 
     print("Preparing requirements file for CI...")
-    with open(ROOT_PATH / ".ci/requirements/all_cogs.txt", "w") as fp:
+    with open(ROOT_PATH / ".ci/requirements/all_cogs.txt", "w", encoding="utf-8") as fp:
         fp.write("Red-DiscordBot\n")
         for requirement in sorted(requirements):
             fp.write(f"{requirement}\n")
