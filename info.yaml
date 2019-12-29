@@ -34,12 +34,12 @@ cogs:
   rlstats:
     name: RLStats
     short: >-
-      Shows you Rocket League player statistics.
+      Get your Rocket League stats with a single command!
       Needs access to Rocket League API which is currently in closed beta.
     description: >-
       Shows you Rocket League player statistics.
-      Cog works just fine, but I plan more features in near future.
       The cog needs access to Rocket League API which is currently in closed beta.
+    class_docstring: Get your Rocket League stats with a single command!
     install_msg: >-
       Thanks for installing {cog_name}. Before you'll be able to check any stats, you
       need to configure a Rocket League API user token using command `[p]rlset token`.

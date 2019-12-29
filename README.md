@@ -21,7 +21,7 @@ Also I suggest to join [Red - Cog Support server](https://discord.gg/GET4DVk) an
 # Cogs in this repo
 
 * **cogboard** - Search for cogs in approved repos on CogBoard.
-* **rlstats** - Shows you Rocket League player statistics. Needs access to Rocket League API which is currently in closed beta.
+* **rlstats** - Get your Rocket League stats with a single command! Needs access to Rocket League API which is currently in closed beta.
 * **voicetools** - Various tools to make voice channels better!
 
 # Installation

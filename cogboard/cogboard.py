@@ -30,6 +30,8 @@ class CogItem(TypedDict):
 
 
 class CogBoard(commands.Cog):
+    """Search for cogs in approved repos on CogBoard."""
+
     REPOS_POST = "https://cogboard.red/posts/533.json"
     REPOS_REGEX = re.compile(
         r"""

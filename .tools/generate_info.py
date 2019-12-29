@@ -24,6 +24,7 @@ from strictyaml import (
 from strictyaml.exceptions import YAMLValidationError, YAMLSerializationError
 from strictyaml.utils import is_string
 from strictyaml.yamllocation import YAMLChunk
+import parso
 
 
 ROOT_PATH = Path(__file__).absolute().parent.parent
@@ -99,6 +100,7 @@ COG_KEYS = {
     "name": Str(),  # Downloader doesn't use this but I can set friendlier name
     "short": Str(),
     "description": Str(),
+    Optional("class_docstring"): Str(),
     Optional("install_msg"): Str(),
     Optional("required_cogs", {}): EmptyDict() | MapPattern(Str(), Url()),
     Optional("requirements", []): EmptyList() | Seq(Str()),
@@ -112,6 +114,7 @@ SCHEMA = Map(
         "cogs": MapPattern(Str(), Map(COG_KEYS)),
     }
 )
+SKIP_COG_KEYS_INFO_JSON = {"class_docstring"}
 # TODO: auto-format to proper key order
 AUTOLINT_REPO_KEYS_ORDER = list(REPO_KEYS.keys())
 AUTOLINT_SHARED_FIELDS_KEYS_ORDER = list(
@@ -184,6 +187,88 @@ def check_order(data: dict) -> int:
     return exit_code
 
 
+def update_class_docstrings(cogs: dict, repo_info: dict) -> int:
+    """Update class docstrings with descriptions from info.yaml
+
+    This is created with few assumptions:
+    - name of cog's class is under "name" key in `cogs` dictionary
+    - following imports until we find class definition is enough to find it
+      - class name is imported directly:
+      `from .rlstats import RLStats` not `from . import rlstats`
+      - import is relative
+      - star imports are ignored
+    """
+    for pkg_name, cog_info in cogs.items():
+        class_name = cog_info["name"]
+        path = ROOT_PATH / pkg_name / "__init__.py"
+        if not path.is_file():
+            raise RuntimeError("Folder `{pkg_name}` isn't a valid package.")
+        while True:
+            with path.open(encoding="utf-8") as fp:
+                source = fp.read()
+                tree = parso.parse(source)
+            class_node = next(
+                (
+                    node
+                    for node in tree.iter_classdefs()
+                    if node.name.value == class_name
+                ),
+                None
+            )
+            if class_node is not None:
+                break
+
+            for import_node in tree.iter_imports():
+                if import_node.is_star_import():
+                    # we're ignoring star imports
+                    continue
+                for import_path in import_node.get_paths():
+                    if import_path[-1].value == class_name:
+                        break
+                else:
+                    continue
+
+                if import_node.level == 0:
+                    raise RuntimeError(
+                        "Script expected relative import of cog's class."
+                    )
+                if import_node.level > 1:
+                    raise RuntimeError(
+                        "Attempted relative import beyond top-level package."
+                    )
+                path = ROOT_PATH / pkg_name
+                for part in import_path[:-1]:
+                    path /= part.value
+                path = path.with_suffix(".py")
+                if not path.is_file():
+                    raise RuntimeError(
+                        f"Path `{path}` isn't a valid file. Finding cog's class failed."
+                    )
+                break
+
+        doc_node = class_node.get_doc_node()
+        new_docstring = cog_info.get("class_docstring") or cog_info["short"]
+        replacements = {
+            "repo_name": repo_info["name"],
+            "cog_name": cog_info["name"],
+        }
+        new_docstring = new_docstring.format_map(replacements)
+        if doc_node is not None:
+            doc_node.value = f'"""{new_docstring}"""'
+        else:
+            first_leaf = class_node.children[-1].get_first_leaf()
+            # gosh, this is horrible
+            first_leaf.prefix = f'\n    """{new_docstring}"""\n'
+
+        new_code = tree.get_code()
+        if source != new_code:
+            print(f"Updated class docstring for {class_name}")
+            with path.open("w", encoding="utf-8") as fp:
+                fp.write(tree.get_code())
+
+    return 0
+
+
 def main() -> int:
     print("Loading info.yaml...")
     with open(ROOT_PATH / "info.yaml", encoding="utf-8") as fp:
@@ -209,6 +294,8 @@ def main() -> int:
         print(f"Preparing info.json for {pkg_name} cog...")
         output = {}
         for key in AUTOLINT_COG_KEYS_ORDER:
+            if key in SKIP_COG_KEYS_INFO_JSON:
+                continue
             value = cog_info.get(key)
             if value is None:
                 value = shared_fields.get(key)
@@ -255,6 +342,9 @@ def main() -> int:
         fp.seek(0)
         fp.truncate()
         fp.write(f"{text[:start]}{cogs_section}{text[end:]}")
+
+    print("Updating class docstrings...")
+    update_class_docstrings(cogs, repo_info)
 
     print("Done!")
     return exit_code
