@@ -1,7 +1,7 @@
 {
     "name": "VoiceTools",
     "short": "Various tools to make voice channels better!",
-    "description": "Available modules:\n- VIP - Set users and roles not counting to user limit on voice channel\n- ForceLimit - Force user limit to all members of the server including admins (kick user when exceeding limit)",
+    "description": "Various tools to make voice channels better!\nAvailable modules:\n- VIP - Set users and roles not counting to user limit on voice channel\n- ForceLimit - Force user limit to all members of the server including admins (kick user when exceeding limit)",
     "install_msg": "Thanks for installing VoiceTools. Use `[p]voicetools` to configure the cog.",
     "required_cogs": {},
     "requirements": [],

@@ -24,7 +24,7 @@ cogs:
   cogboard:
     name: CogBoard
     short: Search for cogs in approved repos on {cog_name}.
-    description: Search for cogs in approved repos on {cog_name}.
+    description: '{short}'
     requirements:
       - typing_extensions>=3.7.4
     tags:
@@ -56,6 +56,8 @@ cogs:
     name: VoiceTools
     short: Various tools to make voice channels better!
     description: >-
+      {short}
+
       Available modules:
 
       - VIP - Set users and roles not counting to user limit on voice channel

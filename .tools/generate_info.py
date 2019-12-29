@@ -307,7 +307,12 @@ def main() -> int:
             "cog_name": output["name"],
         }
         for to_replace in ("short", "description", "install_msg"):
-            output[to_replace] = output[to_replace].format_map(replacements)
+            if to_replace == "description":
+                output[to_replace] = output[to_replace].format_map(
+                    {**replacements, "short": output["short"]}
+                )
+            else:
+                output[to_replace] = output[to_replace].format_map(replacements)
 
         with open(ROOT_PATH / pkg_name / "info.json", "w", encoding="utf-8") as fp:
             json.dump(output, fp, indent=4)
