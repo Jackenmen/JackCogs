@@ -213,7 +213,7 @@ def update_class_docstrings(cogs: dict, repo_info: dict) -> int:
                     for node in tree.iter_classdefs()
                     if node.name.value == class_name
                 ),
-                None
+                None,
             )
             if class_node is not None:
                 break
