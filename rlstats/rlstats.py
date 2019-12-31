@@ -234,6 +234,11 @@ class RLStats(commands.Cog):
     @rlset.command()
     async def token(self, ctx: commands.Context) -> None:
         """Instructions to set the Rocket League API tokens."""
+        command = (
+            inline(
+                f"{ctx.prefix}set api rocket_league user_token PUT_YOUR_USER_TOKEN_HERE"
+            )
+        )
         message = (
             "**Getting API access from Psyonix is very hard right now, "
             "it's even harder than it was, but you can try:**\n"
@@ -247,7 +252,7 @@ class RLStats(commands.Cog):
             "6. Hope that Psyonix will reply to you\n"
             "7. When you get API access, copy your user token "
             "from your account on Rocket League API website\n"
-            f"`{ctx.prefix}set api rocket_league user_token,your_user_token`"
+            f"{command}"
         )
         await ctx.maybe_send_embed(message)
 
@@ -532,9 +537,9 @@ class RLStats(commands.Cog):
                         "Your game account is not connected with Discord."
                         " If you want to get stats,"
                         " either give your player ID after a command:"
-                        f" `{ctx.prefix}rlstats <player_id>`"
+                        f" {inline(f'{ctx.prefix}rlstats <player_id>')}"
                         " or connect your account using command:"
-                        f" `{ctx.prefix}rlconnect <player_id>`"
+                        f" {inline(f'{ctx.prefix}rlconnect <player_id>')}"
                     )
                     return
             else:
