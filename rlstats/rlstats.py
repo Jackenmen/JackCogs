@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, cast
 
 import discord
 import rlapi
+from PIL import Image, ImageFont
 from redbot.core import checks, commands
 from redbot.core.bot import Red
 from redbot.core.config import Config, Value
@@ -22,11 +23,6 @@ from rlapi.ext.tier_breakdown.trackernetwork import get_tier_breakdown
 from . import errors
 from .figures import Point
 from .image import CoordsInfo, RLStatsImageTemplate
-
-try:
-    from PIL import Image, ImageFont
-except ImportError:
-    raise RuntimeError("Can't load pillow. Do 'pip3 install pillow'.")
 
 
 log = logging.getLogger("red.jackcogs.rlstats")
