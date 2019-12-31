@@ -1,7 +1,9 @@
 import asyncio
 import contextlib
+import functools
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, cast
@@ -96,6 +98,8 @@ class RLStats(commands.Cog):
     def __init__(self, bot: Red) -> None:
         super().__init__()
         self.bot = bot
+        self.loop = bot.loop
+        self._executor = ThreadPoolExecutor()
         if hasattr(bot, "db"):
             # compatibility layer with Red 3.1.x
             async def get_shared_api_tokens(service_name: str) -> Dict[str, str]:
@@ -479,7 +483,21 @@ class RLStats(commands.Cog):
             return players[pred.result]
         return players[0]
 
+    def _generate_image(
+        self,
+        template: RLStatsImageTemplate,
+        playlists: Tuple[rlapi.PlaylistKey, ...],
+        player: rlapi.Player,
+    ) -> BytesIO:
+        result = template.generate_image(player, playlists)
+        fp = BytesIO()
+        result.thumbnail((960, 540))
+        result.save(fp, "PNG")
+        fp.seek(0)
+        return fp
+
     @commands.bot_has_permissions(attach_files=True)
+    @commands.cooldown(rate=3, per=5, type=commands.BucketType.user)
     @commands.command()
     async def rlstats(self, ctx: commands.Context, *, player_id: str = None) -> None:
         playlists = (
@@ -493,6 +511,7 @@ class RLStats(commands.Cog):
     rlstats.callback.__doc__ = RLSTATS_DOCS.format(mode="competitive")
 
     @commands.bot_has_permissions(attach_files=True)
+    @commands.cooldown(rate=3, per=5, type=commands.BucketType.user)
     @commands.command()
     async def rlsports(self, ctx: commands.Context, *, player_id: str = None) -> None:
         playlists = (
@@ -600,11 +619,10 @@ class RLStats(commands.Cog):
                 if playlist_key not in player.playlists:
                     player.add_playlist({"playlist": playlist_key.value})
 
-            result = template.generate_image(player, playlists)
-            fp = BytesIO()
-            result.thumbnail((960, 540))
-            result.save(fp, "PNG")
-            fp.seek(0)
+            fp = await self.loop.run_in_executor(
+                self._executor,
+                functools.partial(self._generate_image, template, playlists, player),
+            )
         if discord_user is not None and player.player_id == player_ids[0][0]:
             account_string = (
                 f"connected {str(player.platform)} account of {bold(str(discord_user))}"
