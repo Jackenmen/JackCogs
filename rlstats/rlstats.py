@@ -513,7 +513,8 @@ class RLStats(commands.Cog):
                 if await self.bot.is_owner(ctx.author):
                     await ctx.send(
                         "This cog wasn't configured properly."
-                        f" You can setup the cog using {inline(f'{ctx.prefix}rlset')}."
+                        " You need to set a token first, look at"
+                        f" {inline(f'{ctx.prefix}rlset token')} for instructions."
                     )
                 else:
                     await ctx.send("The bot owner didn't configure this cog properly.")
