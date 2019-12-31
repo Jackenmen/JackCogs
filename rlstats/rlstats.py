@@ -510,7 +510,7 @@ class RLStats(commands.Cog):
         async with ctx.typing():
             token = await self._get_token()
             if not token:
-                if self.bot.is_owner(ctx.author):
+                if await self.bot.is_owner(ctx.author):
                     await ctx.send(
                         "This cog wasn't configured properly."
                         f" You can setup the cog using {inline(f'{ctx.prefix}rlset')}."
