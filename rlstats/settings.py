@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 from PIL import Image
-from redbot.core import checks, commands
+from redbot.core import commands
 from redbot.core.config import Value
 from redbot.core.utils.chat_formatting import inline
 from rlapi.ext.tier_breakdown.trackernetwork import get_tier_breakdown
@@ -13,7 +13,7 @@ from .image import RLStatsImageTemplate
 
 
 class SettingsMixin(MixinMeta):
-    @checks.is_owner()
+    @commands.is_owner()
     @commands.group(name="rlset")
     async def rlset(self, ctx: commands.Context) -> None:
         """RLStats configuration options."""
