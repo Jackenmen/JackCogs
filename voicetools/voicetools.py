@@ -1,5 +1,6 @@
 import logging
 from itertools import zip_longest
+from typing import Optional, cast
 
 import discord
 from redbot.core import commands
@@ -312,9 +313,10 @@ class VoiceTools(commands.Cog):
             if member_on_list or role_list:
                 vip_id = member.id if member_on_list else role_list[0]
                 vip_type = "member" if member_on_list else "role"
-                if before.channel is not None and before.channel.user_limit != 0:
-                    await before.channel.edit(user_limit=before.channel.user_limit - 1)
-                    channel_id = before.channel.id
+                before_channel = cast(Optional[discord.VoiceChannel], before.channel)
+                if before_channel is not None and before_channel.user_limit != 0:
+                    await before_channel.edit(user_limit=before_channel.user_limit - 1)
+                    channel_id = before_channel.id
                     log.info(
                         (
                             "VIP with ID %s (%s)"
@@ -326,9 +328,10 @@ class VoiceTools(commands.Cog):
                     )
                     return True
 
-                if after.channel is not None and after.channel.user_limit != 0:
-                    await after.channel.edit(user_limit=after.channel.user_limit + 1)
-                    channel_id = after.channel.id
+                after_channel = cast(Optional[discord.VoiceChannel], before.channel)
+                if after_channel is not None and after_channel.user_limit != 0:
+                    await after_channel.edit(user_limit=after_channel.user_limit + 1)
+                    channel_id = after_channel.id
                     log.info(
                         (
                             "VIP with ID %s (%s)"
@@ -352,7 +355,7 @@ class VoiceTools(commands.Cog):
         ignore_member_list = await guild_conf.forcelimit_ignore_member_list()
         ignore_role_list = await guild_conf.forcelimit_ignore_role_list()
         ignore_vc_list = await guild_conf.forcelimit_ignore_vc_list()
-        channel = after.channel
+        channel = cast(Optional[discord.VoiceChannel], after.channel)
         if (
             channel is not None
             and channel.user_limit != 0
