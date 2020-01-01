@@ -63,6 +63,7 @@ class SettingsMixin(MixinMeta):
     async def rlset_bgimage_extramodes_set(self, ctx: commands.Context) -> None:
         """
         Set background for extra modes stats image.
+        This command accepts only 1920x1080 images.
 
         Use `[p]rlset bgimage extramodes reset` to reset to default.
         """
@@ -88,7 +89,7 @@ class SettingsMixin(MixinMeta):
         """
         Set overlay percentage for extra modes stats image.
 
-        Leave empty to reset to default (70)
+        Leave empty to reset to default (70%)
         """
         await self._rlset_bgimage_overlay(
             ctx,
@@ -106,6 +107,7 @@ class SettingsMixin(MixinMeta):
     async def rlset_bgimage_competitive_set(self, ctx: commands.Context) -> None:
         """
         Set background for competitive stats image.
+        This command accepts only 1920x1080 images.
 
         Use `[p]rlset bgimage competitive reset` to reset to default.
         """
@@ -131,7 +133,7 @@ class SettingsMixin(MixinMeta):
         """
         Set overlay percentage for competitive stats image.
 
-        Leave empty to reset to default (40)
+        Leave empty to reset to default (40%)
         """
         await self._rlset_bgimage_overlay(
             ctx,
@@ -160,7 +162,9 @@ class SettingsMixin(MixinMeta):
             except IOError:
                 await ctx.send("Attachment couldn't be open.")
                 return
-
+            if im.size != (1920, 1080):
+                await ctx.send("Background image needs to be in 1920x1080 size.")
+                return
             im = await self._run_in_executor(im.convert, "RGBA")
             await self._run_in_executor(im.save, filename, "PNG")
             template.bg_image = filename
