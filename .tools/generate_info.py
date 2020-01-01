@@ -1,3 +1,10 @@
+"""Script to automatically generate info.json files
+and generate class docstrings from single info.yaml file for whole repo.
+
+DISCLAIMER: While this script works, it uses some hacks and I don't recommend using it
+if you don't understand how it does some stuff and why it does it like this.
+"""
+
 from collections.abc import Sequence
 from pathlib import Path
 import json
