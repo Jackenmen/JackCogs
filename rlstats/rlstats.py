@@ -35,11 +35,13 @@ SUPPORTED_PLATFORMS = """Supported platforms:
 - PlayStation 4 - use PSN ID
 - Xbox One - use Xbox Gamertag"""
 
-RLSTATS_DOCS = f"""Show Rocket League stats in {{mode}} playlists for you or given player.
+RLSTATS_DOCS = f"""
+Show Rocket League stats in {{mode}} playlists for you or given player.
 
 {SUPPORTED_PLATFORMS}
 If the user connected their game profile with `[p]rlconnect`,
-you can also use their Discord tag to show their stats."""
+you can also use their Discord tag to show their stats.
+"""
 
 
 class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
@@ -256,7 +258,6 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
     async def _get_player_data_by_user(
         self, user: discord.abc.User
     ) -> Tuple[str, rlapi.Platform]:
-        """nwm"""
         user_data = await self.config.user(user).all()
         player_id, platform = user_data["player_id"], user_data["platform"]
         if player_id is not None:
