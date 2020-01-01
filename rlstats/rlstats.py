@@ -380,7 +380,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 players = await self._get_players(player_ids)
             except rlapi.Unauthorized as e:
                 log.error(str(e))
-                if self.bot.is_owner(ctx.author):
+                if await self.bot.is_owner(ctx.author):
                     await ctx.send(
                         f"Set token is invalid. Use {inline(f'{ctx.prefix}rlset')}"
                         " to change the token."
