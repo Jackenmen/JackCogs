@@ -96,6 +96,14 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         self.bot = bot
         self.loop = bot.loop
         self._executor = ThreadPoolExecutor()
+        self.config = Config.get_conf(
+            self, identifier=6672039729, force_registration=True
+        )
+        self.config.register_global(
+            tier_breakdown={}, competitive_overlay=40, extramodes_overlay=70
+        )
+        self.config.register_user(player_id=None, platform=None)
+
         if hasattr(bot, "db"):
             # compatibility layer with Red 3.1.x
             async def get_shared_api_tokens(service_name: str) -> Dict[str, str]:
@@ -106,16 +114,13 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             self.get_shared_api_tokens = get_shared_api_tokens
         else:
             self.get_shared_api_tokens = bot.get_shared_api_tokens
-        self.config = Config.get_conf(
-            self, identifier=6672039729, force_registration=True
-        )
-        self.config.register_global(
-            tier_breakdown={}, competitive_overlay=40, extramodes_overlay=70
-        )
-        self.config.register_user(player_id=None, platform=None)
-        self.rlapi_client: rlapi.Client = None
+
+        self.rlapi_client: rlapi.Client = None  # assigned in initialize()
         self.bundled_data_path = bundled_data_path(self)
         self.cog_data_path = cog_data_path(self)
+        self._prepare_templates()
+
+    def _prepare_templates(self):
         self.fonts = {
             "ArimoRegular56": ImageFont.truetype(
                 str(self.bundled_data_path / "fonts/ArimoRegular.ttf"), 56
