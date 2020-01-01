@@ -9,6 +9,7 @@ from collections.abc import Sequence
 from pathlib import Path
 import json
 import re
+import subprocess
 import sys
 import typing
 
@@ -143,7 +144,7 @@ def check_order(data: dict) -> int:
         sorted_keys = sorted(section.keys(), key=order.index)
         if original_keys != sorted_keys:
             print(
-                "\033[93m\033[1mWARNING: \033[0m"
+                "\033[93m\033[1mWARNING:\033[0m "
                 f"Keys in `{key}` section have wrong order - use this order: "
                 f"{', '.join(sorted_keys)}"
             )
@@ -153,7 +154,7 @@ def check_order(data: dict) -> int:
     sorted_cog_names = sorted(data["cogs"].keys())
     if original_cog_names != sorted_cog_names:
         print(
-            "\033[93m\033[1mWARNING: \033[0m"
+            "\033[93m\033[1mWARNING:\033[0m "
             f"Cog names in `cogs` section aren't sorted. Use alphabetical order."
         )
         exit_code = 1
@@ -166,7 +167,7 @@ def check_order(data: dict) -> int:
         )
         if original_keys != sorted_keys:
             print(
-                "\033[93m\033[1mWARNING: \033[0m"
+                "\033[93m\033[1mWARNING:\033[0m "
                 f"Keys in `cogs->{pkg_name}` section have wrong order"
                 f" - use this order: {', '.join(sorted_keys)}"
             )
@@ -183,7 +184,7 @@ def check_order(data: dict) -> int:
             if original_list != sorted_list:
                 friendly_name = key.capitalize().replace("_", " ")
                 print(
-                    "\033[93m\033[1mWARNING: \033[0m"
+                    "\033[93m\033[1mWARNING:\033[0m "
                     f"{friendly_name} for `{pkg_name}` cog aren't sorted."
                     " Use alphabetical order."
                 )
@@ -276,6 +277,24 @@ def update_class_docstrings(cogs: dict, repo_info: dict) -> int:
     return 0
 
 
+def check_cog_data_path_use(cogs: dict) -> int:
+    for pkg_name in cogs:
+        p = subprocess.run(
+            ("git", "grep", "-q", "cog_data_path", "--", f"{pkg_name}/"),
+            cwd=ROOT_PATH,
+            check=False,
+        )
+        if p.returncode == 0:
+            print(
+                "\033[94m\033[1mINFO:\033[0m "
+                f"{pkg_name} uses cog_data_path, make sure"
+                " that you notify the user about it in install message."
+            )
+        elif p.returncode != 1:
+            raise RuntimeError("git grep command failed")
+    return 0
+
+
 def main() -> int:
     print("Loading info.yaml...")
     with open(ROOT_PATH / "info.yaml", encoding="utf-8") as fp:
@@ -361,6 +380,7 @@ def main() -> int:
 
     print("Updating class docstrings...")
     update_class_docstrings(cogs, repo_info)
+    check_cog_data_path_use(cogs)
 
     print("Done!")
     return exit_code
