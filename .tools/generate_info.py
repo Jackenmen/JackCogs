@@ -306,6 +306,10 @@ def main() -> int:
             "repo_name": repo_info["name"],
             "cog_name": output["name"],
         }
+        maybe_bundled_data = ROOT_PATH / pkg_name / "data"
+        if maybe_bundled_data.is_dir():
+            new_msg = f"{output['install_msg']}\nThis cog comes with bundled data."
+            output["install_msg"] = new_msg
         for to_replace in ("short", "description", "install_msg"):
             if to_replace == "description":
                 output[to_replace] = output[to_replace].format_map(
