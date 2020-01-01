@@ -357,7 +357,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         fp.seek(0)
         return fp
 
-    @commands.bot_has_permissions(attach_files=True)
+    @commands.bot_has_permissions(embed_links=True, attach_files=True)
     @commands.cooldown(rate=3, per=5, type=commands.BucketType.user)
     @commands.command()
     async def rlstats(self, ctx: commands.Context, *, player_id: str = None) -> None:
@@ -371,7 +371,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
 
     rlstats.callback.__doc__ = RLSTATS_DOCS.format(mode="competitive")
 
-    @commands.bot_has_permissions(attach_files=True)
+    @commands.bot_has_permissions(embed_links=True, attach_files=True)
     @commands.cooldown(rate=3, per=5, type=commands.BucketType.user)
     @commands.command()
     async def rlsports(self, ctx: commands.Context, *, player_id: str = None) -> None:

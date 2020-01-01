@@ -69,6 +69,7 @@ class VoiceTools(commands.Cog):
         else:
             await ctx.send("ForceLimit module is already disabled on this server")
 
+    @commands.bot_has_permissions(embed_links=True)
     @forcelimit.command(name="ignorelist")
     async def forcelimit_ignorelist(self, ctx: commands.Context) -> None:
         """
@@ -203,6 +204,7 @@ class VoiceTools(commands.Cog):
         else:
             await ctx.send("VIP module is already disabled on this server")
 
+    @commands.bot_has_permissions(embed_links=True)
     @vip.command(name="list")
     async def vip_list(self, ctx: commands.Context) -> None:
         """
