@@ -231,6 +231,21 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         rocket_league = await self.get_shared_api_tokens("rocket_league")
         return rocket_league.get("user_token", "")
 
+    async def _check_token(self, ctx: commands.Context) -> bool:
+        token = await self._get_token()
+        if not token:
+            if await self.bot.is_owner(ctx.author):
+                await ctx.send(
+                    "This cog wasn't configured properly."
+                    " You need to set a token first, look at"
+                    f" {inline(f'{ctx.prefix}rlset token')} for instructions."
+                )
+            else:
+                await ctx.send("The bot owner didn't configure this cog properly.")
+            return False
+        self.rlapi_client.change_token(token)
+        return True
+
     async def _get_player_data_by_user(
         self, user: discord.abc.User
     ) -> Tuple[str, rlapi.Platform]:
@@ -253,6 +268,41 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         if not players:
             raise rlapi.PlayerNotFound
         return tuple(players)
+
+    async def _maybe_get_players(
+        self,
+        ctx: commands.Context,
+        player_ids: List[Tuple[str, Optional[rlapi.Platform]]],
+    ) -> Optional[Tuple[rlapi.Player, ...]]:
+        try:
+            players = await self._get_players(player_ids)
+        except rlapi.Unauthorized as e:
+            log.error(str(e))
+            if await self.bot.is_owner(ctx.author):
+                await ctx.send(
+                    f"Set token is invalid. Use {inline(f'{ctx.prefix}rlset')}"
+                    " to change the token."
+                )
+            else:
+                await ctx.send("The bot owner didn't configure this cog properly.")
+        except rlapi.HTTPException as e:
+            log.error(str(e))
+            if e.status >= 500:
+                await ctx.send(
+                    "Rocket League API experiences some issues right now."
+                    " Try again later."
+                )
+            await ctx.send(
+                "Rocket League API can't process this request."
+                " If this keeps happening, inform bot's owner about this error."
+            )
+        except rlapi.PlayerNotFound as e:
+            log.debug(str(e))
+            await ctx.send("The specified profile could not be found.")
+        else:
+            return players
+
+        return None
 
     async def _choose_player(
         self, ctx: commands.Context, players: Tuple[rlapi.Player, ...]
@@ -336,18 +386,8 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         player_id: Optional[str],
     ) -> None:
         async with ctx.typing():
-            token = await self._get_token()
-            if not token:
-                if await self.bot.is_owner(ctx.author):
-                    await ctx.send(
-                        "This cog wasn't configured properly."
-                        " You need to set a token first, look at"
-                        f" {inline(f'{ctx.prefix}rlset token')} for instructions."
-                    )
-                else:
-                    await ctx.send("The bot owner didn't configure this cog properly.")
+            if not await self._check_token(ctx):
                 return
-            self.rlapi_client.change_token(token)
 
             player_ids: List[Tuple[str, Optional[rlapi.Platform]]] = []
             discord_user = None
@@ -381,34 +421,8 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                         discord_user = None
                 player_ids.append((player_id, None))
 
-            try:
-                players = await self._get_players(player_ids)
-            except rlapi.Unauthorized as e:
-                log.error(str(e))
-                if await self.bot.is_owner(ctx.author):
-                    await ctx.send(
-                        f"Set token is invalid. Use {inline(f'{ctx.prefix}rlset')}"
-                        " to change the token."
-                    )
-                else:
-                    await ctx.send("The bot owner didn't configure this cog properly.")
-                return
-            except rlapi.HTTPException as e:
-                log.error(str(e))
-                if e.status >= 500:
-                    await ctx.send(
-                        "Rocket League API experiences some issues right now."
-                        " Try again later."
-                    )
-                    return
-                await ctx.send(
-                    "Rocket League API can't process this request."
-                    " If this keeps happening, inform bot's owner about this error."
-                )
-                return
-            except rlapi.PlayerNotFound as e:
-                log.debug(str(e))
-                await ctx.send("The specified profile could not be found.")
+            players = await self._maybe_get_players(ctx, player_ids)
+            if players is None:
                 return
 
             try:
@@ -445,18 +459,11 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
     async def rlconnect(self, ctx: commands.Context, player_id: str) -> None:
         """Connect game profile with your Discord account."""
         async with ctx.typing():
-            try:
-                players = await self.rlapi_client.get_player(player_id)
-            except rlapi.HTTPException as e:
-                log.error(str(e))
-                await ctx.send(
-                    "Rocket League API experiences some issues right now."
-                    " Try again later."
-                )
+            if not await self._check_token(ctx):
                 return
-            except rlapi.PlayerNotFound as e:
-                log.debug(str(e))
-                await ctx.send("The specified profile could not be found.")
+
+            players = await self._maybe_get_players(ctx, [(player_id, None)])
+            if players is None:
                 return
 
             try:
