@@ -71,4 +71,4 @@ cogs:
       - utility
       - voice
       - voicetools
-    min_bot_version: 3.1.0
+    min_bot_version: 3.1.3

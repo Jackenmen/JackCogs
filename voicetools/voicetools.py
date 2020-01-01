@@ -364,7 +364,7 @@ class VoiceTools(commands.Cog):
                 or channel.id in ignore_vc_list
             ):
                 return
-            await member.move_to(discord.Object(id=None))
+            await member.move_to(None)
             log.info(
                 (
                     "Member with ID %s joined voice channel with ID %s"
