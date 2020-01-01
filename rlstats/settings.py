@@ -156,15 +156,13 @@ class SettingsMixin(MixinMeta):
             await a.save(fp)
             filename.parent.mkdir(parents=True, exist_ok=True)
             try:
-                im = Image.open(fp)
+                im = await self._run_in_executor(Image.open, fp)
             except IOError:
                 await ctx.send("Attachment couldn't be open.")
                 return
-            try:
-                im.convert("RGBA").save(filename, "PNG")
-            except FileNotFoundError:
-                await ctx.send("Attachment couldn't be saved.")
-                return
+
+            im = await self._run_in_executor(im.convert, "RGBA")
+            await self._run_in_executor(im.save, filename, "PNG")
             template.bg_image = filename
         await ctx.send("Background image was successfully set.")
 

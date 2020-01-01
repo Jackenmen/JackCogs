@@ -94,7 +94,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
     def __init__(self, bot: Red) -> None:
         super().__init__()
         self.bot = bot
-        self.loop = bot.loop
+        self.loop: asyncio.AbstractEventLoop = bot.loop
         self._executor = ThreadPoolExecutor()
         self.config = Config.get_conf(
             self, identifier=6672039729, force_registration=True
@@ -208,6 +208,13 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         self.rlapi_client.destroy()
 
     __del__ = cog_unload
+
+    async def _run_in_executor(
+        self, func: Callable[..., T], *args: Any, **kwargs: Any
+    ) -> T:
+        return await self.loop.run_in_executor(
+            self._executor, functools.partial(func, *args, **kwargs)
+        )
 
     def _convert_numbers_in_breakdown(
         self, d: Dict[str, Any], curr_lvl: int = 0
@@ -437,9 +444,9 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 if playlist_key not in player.playlists:
                     player.add_playlist({"playlist": playlist_key.value})
 
-            fp = await self.loop.run_in_executor(
-                self._executor,
-                functools.partial(self._generate_image, template, playlists, player),
+            # be extra careful when changing this (mypy won't type check this)
+            fp = await self._run_in_executor(
+                self._generate_image, template, playlists, player
             )
         if discord_user is not None and player.player_id == player_ids[0][0]:
             account_string = (
