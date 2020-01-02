@@ -24,7 +24,7 @@ class BanMessage(commands.Cog):
         self.config = Config.get_conf(
             self, identifier=176070082584248320, force_registration=True
         )
-        self.config.register_guild(channel=None, message_templates=[])
+        self.config.register_guild(channel=None, hackban=True, message_templates=[])
         self.message_images = cog_data_path(self) / "message_images"
         self.message_images.mkdir(exist_ok=True)
 
@@ -33,6 +33,33 @@ class BanMessage(commands.Cog):
     @checks.admin()
     async def banmessageset(self, ctx: commands.Context) -> None:
         """BanMessage settings."""
+
+    @banmessageset.command(name="hackban")
+    async def banmessageset_hackban(
+        self, ctx: commands.Context, enabled: bool = None
+    ) -> None:
+        """
+        Set if hackbans should trigger ban messages.
+
+        INFO: Hackbans are bans of users
+        that weren't members of the guild (also called preemptive bans).
+        """
+        config_value = self.config.guild(ctx.guild).hackban
+        if enabled is None:
+            if await config_value():
+                message = "Hackbans trigger ban messages in this server."
+            else:
+                message = "Hackbans don't trigger ban messages in this server."
+            await ctx.send(message)
+            return
+
+        await config_value.set(enabled)
+
+        if enabled:
+            message = "Hackbans will now trigger ban messages in this server."
+        else:
+            message = "Hackbans will no longer trigger ban messages in this server."
+        await ctx.send(message)
 
     @banmessageset.command(name="channel")
     async def banmessageset_channel(
@@ -167,6 +194,7 @@ class BanMessage(commands.Cog):
     async def on_member_ban(
         self, guild: discord.Guild, user: Union[discord.User, discord.Member]
     ) -> None:
+        # TODO: add caching to prevent a lot of fetches when mass-banning users
         settings = await self.config.guild(guild).all()
         channel_id = settings["channel"]
         if channel_id is None:
@@ -179,6 +207,9 @@ class BanMessage(commands.Cog):
                 guild.id,
             )
             return
+        if not settings["hackban"] and not hasattr(user, "guild"):
+            return
+
         message_templates = settings["message_templates"]
         if not message_templates:
             return
