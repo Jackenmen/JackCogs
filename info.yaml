@@ -43,6 +43,13 @@ cogs:
       - cogboard
       - tools
       - utility
+  membercount:
+    name: MemberCount
+    short: Get count of all members + humans and bots separately.
+    description: '{short}'
+    tags:
+      - tools
+      - utility
   modroles:
     name: ModRoles
     short: >-
