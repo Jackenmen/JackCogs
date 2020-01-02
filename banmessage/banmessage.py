@@ -167,7 +167,8 @@ class BanMessage(commands.Cog):
     async def on_member_ban(
         self, guild: discord.Guild, user: Union[discord.User, discord.Member]
     ) -> None:
-        channel_id = await self.config.guild(guild).channel()
+        settings = await self.config.guild(guild).all()
+        channel_id = settings["channel"]
         if channel_id is None:
             return
         channel = cast(Optional[discord.TextChannel], guild.get_channel(channel_id))
@@ -178,7 +179,7 @@ class BanMessage(commands.Cog):
                 guild.id,
             )
             return
-        message_templates = await self.config.guild(guild).message_templates()
+        message_templates = settings["message_templates"]
         if not message_templates:
             return
         message_template = random.choice(message_templates)
