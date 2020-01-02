@@ -9,6 +9,7 @@ class MemberCount(commands.Cog):
 
     @commands.command()
     async def membercount(self, ctx: commands.Context) -> None:
+        """Get count of all members + humans and bots separately."""
         guild = ctx.guild
         member_count = 0
         human_count = 0
