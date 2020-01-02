@@ -358,6 +358,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         fp.seek(0)
         return fp
 
+    # geninfo-ignore: missing-docstring
     @commands.bot_has_permissions(embed_links=True, attach_files=True)
     @commands.cooldown(rate=3, per=5, type=commands.BucketType.user)
     @commands.command()
@@ -372,6 +373,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
 
     rlstats.callback.__doc__ = RLSTATS_DOCS.format(mode="competitive")
 
+    # geninfo-ignore: missing-docstring
     @commands.bot_has_permissions(embed_links=True, attach_files=True)
     @commands.cooldown(rate=3, per=5, type=commands.BucketType.user)
     @commands.command()

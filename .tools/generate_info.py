@@ -329,6 +329,69 @@ def check_cog_data_path_use(cogs: dict) -> int:
     return 0
 
 
+CONTAINERS = parso.python.tree._FUNC_CONTAINERS | {
+    "async_funcdef",
+    "funcdef",
+    "classdef",
+}
+
+
+def _scan_recursively(children, name):
+    for element in children:
+        if element.type == name:
+            yield element
+        if element.type in CONTAINERS:
+            for e in scan_recursively(element.children, name):
+                yield e
+
+
+def check_command_docstrings(cogs: dict) -> int:
+    ret = 0
+    for pkg_name in cogs:
+        pkg_folder = ROOT_PATH / pkg_name
+        for file in pkg_folder.glob("**/*.py"):
+            with file.open() as fp:
+                tree = parso.parse(fp.read())
+            for node in _scan_recursively(tree.children, "async_funcdef"):
+                funcdef = node.children[-1]
+                decorators = funcdef.get_decorators()
+                ignore = False
+                # DEP-WARN: use of private method
+                for prefix_part in decorators[0].children[0]._split_prefix():
+                    if (
+                        prefix_part.type == "comment"
+                        and prefix_part.value == "# geninfo-ignore: missing-docstring"
+                    ):
+                        ignore = True
+                for deco in decorators:
+                    maybe_name = deco.children[1]
+                    if maybe_name.type == "dotted_name":
+                        deco_name = "".join(n.value for n in maybe_name.children)
+                    elif maybe_name.type == "name":
+                        deco_name = maybe_name.value
+                    else:
+                        raise RuntimeError("Unexpected type of decorator name.")
+                    if deco_name == "commands.command":
+                        break
+                else:
+                    continue
+                if funcdef.get_doc_node() is None:
+                    if not ignore:
+                        print(
+                            "\033[93m\033[1mWARNING:\033[0m "
+                            f"command `{funcdef.name.value}` misses help docstring!"
+                        )
+                        ret = 1
+                elif ignore:
+                    print(
+                        "\033[93m\033[1mWARNING:\033[0m "
+                        f"command `{funcdef.name.value}` has unused"
+                        " missing-docstring ignore comment!"
+                    )
+                    ret = 1
+    return ret
+
+
 def main() -> int:
     print("Loading info.yaml...")
     with open(ROOT_PATH / "info.yaml", encoding="utf-8") as fp:
@@ -419,6 +482,7 @@ def main() -> int:
     print("Updating class docstrings...")
     update_class_docstrings(cogs, repo_info)
     check_cog_data_path_use(cogs)
+    check_command_docstrings(cogs)
 
     print("Done!")
     return exit_code
