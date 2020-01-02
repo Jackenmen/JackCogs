@@ -2,7 +2,7 @@ import asyncio
 import logging
 import random
 from string import Template
-from typing import Union, cast
+from typing import Optional, Union, cast
 
 import discord
 from redbot.core import commands, checks
@@ -170,7 +170,7 @@ class BanMessage(commands.Cog):
         channel_id = await self.config.guild(guild).channel()
         if channel_id is None:
             return
-        channel = cast(discord.TextChannel, guild.get_channel(channel_id))
+        channel = cast(Optional[discord.TextChannel], guild.get_channel(channel_id))
         if channel is None:
             log.error(
                 "Channel with ID %s can't be found in guild with ID %s.",
