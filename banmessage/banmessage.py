@@ -62,7 +62,7 @@ class BanMessage(commands.Cog):
         """
         guild = ctx.guild
         async with self.config.guild(guild).all() as guild_settings:
-            guild_settings["templates"].append(message)
+            guild_settings["message_templates"].append(message)
         content = Template(message).safe_substitute(
             username=str(ctx.author), server=guild.name
         )
