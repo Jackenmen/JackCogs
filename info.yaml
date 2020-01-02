@@ -21,6 +21,18 @@ shared_fields:
   type: COG
 
 cogs:
+  banmessage:
+    name: BanMessage
+    short: Send message on ban in a chosen channel. Supports images!
+    description: Send message on ban in a chosen channel. Supports images!
+    install_msg: >-
+      {shared_fields.install_msg}
+
+      This cog saves images set with `[p]banmessageset setimage` to data path.
+    tags:
+      - banmessage
+      - tools
+      - utility
   cogboard:
     name: CogBoard
     short: Search for cogs in approved repos on {cog_name}.
