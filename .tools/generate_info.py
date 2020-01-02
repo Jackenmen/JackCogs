@@ -7,8 +7,10 @@ if you don't understand how it does some stuff and why it does it like this.
 
 from collections.abc import Sequence
 from pathlib import Path
+from types import SimpleNamespace
 import json
 import re
+import string
 import subprocess
 import sys
 import typing
@@ -36,6 +38,38 @@ import parso
 
 
 ROOT_PATH = Path(__file__).absolute().parent.parent
+
+# `FormatPlaceholder`, `FormatDict` and `safe_format_alt` taken from
+# https://stackoverflow.com/posts/comments/100958805
+
+
+class FormatPlaceholder:
+    def __init__(self, key):
+        self.key = key
+
+    def __format__(self, spec):
+        result = self.key
+        if spec:
+            result += ":" + spec
+        return "{" + result + "}"
+
+    def __getitem__(self, index):
+        self.key = f"{self.key}[{index}]"
+        return self
+
+    def __getattr__(self, attr):
+        self.key = f"{self.key}.{attr}"
+        return self
+
+
+class FormatDict(dict):
+    def __missing__(self, key):
+        return FormatPlaceholder(key)
+
+
+def safe_format_alt(text, source):
+    formatter = string.Formatter()
+    return formatter.vformat(text, (), FormatDict(source))
 
 
 class PythonVersion(ScalarValidator):
@@ -332,11 +366,15 @@ def main() -> int:
             "repo_name": repo_info["name"],
             "cog_name": output["name"],
         }
+        shared_fields_namespace = SimpleNamespace(**shared_fields)
         maybe_bundled_data = ROOT_PATH / pkg_name / "data"
         if maybe_bundled_data.is_dir():
             new_msg = f"{output['install_msg']}\nThis cog comes with bundled data."
             output["install_msg"] = new_msg
         for to_replace in ("short", "description", "install_msg"):
+            output[to_replace] = safe_format_alt(
+                output[to_replace], {"shared_fields": shared_fields_namespace}
+            )
             if to_replace == "description":
                 output[to_replace] = output[to_replace].format_map(
                     {**replacements, "short": output["short"]}
