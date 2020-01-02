@@ -341,7 +341,7 @@ def _scan_recursively(children, name):
         if element.type == name:
             yield element
         if element.type in CONTAINERS:
-            for e in scan_recursively(element.children, name):
+            for e in _scan_recursively(element.children, name):
                 yield e
 
 
