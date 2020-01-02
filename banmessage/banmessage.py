@@ -29,6 +29,7 @@ class BanMessage(commands.Cog):
         self.message_images.mkdir(exist_ok=True)
 
     @commands.group()
+    @commands.guild_only()
     @checks.admin()
     async def banmessageset(self, ctx: commands.Context) -> None:
         """BanMessage settings."""
@@ -59,16 +60,38 @@ class BanMessage(commands.Cog):
         Note: Ban message can also have image.
         To set it, use `[p]banmessageset setimage`
         """
-        async with self.config.guild(ctx.guild).message_templates() as templates:
-            templates.append(message)
+        guild = ctx.guild
+        async with self.config.guild(guild).all() as guild_settings:
+            guild_settings["templates"].append(message)
         content = Template(message).safe_substitute(
-            username=str(ctx.author), server=ctx.guild.name
+            username=str(ctx.author), server=guild.name
         )
-        filename = next(self.message_images.glob(f"{ctx.guild.id}.*"), None)
+
+        filename = next(self.message_images.glob(f"{guild.id}.*"), None)
         file = None
+        message = ""
         if filename is not None:
+            channel_id = guild_settings["channel"]
+            channel = guild.get_channel(channel_id) if channel_id is not None else None
+            if (
+                channel is not None
+                and not channel.permissions_for(guild.me).attach_files
+            ):
+                message = (
+                    "WARNING: Bot doesn't have permissions to send images"
+                    " in channel used for ban messages.\n\n"
+                )
+
+            if not ctx.channel.permissions_for(guild.me).attach_files:
+                await ctx.send(
+                    f"{message}Ban message set.\n"
+                    "I wasn't able to send test message here"
+                    ' due to missing "Attach files" permission.'
+                )
+                return
+
             file = discord.File(filename)
-        await ctx.send("Ban message set, sending a test message here...")
+        await ctx.send(f"{message}Ban message set, sending a test message here...")
         await ctx.send(content, file=file)
 
     @banmessageset.command(name="removemessage")
@@ -104,21 +127,34 @@ class BanMessage(commands.Cog):
     @banmessageset.command(name="setimage")
     async def banmessageset_setimage(self, ctx: commands.Context) -> None:
         """Set image for ban message."""
+        guild = ctx.guild
         if len(ctx.message.attachments) != 1:
             await ctx.send("You have to send exactly one attachment.")
             return
+
         a = ctx.message.attachments[0]
         if a.width is None:
             await ctx.send("The attachment has to be an image.")
             return
+
         ext = a.url.rpartition(".")[2]
         filename = self.message_images / f"{ctx.guild.id}.{ext}"
         with open(filename, "wb") as fp:
             await a.save(fp)
+
         for file in self.message_images.glob(f"{ctx.guild.id}.*"):
             if not file == filename:
                 file.unlink()
-        await ctx.send("Image set.")
+
+        channel_id = await self.config.guild(guild).channel()
+        channel = guild.get_channel(channel_id) if channel_id is not None else None
+        if channel is not None and not channel.permissions_for(guild.me).attach_files:
+            await ctx.send(
+                "WARNING: Bot doesn't have permissions to send images"
+                " in channel used for ban messages.\n\nImage set."
+            )
+        else:
+            await ctx.send("Image set.")
 
     @banmessageset.command(name="unsetimage")
     async def banmessageset_unsetimage(self, ctx: commands.Context) -> None:
@@ -153,7 +189,15 @@ class BanMessage(commands.Cog):
         filename = next(self.message_images.glob(f"{guild.id}.*"), None)
         file = None
         if filename is not None:
-            file = discord.File(filename)
+            if channel.permissions_for(guild.me).attach_files:
+                file = discord.File(filename)
+            else:
+                log.info(
+                    'Bot doesn\'t have "Attach files"'
+                    " in channel with ID %s (guild ID: %s)",
+                    channel_id,
+                    guild.id,
+                )
         try:
             await channel.send(content, file=file)
         except discord.Forbidden:
