@@ -22,6 +22,7 @@ Also I suggest to join [Red - Cog Support server](https://discord.gg/GET4DVk) an
 
 * **banmessage** - Send message on ban in a chosen channel. Supports images!
 * **cogboard** - Search for cogs in approved repos on CogBoard.
+* **modroles** - Allow moderators without manage roles permission to assign configured roles to users.
 * **rlstats** - Get your Rocket League stats with a single command! Needs access to Rocket League API which is currently in closed beta.
 * **voicetools** - Various tools to make voice channels better!
 

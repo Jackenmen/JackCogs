@@ -43,6 +43,21 @@ cogs:
       - cogboard
       - tools
       - utility
+  modroles:
+    name: ModRoles
+    short: >-
+      Allow moderators without manage roles permission
+      to assign configured roles to users.
+    description: >-
+      Allow moderators without manage roles permission
+      to assign configured roles to users.
+    class_docstring: Allow moderators to assign configured roles to users.
+    tags:
+      - moderation
+      - modroles
+      - roles
+      - tools
+      - utility
   rlstats:
     name: RLStats
     short: >-

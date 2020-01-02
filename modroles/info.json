@@ -1,0 +1,18 @@
+{
+    "name": "ModRoles",
+    "short": "Allow moderators without manage roles permission to assign configured roles to users.",
+    "description": "Allow moderators without manage roles permission to assign configured roles to users.",
+    "install_msg": "Thanks for installing ModRoles. If anything doesn't work, you can report it on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.",
+    "required_cogs": {},
+    "requirements": [],
+    "tags": [
+        "moderation",
+        "modroles",
+        "roles",
+        "tools",
+        "utility"
+    ],
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}
