@@ -301,9 +301,7 @@ class NitroRole(commands.Cog):
         if role in member.roles:
             return
         try:
-            await member.add_roles(
-                role, reason="New nitro booster - role assigned."
-            )
+            await member.add_roles(role, reason="New nitro booster - role assigned.")
         except discord.Forbidden:
             log.error(
                 "Bot was unable to add role"
