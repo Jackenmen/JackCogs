@@ -126,6 +126,7 @@ class ModRoles(commands.Cog):
 
     @modroles.command(name="list")
     async def modroles_list(self, ctx: commands.Context) -> None:
+        """List assignable roles."""
         assignable_roles = set(await self.config.guild(ctx.guild).assignable_roles())
         valid_roles = tuple(r for r in ctx.guild.roles if r.id in assignable_roles)
         valid_roles_ids = set(r.id for r in valid_roles)
