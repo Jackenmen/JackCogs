@@ -16,7 +16,9 @@ class ModRoles(commands.Cog):
         self.config = Config.get_conf(
             self, identifier=176070082584248320, force_registration=True
         )
-        self.config.register_guild(assignable_roles=[])
+        self.config.register_guild(
+            assignable_roles=[], allow_bots=False, toprole_check=True
+        )
 
     async def _assign_checks(
         self, ctx: commands.Context, member: discord.Member, role: discord.Role
@@ -27,8 +29,8 @@ class ModRoles(commands.Cog):
             return True
         if author.id == guild.owner_id:
             return True
-        # TODO: make this check configurable
-        if member.bot:
+        settings = await self.config.guild(guild).all()
+        if not settings["allow_bots"] and member.bot:
             await ctx.send("Pfft, you can't apply roles to bots.")
             return False
         if role > author.top_role:
@@ -36,8 +38,7 @@ class ModRoles(commands.Cog):
             return False
         if author.id == member.id:
             return True
-        # TODO: make this check configurable
-        if member.top_role > author.top_role:
+        if settings["toprole_check"] and member.top_role > author.top_role:
             await ctx.send(
                 "You can only assign roles to members"
                 " whose top role is lower than yours!"
@@ -167,3 +168,87 @@ class ModRoles(commands.Cog):
         await ctx.send(
             box(f"Available assignable roles:\n{fmt_assignable_roles}", "diff")
         )
+
+    @modroles.group(name="targets")
+    async def modroles_targets(self, ctx: commands.Context) -> None:
+        """Settings about allowed targets."""
+
+    @modroles_targets.command(name="allowbots")
+    async def modroles_targets_allowbots(
+        self, ctx: commands.Context, enabled: bool = None
+    ) -> None:
+        """
+        Allow to assign roles to bots with `[p]assignrole`
+
+        Leave empty to check current settings.
+        """
+        config_value = self.config.guild(ctx.guild).allow_bots
+        if enabled is None:
+            if await config_value():
+                message = (
+                    "Commands for assigning and unassigning roles"
+                    " can be used on bots in this server."
+                )
+            else:
+                message = (
+                    "Commands for assigning and unassigning roles"
+                    " cannot be used on bots in this server."
+                )
+            await ctx.send(message)
+            return
+
+        await config_value.set(enabled)
+
+        if enabled:
+            message = (
+                "Commands for assigning and unassigning roles"
+                " can now be used on bots in this server."
+            )
+        else:
+            message = (
+                "Commands for assigning and unassigning roles"
+                " can no longer be used on bots in this server."
+            )
+        await ctx.send(message)
+
+    @modroles_targets.command(name="toprole")
+    async def modroles_targets_toprole(
+        self, ctx: commands.Context, enabled: bool = None
+    ) -> None:
+        """
+        Enable/disable top role check.
+
+        When enabled, this will only allow user to assign roles to users
+        with lower top role than theirs.
+
+        Leave empty to check current settings.
+        """
+        config_value = self.config.guild(ctx.guild).toprole_check
+        if enabled is None:
+            if await config_value():
+                message = (
+                    "Commands for assigning and unassigning roles only allow command"
+                    " caller to assign roles to users with lower top role than theirs."
+                )
+            else:
+                message = (
+                    "Commands for assigning and unassigning roles"
+                    " allow command caller to assign roles to any user."
+                )
+            await ctx.send(message)
+            return
+
+        await config_value.set(enabled)
+
+        if enabled:
+            message = (
+                "Commands for assigning and unassigning roles"
+                " will now only allow command caller to assign roles"
+                " to users with lower top role than theirs."
+            )
+        else:
+            message = (
+                "Commands for assigning and unassigning roles will now"
+                " allow command caller to assign roles to any user."
+            )
+        await ctx.send(message)
