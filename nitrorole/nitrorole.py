@@ -2,7 +2,7 @@ import asyncio
 import logging
 import random
 from string import Template
-from typing import Iterable, Optional, cast
+from typing import Any, Dict, Iterable, Optional, cast
 
 import discord
 from redbot.core import commands
@@ -11,6 +11,8 @@ from redbot.core.config import Config
 from redbot.core.data_manager import cog_data_path
 from redbot.core.utils.chat_formatting import box, pagify
 from redbot.core.utils.predicates import MessagePredicate
+
+from .guild_data import GuildData
 
 log = logging.getLogger("red.jackcogs.nitrorole")
 
@@ -31,6 +33,20 @@ class NitroRole(commands.Cog):
         )
         self.message_images = cog_data_path(self) / "message_images"
         self.message_images.mkdir(parents=True, exist_ok=True)
+        self.guild_cache: Dict[int, GuildData] = {}
+        # TODO: possibly load guild data in cache on load?
+
+    async def get_guild_data(self, guild: discord.Guild) -> GuildData:
+        try:
+            return self.guild_cache[guild.id]
+        except KeyError:
+            pass
+
+        guild_settings = await self.config.guild(guild).all()
+        data = self.guild_cache[guild.id] = GuildData(
+            guild.id, self.config, **guild_settings
+        )
+        return data
 
     @commands.group()
     @commands.guild_only()
@@ -47,9 +63,10 @@ class NitroRole(commands.Cog):
 
         Leave empty to see current settings.
         """
-        config_value = self.config.guild(ctx.guild).unassign_on_boost_end
+        guild = ctx.guild
+        guild_data = await self.get_guild_data(guild)
         if enabled is None:
-            if await config_value():
+            if guild_data.unassign_on_boost_end:
                 message = (
                     "Bot unassigns booster role when user stops boosting the server."
                 )
@@ -61,7 +78,7 @@ class NitroRole(commands.Cog):
             await ctx.send(message)
             return
 
-        await config_value.set(enabled)
+        await guild_data.set_unassign_on_boost_end(enabled)
 
         if enabled:
             message = (
@@ -84,21 +101,23 @@ class NitroRole(commands.Cog):
 
         Leave empty to not assign any role.
         """
+        guild = ctx.guild
+        guild_data = await self.get_guild_data(guild)
         if role is None:
-            await self.config.guild(ctx.guild).role_id.set(None)
+            await guild_data.set_role(None)
             await ctx.send(
                 "Role will not be autoassigned anymore when someone boosts server."
             )
             return
         if (
-            ctx.guild.owner_id != ctx.author.id
+            guild.owner_id != ctx.author.id
             and role > ctx.author.top_role
             and not await self.bot.is_owner(ctx.author)
         ):
             await ctx.send("You can't use a role that is above your top role!")
             return
 
-        await self.config.guild(ctx.guild).role_id.set(role.id)
+        await guild_data.set_role(role)
         await ctx.send(f"Nitro boosters will now be assigned {role.name} role.")
 
     @nitrorole.command(name="channel")
@@ -106,11 +125,11 @@ class NitroRole(commands.Cog):
         self, ctx: commands.Context, channel: discord.TextChannel = None
     ) -> None:
         """Set channel for new boost messages. Leave empty to disable."""
+        guild_data = await self.get_guild_data(ctx.guild)
+        await guild_data.set_channel(channel)
         if channel is None:
-            await self.config.guild(ctx.guild).channel_id.clear()
             await ctx.send("New booster messages disabled.")
             return
-        await self.config.guild(ctx.guild).channel_id.set(channel.id)
         await ctx.send(f"New booster messages will now be sent in {channel.mention}")
 
     @nitrorole.command(name="addmessage")
@@ -132,9 +151,9 @@ class NitroRole(commands.Cog):
         To set it, use `[p]nitrorole setimage`
         """
         guild = ctx.guild
-        async with self.config.guild(guild).all() as guild_settings:
-            guild_settings["message_templates"].append(message)
-        content = Template(message).safe_substitute(
+        guild_data = await self.get_guild_data(guild)
+        template = await guild_data.add_message(message)
+        content = template.safe_substitute(
             mention=ctx.author.mention,
             username=ctx.author.display_name,
             server=guild.name,
@@ -145,7 +164,7 @@ class NitroRole(commands.Cog):
         filename = next(self.message_images.glob(f"{guild.id}.*"), None)
         file = discord.File(filename) if filename is not None else None
         if filename is not None:
-            channel_id = guild_settings["channel_id"]
+            channel_id = guild_data.channel_id
             channel = guild.get_channel(channel_id) if channel_id is not None else None
             if (
                 channel is not None
@@ -173,13 +192,13 @@ class NitroRole(commands.Cog):
     @nitrorole.command(name="removemessage")
     async def nitrorole_removemessage(self, ctx: commands.Context) -> None:
         """Remove new boost message."""
-        templates = await self.config.guild(ctx.guild).message_templates()
-        if not templates:
+        guild_data = await self.get_guild_data(ctx.guild)
+        if not guild_data.messages:
             await ctx.send("This guild doesn't have any new boost message set.")
             return
 
         msg = "Choose a new boost message to delete:\n\n"
-        for idx, template in enumerate(templates):
+        for idx, template in enumerate(guild_data.messages, 1):
             msg += f"  {idx}. {template}\n"
         for page in pagify(msg):
             await ctx.send(box(page))
@@ -187,17 +206,16 @@ class NitroRole(commands.Cog):
         pred = MessagePredicate.valid_int(ctx)
         try:
             await self.bot.wait_for(
-                "message", check=lambda m: pred(m) and pred.result >= 0, timeout=30
+                "message", check=lambda m: pred(m) and pred.result >= 1, timeout=30
             )
         except asyncio.TimeoutError:
             await ctx.send("Okay, no messages will be removed.")
             return
         try:
-            templates.pop(pred.result)
+            guild_data.remove_message(pred.result - 1)
         except IndexError:
             await ctx.send("Wow! That's a big number. Too big...")
             return
-        await self.config.guild(ctx.guild).message_templates.set(templates)
         await ctx.send("Message removed.")
 
     @nitrorole.command(name="setimage")
@@ -222,7 +240,8 @@ class NitroRole(commands.Cog):
             if not file == filename:
                 file.unlink()
 
-        channel_id = await self.config.guild(guild).channel()
+        guild_data = await self.get_guild_data(guild)
+        channel_id = guild_data.channel_id
         channel = guild.get_channel(channel_id) if channel_id is not None else None
         if channel is not None and not channel.permissions_for(guild.me).attach_files:
             await ctx.send(
@@ -240,34 +259,29 @@ class NitroRole(commands.Cog):
         await ctx.send("Image unset.")
 
     @commands.Cog.listener()
-    async def on_guild_update(
-        self, before: discord.Guild, after: discord.Guild
-    ) -> None:
-        before_subs = set(before.premium_subscribers)
-        after_subs = set(after.premium_subscribers)
-        if before_subs != after_subs:
-            added = after_subs - before_subs
-            removed = before_subs - after_subs
-            settings = await self.config.guild(after).all()
-            await self.handle_roles(after, added, removed, settings)
-            await self.maybe_announce(after, added, settings)
-
-    async def handle_roles(
-        self,
-        guild: discord.Guild,
-        added: Iterable[discord.Member],
-        removed: Iterable[discord.Member],
-        settings: dict,
-    ) -> None:
-        role_id = settings["role_id"]
-        if role_id is None:
+    async def on_member_update(self, before: discord.Member, after: discord.Member):
+        if before.premium_since == after.premium_since:
             return
+        guild_data = await self.get_guild_data(after.guild)
+
+        if before.premium_since is None and after.premium_since is not None:
+            await self.maybe_assign_role(guild_data, after)
+            await self.maybe_announce(guild_data, after)
+        else:
+            await self.maybe_unassign_role(guild_data, after)
+
+    def get_role_to_assign(
+        self, guild: discord.Guild, guild_data: GuildData
+    ) -> Optional[discord.Role]:
+        role_id = guild_data.role_id
+        if role_id is None:
+            return None
         role = guild.get_role(role_id)
         if role is None:
             log.error(
                 "Role with ID %s can't be found in guild with ID %s.", role_id, guild.id
             )
-            return
+            return None
         if role >= guild.me.top_role:
             log.error(
                 "Role with ID %s (guild ID: %s) is higher in hierarchy"
@@ -275,55 +289,60 @@ class NitroRole(commands.Cog):
                 role_id,
                 guild.id,
             )
-            return
-        await self.maybe_assign_role(role, added)
-        if settings["unassign_on_boost_end"]:
-            await self.maybe_unassign_role(role, removed)
+            return None
+        return role
 
     async def maybe_assign_role(
-        self, role: discord.Role, members: Iterable[discord.Member]
+        self, guild_data: GuildData, member: discord.Member
     ) -> None:
-        for member in members:
-            if role in member.roles:
-                return
-            try:
-                await member.add_roles(
-                    role, reason="New nitro booster - role assigned."
-                )
-            except discord.Forbidden:
-                log.error(
-                    "Bot was unable to add role"
-                    " with ID %s (guild ID: %s) to member with ID %s.",
-                    role.id,
-                    role.guild.id,
-                    member.id,
-                )
+        role = self.get_role_to_assign(member.guild, guild_data)
+        if role is None:
+            return
+        if role in member.roles:
+            return
+        try:
+            await member.add_roles(
+                role, reason="New nitro booster - role assigned."
+            )
+        except discord.Forbidden:
+            log.error(
+                "Bot was unable to add role"
+                " with ID %s (guild ID: %s) to member with ID %s.",
+                role.id,
+                role.guild.id,
+                member.id,
+            )
 
     async def maybe_unassign_role(
-        self, role: discord.Role, members: Iterable[discord.Member]
+        self, guild_data: GuildData, member: discord.Member
     ) -> None:
-        for member in members:
-            if role not in member.roles:
-                return
-            try:
-                await member.remove_roles(
-                    role, reason="No longer nitro booster - role unassigned"
-                )
-            except discord.Forbidden:
-                log.error(
-                    "Bot was unable to remove role"
-                    " with ID %s (guild ID: %s) from member with ID %s.",
-                    role.id,
-                    role.guild.id,
-                    member.id,
-                )
+        if not guild_data.unassign_on_boost_end:
+            return
+        role = self.get_role_to_assign(member.guild, guild_data)
+        if role is None:
+            return
+        if role not in member.roles:
+            return
+        try:
+            await member.remove_roles(
+                role, reason="No longer nitro booster - role unassigned"
+            )
+        except discord.Forbidden:
+            log.error(
+                "Bot was unable to remove role"
+                " with ID %s (guild ID: %s) from member with ID %s.",
+                role.id,
+                role.guild.id,
+                member.id,
+            )
 
     async def maybe_announce(
-        self, guild: discord.Guild, members: Iterable[discord.Member], settings: dict
+        self, guild_data: GuildData, member: discord.Member
     ) -> None:
-        channel_id = settings["channel_id"]
+        channel_id = guild_data.channel_id
         if channel_id is None:
             return
+        guild = member.guild
         channel = cast(Optional[discord.TextChannel], guild.get_channel(channel_id))
         if channel is None:
             log.error(
@@ -333,7 +352,7 @@ class NitroRole(commands.Cog):
             )
             return
 
-        message_templates = settings["message_templates"]
+        message_templates = guild_data.message_templates
         if not message_templates:
             return
 
@@ -350,21 +369,20 @@ class NitroRole(commands.Cog):
                     guild.id,
                 )
         count = guild.premium_subscription_count
-        for member in members:
-            message_template = random.choice(message_templates)
-            content = Template(message_template).safe_substitute(
-                mention=member.mention,
-                username=member.display_name,
-                server=guild.name,
-                count=str(count),
-                plural="" if count == 1 else "s",
+        template = random.choice(message_templates)
+        content = template.safe_substitute(
+            mention=member.mention,
+            username=member.display_name,
+            server=guild.name,
+            count=str(count),
+            plural="" if count == 1 else "s",
+        )
+        try:
+            await channel.send(content, file=file)
+        except discord.Forbidden:
+            log.error(
+                "Bot can't send messages in channel with ID %s (guild ID: %s)",
+                channel_id,
+                guild.id,
             )
-            try:
-                await channel.send(content, file=file)
-            except discord.Forbidden:
-                log.error(
-                    "Bot can't send messages in channel with ID %s (guild ID: %s)",
-                    channel_id,
-                    guild.id,
-                )
-                return
+            return
