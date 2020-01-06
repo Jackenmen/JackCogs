@@ -374,7 +374,7 @@ def check_command_docstrings(cogs: dict) -> int:
                         deco_name = maybe_name.value
                     else:
                         raise RuntimeError("Unexpected type of decorator name.")
-                    if deco_name == ".command":
+                    if deco_name in {".command", ".group"}:
                         break
                 else:
                     continue
