@@ -191,7 +191,7 @@ class RLStatsImage(RLStatsImageMixin):
         coords, _ = self.template.get_coords("season_rewards_lvl")
         with Image.open(
             self.template.images["season_rewards_lvl"].format(
-                rewards.level, rewards.reward_ready
+                rewards.level, rewards.can_advance
             )
         ) as reward_image:
             self.alpha_composite(reward_image.convert("RGBA"), coords.to_tuple())
@@ -201,7 +201,7 @@ class RLStatsImage(RLStatsImageMixin):
         reward_bars_win_image = Image.open(
             self.template.images["season_rewards_bars_win"].format(rewards.level)
         ).convert("RGBA")
-        if rewards.reward_ready:
+        if rewards.can_advance:
             reward_bars_nowin_image = Image.open(
                 self.template.images["season_rewards_bars_nowin"].format(rewards.level)
             ).convert("RGBA")
@@ -222,7 +222,7 @@ class RLStatsImage(RLStatsImageMixin):
     def _draw_season_reward_wins(self) -> None:
         rewards = self.player.season_rewards
         coords, _ = self.template.get_coords("season_rewards_wins_text")
-        if rewards.reward_ready:
+        if rewards.can_advance:
             wins_text_image = Image.open(
                 self.template.images["season_rewards_wins_white"]
             )
