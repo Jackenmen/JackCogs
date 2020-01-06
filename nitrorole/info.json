@@ -1,0 +1,18 @@
+{
+    "name": "NitroRole",
+    "short": "Welcome new nitro boosters and/or give them a special role!",
+    "description": "Welcome new nitro boosters and/or give them a special role!",
+    "install_msg": "Thanks for installing NitroRole. If anything doesn't work, you can report it on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.\nThis cog saves images set with `[p]nitrorole setimage` to data path.",
+    "required_cogs": {},
+    "requirements": [],
+    "tags": [
+        "announce",
+        "booster",
+        "nitro",
+        "nitrorole",
+        "welcome"
+    ],
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}
