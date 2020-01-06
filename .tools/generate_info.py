@@ -366,12 +366,15 @@ def check_command_docstrings(cogs: dict) -> int:
                 for deco in decorators:
                     maybe_name = deco.children[1]
                     if maybe_name.type == "dotted_name":
-                        deco_name = "".join(n.value for n in maybe_name.children)
+                        it = (n.value for n in maybe_name.children)
+                        # ignore first item (can either be `commands` or `groupname`)
+                        next(it, None)
+                        deco_name = "".join(it)
                     elif maybe_name.type == "name":
                         deco_name = maybe_name.value
                     else:
                         raise RuntimeError("Unexpected type of decorator name.")
-                    if deco_name == "commands.command":
+                    if deco_name == ".command":
                         break
                 else:
                     continue
