@@ -1,14 +1,15 @@
 dist: xenial
 language: python
-python: 3.7
+python:
+  - 3.7
+  - 3.8
+script:
+  - pip install -U -r .ci/requirements/tests.txt
+  - python -m compileall ./
 jobs:
   include:
-    - stage: "Tests"
-      name: "Compile all"
-      script:
-        - pip install -U -r .ci/requirements/tests.txt
-        - python -m compileall ./
     - name: "Style check"
+      python: 3.7
       script:
         - pip install -U -r .ci/requirements/style.txt
         - black --check ./
