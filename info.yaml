@@ -38,7 +38,7 @@ cogs:
     short: Search for cogs in approved repos on {cog_name}.
     description: '{short}'
     requirements:
-      - typing_extensions>=3.7.4
+      - typing_extensions>=3.7.4; python_version == "3.7"
     tags:
       - cogboard
       - tools

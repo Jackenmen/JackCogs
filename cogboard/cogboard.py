@@ -1,4 +1,5 @@
 import re
+import sys
 import time
 from typing import Dict, List, Tuple, Union
 
@@ -10,10 +11,14 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 from redbot.core.utils.menus import DEFAULT_CONTROLS, menu
-from typing_extensions import TypedDict
 from yarl import URL
 
 from . import errors
+
+if sys.version_info[:2] >= (3, 8):
+    from typing import TypedDict
+else:
+    from typing_extensions import TypedDict
 
 
 class RepoItem(TypedDict):
