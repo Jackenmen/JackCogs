@@ -435,7 +435,7 @@ def main() -> int:
         shared_fields_namespace = SimpleNamespace(**shared_fields)
         maybe_bundled_data = ROOT_PATH / pkg_name / "data"
         if maybe_bundled_data.is_dir():
-            new_msg = f"{output['install_msg']}\nThis cog comes with bundled data."
+            new_msg = f"{output['install_msg']}\n\nThis cog comes with bundled data."
             output["install_msg"] = new_msg
         for to_replace in ("short", "description", "install_msg"):
             output[to_replace] = safe_format_alt(
