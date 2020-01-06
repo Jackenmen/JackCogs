@@ -19,18 +19,28 @@ class ModRoles(commands.Cog):
         self.config.register_guild(assignable_roles=[])
 
     async def _assign_checks(
-        self, ctx: commands.Context, member: discord.Member
+        self, ctx: commands.Context, member: discord.Member, role: discord.Role
     ) -> bool:
-        if await self.bot.is_owner(ctx.author):
+        author = ctx.author
+        guild = ctx.guild
+        if await self.bot.is_owner(author):
             return True
-        if ctx.author.id in {ctx.guild.owner.id, member.id}:
+        if author.id == guild.owner_id:
             return True
-        if ctx.guild.me == member:
-            await ctx.send("Pfft, you can't apply roles to me.")
+        # TODO: make this check configurable
+        if member.bot:
+            await ctx.send("Pfft, you can't apply roles to bots.")
             return False
-        if ctx.author.top_role <= member.top_role:
+        if role > author.top_role:
+            await ctx.send("You can only assign roles that are below your top role!")
+            return False
+        if author.id == member.id:
+            return True
+        # TODO: make this check configurable
+        if member.top_role > author.top_role:
             await ctx.send(
-                "You can't assign roles to member whose top role is higher than yours."
+                "You can only assign roles to members"
+                " whose top role is lower than yours!"
             )
             return False
         if await is_mod_or_superior(self.bot, member):
@@ -40,6 +50,7 @@ class ModRoles(commands.Cog):
 
     @commands.command()
     @commands.guild_only()
+    @commands.bot_has_permissions(manage_roles=True)
     @checks.mod_or_permissions(manage_roles=True)
     async def assignrole(
         self, ctx: commands.Context, role: AssignableRole, *, member: discord.Member
@@ -49,27 +60,28 @@ class ModRoles(commands.Cog):
 
         NOTE: The role is case sensitive!
         """
-        if not await self._assign_checks(ctx, member):
+        if not await self._assign_checks(ctx, member, role):
+            return
+        if ctx.guild.me.top_role > role:
+            await ctx.send(
+                f"I can't give {role.name} to {member.display_name}"
+                " because that role is higher than or equal to my highest role"
+                " in the Discord hierarchy."
+            )
             return
         try:
             await member.add_roles(role)
         except discord.Forbidden:
-            if ctx.guild.me.top_role <= role:
-                await ctx.send(
-                    f"I tried to add {role.name} to {member.display_name} but"
-                    " that role is higher than my highest role in the Discord hierarchy"
-                    " so I was unable to successfully add it."
-                )
-            else:
-                await ctx.send(
-                    "I attempted to do something that Discord denied me"
-                    " permissions for. Your command failed to successfully complete."
-                )
+            await ctx.send(
+                "I attempted to do something that Discord denied me"
+                " permissions for. Your command failed to successfully complete."
+            )
         else:
             await ctx.send(f"Role {role.name} added to {member.display_name}")
 
     @commands.command()
     @commands.guild_only()
+    @commands.bot_has_permissions(manage_roles=True)
     @checks.mod_or_permissions(manage_roles=True)
     async def unassignrole(
         self, ctx: commands.Context, role: AssignableRole, *, member: discord.Member
@@ -79,22 +91,22 @@ class ModRoles(commands.Cog):
 
         NOTE: The role is case sensitive!
         """
-        if not await self._assign_checks(ctx, member):
+        if not await self._assign_checks(ctx, member, role):
+            return
+        if ctx.guild.me.top_role > role:
+            await ctx.send(
+                f"I can't remove {role.name} from {member.display_name}"
+                " because that role is higher than or equal to my highest role"
+                " in the Discord hierarchy."
+            )
             return
         try:
             await member.remove_roles(role)
         except discord.Forbidden:
-            if ctx.guild.me.top_role <= role:
-                await ctx.send(
-                    f"I tried to remove {role.name} from {member.display_name} but"
-                    " that role is higher than my highest role in the Discord hierarchy"
-                    " so I was unable to successfully add it."
-                )
-            else:
-                await ctx.send(
-                    "I attempted to do something that Discord denied me"
-                    " permissions for. Your command failed to successfully complete."
-                )
+            await ctx.send(
+                "I attempted to do something that Discord denied me"
+                " permissions for. Your command failed to successfully complete."
+            )
         else:
             await ctx.send(f"Role {role.name} removed from {member.display_name}")
 
@@ -102,11 +114,20 @@ class ModRoles(commands.Cog):
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
     async def modroles(self, ctx: commands.Context) -> None:
-        """Settings for assignable roles"""
+        """Settings for assignable roles."""
 
     @modroles.command(name="add")
     async def modroles_add(self, ctx: commands.Context, *, role: discord.Role) -> None:
         """Add assignable role."""
+        if (
+            ctx.guild.owner_id != ctx.author.id
+            and role > ctx.author.top_role
+            and not await self.bot.is_owner(ctx.author)
+        ):
+            await ctx.send(
+                "You can't add a role that is above your top role as assignable!"
+            )
+            return
         conf_group = self.config.guild(ctx.guild).assignable_roles
         assignable_roles = await conf_group()
         if role.id in assignable_roles:
@@ -120,6 +141,13 @@ class ModRoles(commands.Cog):
         self, ctx: commands.Context, *, role: AssignableRole
     ) -> None:
         """Remove assignable role."""
+        if (
+            ctx.guild.owner_id != ctx.author.id
+            and role > ctx.author.top_role
+            and not await self.bot.is_owner(ctx.author)
+        ):
+            await ctx.send("You can't remove a role that is above your top role!")
+            return
         async with self.config.guild(ctx.guild).assignable_roles() as assignable_roles:
             assignable_roles.remove(role.id)
         await ctx.send(f"Role {role.name} removed from assignable roles.")
