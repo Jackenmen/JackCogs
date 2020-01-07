@@ -213,7 +213,7 @@ class NitroRole(commands.Cog):
             await ctx.send("Okay, no messages will be removed.")
             return
         try:
-            guild_data.remove_message(pred.result - 1)
+            await guild_data.remove_message(pred.result - 1)
         except IndexError:
             await ctx.send("Wow! That's a big number. Too big...")
             return
