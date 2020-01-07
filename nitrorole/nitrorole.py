@@ -163,6 +163,7 @@ class NitroRole(commands.Cog):
 
         filename = next(self.message_images.glob(f"{guild.id}.*"), None)
         file = discord.File(filename) if filename is not None else None
+        warning = ""
         if filename is not None:
             channel_id = guild_data.channel_id
             channel = guild.get_channel(channel_id) if channel_id is not None else None
@@ -170,14 +171,14 @@ class NitroRole(commands.Cog):
                 channel is not None
                 and not channel.permissions_for(guild.me).attach_files
             ):
-                message = (
+                warning = (
                     "WARNING: Bot doesn't have permissions to send images"
                     " in channel used for new boost messages.\n\n"
                 )
 
             if not ctx.channel.permissions_for(guild.me).attach_files:
                 await ctx.send(
-                    f"{message}New booster message set.\n"
+                    f"{warning}New booster message set.\n"
                     "I wasn't able to send test message here"
                     ' due to missing "Attach files" permission.'
                 )
@@ -185,7 +186,7 @@ class NitroRole(commands.Cog):
 
             file = discord.File(filename)
         await ctx.send(
-            f"{message}New booster message set, sending a test message here..."
+            f"{warning}New booster message set, sending a test message here..."
         )
         await ctx.send(content, file=file)
 

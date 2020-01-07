@@ -96,7 +96,7 @@ class BanMessage(commands.Cog):
 
         filename = next(self.message_images.glob(f"{guild.id}.*"), None)
         file = None
-        message = ""
+        warning = ""
         if filename is not None:
             channel_id = guild_settings["channel"]
             channel = guild.get_channel(channel_id) if channel_id is not None else None
@@ -104,21 +104,21 @@ class BanMessage(commands.Cog):
                 channel is not None
                 and not channel.permissions_for(guild.me).attach_files
             ):
-                message = (
+                warning = (
                     "WARNING: Bot doesn't have permissions to send images"
                     " in channel used for ban messages.\n\n"
                 )
 
             if not ctx.channel.permissions_for(guild.me).attach_files:
                 await ctx.send(
-                    f"{message}Ban message set.\n"
+                    f"{warning}Ban message set.\n"
                     "I wasn't able to send test message here"
                     ' due to missing "Attach files" permission.'
                 )
                 return
 
             file = discord.File(filename)
-        await ctx.send(f"{message}Ban message set, sending a test message here...")
+        await ctx.send(f"{warning}Ban message set, sending a test message here...")
         await ctx.send(content, file=file)
 
     @banmessageset.command(name="removemessage")
