@@ -94,7 +94,7 @@ class NitroRole(commands.Cog):
 
     @nitrorole.command(name="autoassignrole")
     async def nitrorole_autoassignrole(
-        self, ctx: commands.Context, role: discord.Role = None
+        self, ctx: commands.Context, *, role: discord.Role = None
     ) -> None:
         """
         Set role that will be autoassigned after someone boosts server.
