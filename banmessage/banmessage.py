@@ -151,6 +151,20 @@ class BanMessage(commands.Cog):
         await self.config.guild(ctx.guild).message_templates.set(templates)
         await ctx.send("Message removed.")
 
+    @banmessageset.command(name="listmessages")
+    async def banmessageset_listmessages(self, ctx: commands.Context) -> None:
+        """List ban message templates."""
+        templates = await self.config.guild(ctx.guild).message_templates()
+        if not templates:
+            await ctx.send("This guild doesn't have any ban message templates set.")
+            return
+
+        msg = "Ban message templates:\n\n"
+        for idx, template in enumerate(templates, 1):
+            msg += f"  {idx}. {template}\n"
+        for page in pagify(msg):
+            await ctx.send(box(page))
+
     @banmessageset.command(name="setimage")
     async def banmessageset_setimage(self, ctx: commands.Context) -> None:
         """Set image for ban message."""

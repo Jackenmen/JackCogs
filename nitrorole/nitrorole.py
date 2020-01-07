@@ -219,6 +219,22 @@ class NitroRole(commands.Cog):
             return
         await ctx.send("Message removed.")
 
+    @nitrorole.command(name="listmessages")
+    async def nitrorole_listmessages(self, ctx: commands.Context) -> None:
+        """List new booster message templates."""
+        guild_data = await self.get_guild_data(ctx.guild)
+        if not guild_data.messages:
+            await ctx.send(
+                "This guild doesn't have any new booster message templates set."
+            )
+            return
+
+        msg = "New booster message templates:\n\n"
+        for idx, template in enumerate(guild_data.messages, 1):
+            msg += f"  {idx}. {template}\n"
+        for page in pagify(msg):
+            await ctx.send(box(page))
+
     @nitrorole.command(name="setimage")
     async def nitrorole_setimage(self, ctx: commands.Context) -> None:
         """Set image for new booster message."""
