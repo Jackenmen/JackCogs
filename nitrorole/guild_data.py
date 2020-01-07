@@ -2,21 +2,7 @@ from string import Template
 from typing import List, Optional
 
 import discord
-from redbot.core.config import Config
-
-
-class cached_property:
-    def __init__(self, func):
-        self.func = func
-
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-
-        value = self.func(instance)
-        setattr(instance, self.func.__name__, value)
-
-        return value
+from redbot.core.config import Config, Group
 
 
 class GuildData:
@@ -45,6 +31,7 @@ class GuildData:
     __slots__ = (
         "id",
         "_config",
+        "_config_group",
         "role_id",
         "channel_id",
         "messages",
@@ -64,6 +51,7 @@ class GuildData:
     ) -> None:
         self.id: int = guild_id
         self._config: Config = config
+        self._config_group: Group
         self.role_id: Optional[int] = role_id
         self.channel_id: Optional[int] = channel_id
         self.messages: List[str]
@@ -72,41 +60,45 @@ class GuildData:
 
         self._update_messages(message_templates)
 
-    @cached_property
-    def config_scope(self):
-        return self._config.guild(discord.Object(id=self.id))
+    def config_group(self) -> Group:
+        try:
+            return self._config_group
+        except AttributeError:
+            config_group = self._config.guild(discord.Object(id=self.id))
+            self._config_group = config_group
+            return config_group
 
     async def set_unassign_on_boost_end(self, state: bool) -> None:
         self.unassign_on_boost_end = state
-        await self.config_scope.unassign_on_boost_end.set(state)
+        await self.config_group.unassign_on_boost_end.set(state)
 
     async def set_role(self, role: Optional[discord.Role]) -> None:
         if role is None:
             self.role_id = None
-            await self.config_scope.role_id.clear()
+            await self.config_group.role_id.clear()
         else:
             self.role_id = role.id
-            await self.config_scope.role_id.set(role.id)
+            await self.config_group.role_id.set(role.id)
 
     async def set_channel(self, channel: Optional[discord.TextChannel]) -> None:
         if channel is None:
             self.channel_id = None
-            await self.config_scope.channel_id.clear()
+            await self.config_group.channel_id.clear()
         else:
             self.channel_id = channel.id
-            await self.config_scope.channel_id.set(channel.id)
+            await self.config_group.channel_id.set(channel.id)
 
     async def add_message(self, message: str) -> Template:
         template = Template(message)
         self.messages.append(message)
         self.message_templates.append(template)
-        await self.config_scope.message_templates.set(self.messages)
+        await self.config_group.message_templates.set(self.messages)
         return template
 
     async def remove_message(self, index: int) -> None:
         self.messages.pop(index)
         self.message_templates.pop(index)
-        await self.config_scope.message_templates.set(self.messages)
+        await self.config_group.message_templates.set(self.messages)
 
     def _update_messages(self, messages: List[str]) -> None:
         self.messages = messages
