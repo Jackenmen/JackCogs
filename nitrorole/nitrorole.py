@@ -190,7 +190,7 @@ class NitroRole(commands.Cog):
         )
         await ctx.send(content, file=file)
 
-    @nitrorole.command(name="removemessage")
+    @nitrorole.command(name="removemessage", aliases=["deletemessage"])
     async def nitrorole_removemessage(self, ctx: commands.Context) -> None:
         """Remove new boost message."""
         guild_data = await self.get_guild_data(ctx.guild)

@@ -121,7 +121,7 @@ class BanMessage(commands.Cog):
         await ctx.send(f"{warning}Ban message set, sending a test message here...")
         await ctx.send(content, file=file)
 
-    @banmessageset.command(name="removemessage")
+    @banmessageset.command(name="removemessage", aliases=["deletemessage"])
     async def banmessageset_removemessage(self, ctx: commands.Context) -> None:
         """Remove ban message."""
         templates = await self.config.guild(ctx.guild).message_templates()
