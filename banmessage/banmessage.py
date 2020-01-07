@@ -130,7 +130,7 @@ class BanMessage(commands.Cog):
             return
 
         msg = "Choose a ban message to delete:\n\n"
-        for idx, template in enumerate(templates):
+        for idx, template in enumerate(templates, 1):
             msg += f"  {idx}. {template}\n"
         for page in pagify(msg):
             await ctx.send(box(page))
@@ -138,13 +138,13 @@ class BanMessage(commands.Cog):
         pred = MessagePredicate.valid_int(ctx)
         try:
             await self.bot.wait_for(
-                "message", check=lambda m: pred(m) and pred.result >= 0, timeout=30
+                "message", check=lambda m: pred(m) and pred.result >= 1, timeout=30
             )
         except asyncio.TimeoutError:
             await ctx.send("Okay, no messages will be removed.")
             return
         try:
-            templates.pop(pred.result)
+            templates.pop(pred.result - 1)
         except IndexError:
             await ctx.send("Wow! That's a big number. Too big...")
             return
