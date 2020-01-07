@@ -124,7 +124,7 @@ class NitroRole(commands.Cog):
     async def nitrorole_channel(
         self, ctx: commands.Context, channel: discord.TextChannel = None
     ) -> None:
-        """Set channel for new boost messages. Leave empty to disable."""
+        """Set channel for new booster messages. Leave empty to disable."""
         guild_data = await self.get_guild_data(ctx.guild)
         await guild_data.set_channel(channel)
         if channel is None:
@@ -137,7 +137,7 @@ class NitroRole(commands.Cog):
         self, ctx: commands.Context, *, message: str
     ) -> None:
         """
-        Add new boost message.
+        Add new booster message.
 
         Those fields will get replaced automatically:
         $mention - Mention the user who boosted
@@ -147,7 +147,7 @@ class NitroRole(commands.Cog):
         (this isn't the same as amount of users that boost this server)
         $plural - Empty if count is 1. 's' otherwise
 
-        Note: New boost message can also have image.
+        Note: New booster message can also have image.
         To set it, use `[p]nitrorole setimage`
         """
         guild = ctx.guild
@@ -173,7 +173,7 @@ class NitroRole(commands.Cog):
             ):
                 warning = (
                     "WARNING: Bot doesn't have permissions to send images"
-                    " in channel used for new boost messages.\n\n"
+                    " in channel used for new booster messages.\n\n"
                 )
 
             if not ctx.channel.permissions_for(guild.me).attach_files:
@@ -192,13 +192,13 @@ class NitroRole(commands.Cog):
 
     @nitrorole.command(name="removemessage", aliases=["deletemessage"])
     async def nitrorole_removemessage(self, ctx: commands.Context) -> None:
-        """Remove new boost message."""
+        """Remove new booster message."""
         guild_data = await self.get_guild_data(ctx.guild)
         if not guild_data.messages:
-            await ctx.send("This guild doesn't have any new boost message set.")
+            await ctx.send("This guild doesn't have any new booster message set.")
             return
 
-        msg = "Choose a new boost message to delete:\n\n"
+        msg = "Choose a new booster message to delete:\n\n"
         for idx, template in enumerate(guild_data.messages, 1):
             msg += f"  {idx}. {template}\n"
         for page in pagify(msg):
@@ -221,7 +221,7 @@ class NitroRole(commands.Cog):
 
     @nitrorole.command(name="setimage")
     async def nitrorole_setimage(self, ctx: commands.Context) -> None:
-        """Set image for new boost message."""
+        """Set image for new booster message."""
         guild = ctx.guild
         if len(ctx.message.attachments) != 1:
             await ctx.send("You have to send exactly one attachment.")
@@ -247,14 +247,14 @@ class NitroRole(commands.Cog):
         if channel is not None and not channel.permissions_for(guild.me).attach_files:
             await ctx.send(
                 "WARNING: Bot doesn't have permissions to send images"
-                " in channel used for new boost messages.\n\nImage set."
+                " in channel used for new booster messages.\n\nImage set."
             )
         else:
             await ctx.send("Image set.")
 
     @nitrorole.command(name="unsetimage")
     async def nitrorole_unsetimage(self, ctx: commands.Context) -> None:
-        """Unset image for new boost message."""
+        """Unset image for new booster message."""
         for file in self.message_images.glob(f"{ctx.guild.id}.*"):
             file.unlink()
         await ctx.send("Image unset.")
