@@ -60,6 +60,7 @@ class GuildData:
 
         self._update_messages(message_templates)
 
+    @property
     def config_group(self) -> Group:
         try:
             return self._config_group
