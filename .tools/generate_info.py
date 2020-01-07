@@ -144,6 +144,7 @@ COG_KEYS = {
     "description": Str(),
     Optional("class_docstring"): Str(),
     Optional("install_msg"): Str(),
+    Optional("author"): Seq(Str()),
     Optional("required_cogs", {}): EmptyDict() | MapPattern(Str(), Url()),
     Optional("requirements", []): EmptyList() | Seq(Str()),
     Optional("tags", []): EmptyList() | Seq(Str()),
