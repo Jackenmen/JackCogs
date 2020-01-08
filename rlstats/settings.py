@@ -25,18 +25,12 @@ class SettingsMixin(MixinMeta):
             f"{ctx.prefix}set api rocket_league user_token PUT_YOUR_USER_TOKEN_HERE"
         )
         message = (
-            "**Getting API access from Psyonix is very hard right now, "
-            "it's even harder than it was, but you can try:**\n"
-            "1. Go to Psyonix support website and log in with your game account\n"
-            "(https://support.rocketleague.com)\n"
-            '2. Click "Submit a ticket"\n'
-            '3. Under "Issue" field, select '
-            '"Installation and setup > I need API access"\n'
-            "4. Fill out the form provided with your request, etc.\n"
-            '5. Click "Submit"\n'
-            "6. Hope that Psyonix will reply to you\n"
-            "7. When you get API access, copy your user token "
-            "from your account on Rocket League API website\n"
+            "**Rocket League API is currently in closed beta"
+            " and Psyonix doesn't give out keys easily.**\n"
+            "To request API access, you should contact Psyonix by email"
+            " `RLPublicAPI@psyonix.com` and hope for positive response.\n\n"
+            "When (and if) you get API access, copy your user token "
+            "from your account on Rocket League API website and use this command:\n"
             f"{command}"
         )
         await ctx.maybe_send_embed(message)
