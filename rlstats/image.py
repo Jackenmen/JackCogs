@@ -276,10 +276,8 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
         self._draw_win_streak()
         self._draw_skill_rating()
         self._draw_gain()
-        self._draw_division_down()
-        self._draw_tier_down()
-        self._draw_division_up()
-        self._draw_tier_up()
+        self._draw_division_estimates()
+        self._draw_tier_estimates()
 
     def _draw_playlist_name(self) -> None:
         coords, font_name = self.get_coords("playlist_name")
@@ -361,64 +359,44 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
             text = str(round(gain, 3))
         self._draw.text(xy=coords, text=text, font=font, fill="white")
 
-    def _draw_division_down(self) -> None:
-        coords, font_name = self.get_coords("div_down")
-        font_name = cast(str, font_name)  # div_down has font name defined
-        font = self.fonts[font_name]
-        if self.playlist.tier_estimates.div_down is None:
-            text = "N/A"
-        else:
-            text = f"{self.playlist.tier_estimates.div_down:+d}"
-        self._draw.text(xy=coords, text=text, font=font, fill="white")
+    def _draw_division_estimates(self) -> None:
+        for attr_name in ("div_down", "div_up"):
+            coords, font_name = self.get_coords(attr_name)
+            # div_down and div_up have font name defined
+            font_name = cast(str, font_name)
+            font = self.fonts[font_name]
+            points = getattr(self.playlist.tier_estimates, attr_name)
+            if points is None:
+                text = "N/A"
+            else:
+                text = f"{points:+d}"
+            self._draw.text(xy=coords, text=text, font=font, fill="white")
 
-    def _draw_tier_down(self) -> None:
+    def _draw_tier_estimates(self) -> None:
         # Icon
         tier = self.playlist.tier_estimates.tier
-        tier_down = self.template.images["tier_image"].format(
-            tier - 1 if tier > 0 else 0
-        )
-        image_coords, font_name = self.get_coords("tier_down")
-        font_name = cast(str, font_name)  # tier_down has font name defined
-        font = self.fonts[font_name]
-        with Image.open(tier_down) as im:
-            tier_down_image = im.convert("RGBA")
-            tier_down_image.thumbnail(self.template.tier_size, Image.ANTIALIAS)
-            self.alpha_composite(tier_down_image, image_coords.to_tuple())
-        # Points
-        if self.playlist.tier_estimates.tier_down is None:
-            text = "N/A"
-        else:
-            text = f"{self.playlist.tier_estimates.tier_down:+d}"
-        text_coords = image_coords + (self.template.tier_size[0] + 11, -5)
-        self._draw.text(xy=text_coords, text=text, font=font, fill="white")
-
-    def _draw_division_up(self) -> None:
-        coords, font_name = self.get_coords("div_up")
-        font_name = cast(str, font_name)  # div_up has font name defined
-        font = self.fonts[font_name]
-        if self.playlist.tier_estimates.div_up is None:
-            text = "N/A"
-        else:
-            text = f"{self.playlist.tier_estimates.tier_down:+d}"
-        self._draw.text(xy=coords, text=text, font=font, fill="white")
-
-    def _draw_tier_up(self) -> None:
-        # Icon
-        tier = self.playlist.tier_estimates.tier
-        tier_up = self.template.images["tier_image"].format(
-            tier + 1 if 0 < tier < self.playlist.tier_max else 0
-        )
-        image_coords, font_name = self.get_coords("tier_up")
-        font_name = cast(str, font_name)  # tier_up has font name defined
-        font = self.fonts[font_name]
-        with Image.open(tier_up) as im:
-            tier_up_image = im.convert("RGBA")
-            tier_up_image.thumbnail(self.template.tier_size, Image.ANTIALIAS)
-            self.alpha_composite(tier_up_image, image_coords.to_tuple())
-        # Points
-        if self.playlist.tier_estimates.tier_up is None:
-            text = "N/A"
-        else:
-            text = f"{self.playlist.tier_estimates.tier_down:+d}"
-        text_coords = image_coords + (self.template.tier_size[0] + 11, -5)
-        self._draw.text(xy=text_coords, text=text, font=font, fill="white")
+        attrs = {
+            "tier_down": self.template.images["tier_image"].format(
+                tier - 1 if tier > 0 else 0
+            ),
+            "tier_up": self.template.images["tier_image"].format(
+                tier + 1 if 0 < tier < self.playlist.tier_max else 0
+            ),
+        }
+        for attr_name, tier_image_path in attrs.items():
+            image_coords, font_name = self.get_coords(attr_name)
+            # tier_down and tier_up have font name defined
+            font_name = cast(str, font_name)
+            font = self.fonts[font_name]
+            with Image.open(tier_image_path) as im:
+                tier_image = im.convert("RGBA")
+                tier_image.thumbnail(self.template.tier_size, Image.ANTIALIAS)
+                self.alpha_composite(tier_image, image_coords.to_tuple())
+            # Points
+            points = getattr(self.playlist.tier_estimates, attr_name)
+            if points is None:
+                text = "N/A"
+            else:
+                text = f"{points:+d}"
+            text_coords = image_coords + (self.template.tier_size[0] + 11, -5)
+            self._draw.text(xy=text_coords, text=text, font=font, fill="white")
