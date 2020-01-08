@@ -276,8 +276,7 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
         self._draw_win_streak()
         self._draw_skill_rating()
         self._draw_gain()
-        self._draw_division_estimates()
-        self._draw_tier_estimates()
+        self._draw_estimates()
 
     def _draw_playlist_name(self) -> None:
         coords, font_name = self.get_coords("playlist_name")
@@ -359,23 +358,12 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
             text = str(round(gain, 3))
         self._draw.text(xy=coords, text=text, font=font, fill="white")
 
-    def _draw_division_estimates(self) -> None:
-        for attr_name in ("div_down", "div_up"):
-            coords, font_name = self.get_coords(attr_name)
-            # div_down and div_up have font name defined
-            font_name = cast(str, font_name)
-            font = self.fonts[font_name]
-            points = getattr(self.playlist.tier_estimates, attr_name)
-            if points is None:
-                text = "N/A"
-            else:
-                text = f"{points:+d}"
-            self._draw.text(xy=coords, text=text, font=font, fill="white")
-
-    def _draw_tier_estimates(self) -> None:
+    def _draw_estimates(self) -> None:
         # Icon
         tier = self.playlist.tier_estimates.tier
         attrs = {
+            "div_down": None,
+            "div_up": None,
             "tier_down": self.template.images["tier_image"].format(
                 tier - 1 if tier > 0 else 0
             ),
@@ -384,19 +372,24 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
             ),
         }
         for attr_name, tier_image_path in attrs.items():
-            image_coords, font_name = self.get_coords(attr_name)
-            # tier_down and tier_up have font name defined
+            coords, font_name = self.get_coords(attr_name)
+            # div_down, div_up, tier_down and tier_up have font name defined
             font_name = cast(str, font_name)
             font = self.fonts[font_name]
-            with Image.open(tier_image_path) as im:
-                tier_image = im.convert("RGBA")
-                tier_image.thumbnail(self.template.tier_size, Image.ANTIALIAS)
-                self.alpha_composite(tier_image, image_coords.to_tuple())
             # Points
             points = getattr(self.playlist.tier_estimates, attr_name)
             if points is None:
                 text = "N/A"
             else:
                 text = f"{points:+d}"
-            text_coords = image_coords + (self.template.tier_size[0] + 11, -5)
+            # tier_down/tier_up image
+            if tier_image_path is not None:
+                with Image.open(tier_image_path) as im:
+                    tier_image = im.convert("RGBA")
+                    tier_image.thumbnail(self.template.tier_size, Image.ANTIALIAS)
+                    self.alpha_composite(tier_image, coords.to_tuple())
+                text_coords = coords + (self.template.tier_size[0] + 11, -5)
+            else:
+                text_coords = coords
+
             self._draw.text(xy=text_coords, text=text, font=font, fill="white")
