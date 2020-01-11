@@ -4,7 +4,7 @@ import functools
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, cast
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, TypeVar
 
 import discord
 import rlapi
@@ -105,17 +105,6 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             tier_breakdown={}, competitive_overlay=40, extramodes_overlay=70
         )
         self.config.register_user(player_id=None, platform=None)
-
-        if hasattr(bot, "db"):
-            # compatibility layer with Red 3.1.x
-            async def get_shared_api_tokens(service_name: str) -> Dict[str, str]:
-                tokens = await bot.db.api_tokens.get_raw(service_name, default={})
-                # api_tokens spec defines it's a dict of strings
-                return cast(Dict[str, str], tokens)
-
-            self.get_shared_api_tokens = get_shared_api_tokens
-        else:
-            self.get_shared_api_tokens = bot.get_shared_api_tokens
 
         self.rlapi_client: rlapi.Client = None  # assigned in initialize()
         self.bundled_data_path = bundled_data_path(self)
@@ -236,13 +225,13 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             new[int(k)] = v
         return new
 
-    async def _get_token(self) -> str:
-        rocket_league = await self.get_shared_api_tokens("rocket_league")
-        return rocket_league.get("user_token", "")
+    async def _get_token(self, api_tokens: Optional[Mapping[str, str]] = None) -> str:
+        if api_tokens is None:
+            api_tokens = await self.bot.get_shared_api_tokens("rocket_league")
+        return api_tokens.get("user_token", "")
 
     async def _check_token(self, ctx: commands.Context) -> bool:
-        token = await self._get_token()
-        if not token:
+        if not self.rlapi_client._token:
             if await self.bot.is_owner(ctx.author):
                 await ctx.send(
                     "This cog wasn't configured properly."
@@ -252,7 +241,6 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             else:
                 await ctx.send("The bot owner didn't configure this cog properly.")
             return False
-        self.rlapi_client.change_token(token)
         return True
 
     async def _get_player_data_by_user(
@@ -491,3 +479,12 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         )
 
     rlconnect.callback.__doc__ += f"\n\n{SUPPORTED_PLATFORMS}"
+
+    @commands.Cog.listener()
+    async def on_red_api_tokens_update(
+        self, service_name: str, api_tokens: Mapping[str, str]
+    ):
+        if service_name != "rocket_league":
+            return
+
+        self.rlapi_client.change_token(await self._get_token(api_tokens))
