@@ -9,6 +9,7 @@ jobs:
     name: Compile all
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version:
           - "3.7"
