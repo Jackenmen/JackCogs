@@ -6,13 +6,6 @@ python:
 script:
   - pip install -U -r .ci/requirements/tests.txt
   - python -m compileall ./
-jobs:
-  include:
-    - name: "Style check"
-      python: 3.7
-      script:
-        - pip install -U -r .ci/requirements/style.txt
-        - black --check ./
 cache: pip
 notifications:
   email:
