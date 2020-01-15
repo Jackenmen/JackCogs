@@ -8,20 +8,31 @@ jobs:
   black:
     name: Style check with Black
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.6"
+          - "3.7"
+          - "3.8"
     steps:
       - uses: actions/checkout@v1
       - name: Cache pip requirements
         uses: actions/cache@v1
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashfiles('.ci/requirements/*.txt') }}
+          key: ${{ runner.os }}-python${{ matrix.python-version }}-pip-${{ hashfiles('.ci/requirements/*.txt') }}
           restore-keys: |
-            ${{ runner.os }}-pip-
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v1
-        with:
-          python-version: "3.7"
-      - name: Install Black
-        run: python -m pip install -U black
+            ${{ runner.os }}-python${{ matrix.python-version }}-pip-
+      - name: Set up Python ${{ matrix.python-version }}
+        run: |
+          sudo add-apt-repository --yes ppa:deadsnakes/ppa
+          sudo apt install --yes python${{ matrix.python-version }} \
+          python${{ matrix.python-version }}-dev python3-pip build-essential
+      - name: Install requirements
+        run: python${{ matrix.python-version }} -m pip install -Ur .ci/requirements/style.txt
       - name: Style check with Black
-        run: black --check --target-version py37 ./
+        run: >
+          python${{ matrix.python-version }} -m --check
+          --target-version ${ echo py${{ matrix.python-version }} | sed 's/\.//' }
+          ${ python${{ matrix.python-version }} .ci/list_files.py }
