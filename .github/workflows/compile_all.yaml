@@ -32,7 +32,7 @@ jobs:
       - name: Install requirements
         run: |
           python${{ matrix.python-version }} -m pip install -U pip setuptools wheel
-          python${{ matrix.python-version }} -m pip install -Ur .ci/requirements/tests.txt
+          python${{ matrix.python-version }} -m pip install --user -Ur .ci/requirements/tests.txt
       - name: Compile all
         run: >
           python${{ matrix.python-version }} -m compileall

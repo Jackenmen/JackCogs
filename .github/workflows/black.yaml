@@ -32,7 +32,7 @@ jobs:
       - name: Install requirements
         run: |
           python${{ matrix.python-version }} -m pip install -U pip setuptools wheel
-          python${{ matrix.python-version }} -m pip install -Ur .ci/requirements/style.txt
+          python${{ matrix.python-version }} -m pip install --user -Ur .ci/requirements/style.txt
       - name: Style check with Black
         run: >
           python${{ matrix.python-version }} -m --check
