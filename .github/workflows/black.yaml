@@ -15,26 +15,32 @@ jobs:
           - "3.6"
           - "3.7"
           - "3.8"
+        include:
+          - python-version: "3.6"
+            py-version: "py36"
+          - python-version: "3.7"
+            py-version: "py37"
+          - python-version: "3.8"
+            py-version: "py38"
     steps:
       - uses: actions/checkout@v1
       - name: Cache pip requirements
         uses: actions/cache@v1
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-python${{ matrix.python-version }}-pip-${{ hashfiles('.ci/requirements/*.txt') }}
+          key: ${{ runner.os }}-python${{ matrix.python-version }}-pip-${{ hashfiles('.ci/**/requirements/*.txt') }}
           restore-keys: |
             ${{ runner.os }}-python${{ matrix.python-version }}-pip-
       - name: Set up Python ${{ matrix.python-version }}
         run: |
           sudo add-apt-repository --yes ppa:deadsnakes/ppa
-          sudo apt install --yes python${{ matrix.python-version }} \
-          python${{ matrix.python-version }}-dev python3-pip build-essential
+          sudo apt install --yes python${{ matrix.python-version }} python${{ matrix.python-version }}-dev python3-pip build-essential
       - name: Install requirements
         run: |
           python${{ matrix.python-version }} -m pip install -U pip setuptools wheel
           python${{ matrix.python-version }} -m pip install --user -Ur .ci/requirements/style.txt
       - name: Style check with Black
         run: >
-          python${{ matrix.python-version }} -m black --check
-          --target-version $( echo py${{ matrix.python-version }} | sed 's/\.//' )
-          $( python${{ matrix.python-version }} .ci/list_files.py )
+          python${{ matrix.python-version }} -m
+          black --check --diff --target-version ${{ matrix.py-version }}
+          $( cat .ci/${{ matrix.py-version }}/black_file_list.txt )
