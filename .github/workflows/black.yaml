@@ -44,5 +44,5 @@ jobs:
       - name: Style check with Black
         run: |
           DIRS=$( cat .ci/${{ matrix.py-version }}/black_file_list.txt )
-          echo $DIRS
+          echo $PYTHON -m black --check --diff --target-version ${{ matrix.py-version }} $DIRS
           $PYTHON -m black --check --diff --target-version ${{ matrix.py-version }} $DIRS

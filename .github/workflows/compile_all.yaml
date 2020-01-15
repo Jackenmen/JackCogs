@@ -45,5 +45,5 @@ jobs:
       - name: Compile all
         run: |
           DIRS=$( cat .ci/${{ matrix.py-version }}/compileall_file_list.txt )
-          echo $DIRS
+          echo $PYTHON -m compileall $DIRS
           $PYTHON -m compileall $DIRS
