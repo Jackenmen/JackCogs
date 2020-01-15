@@ -36,5 +36,5 @@ jobs:
       - name: Style check with Black
         run: >
           python${{ matrix.python-version }} -m --check
-          --target-version ${ echo py${{ matrix.python-version }} | sed 's/\.//' }
-          ${ python${{ matrix.python-version }} .ci/list_files.py }
+          --target-version $( echo py${{ matrix.python-version }} | sed 's/\.//' )
+          $( python${{ matrix.python-version }} .ci/list_files.py )

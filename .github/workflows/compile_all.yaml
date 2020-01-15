@@ -36,4 +36,4 @@ jobs:
       - name: Compile all
         run: >
           python${{ matrix.python-version }} -m compileall
-          ${ python${{ matrix.python-version }} .ci/list_files.py }
+          $( python${{ matrix.python-version }} .ci/list_files.py )
