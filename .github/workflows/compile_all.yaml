@@ -43,7 +43,7 @@ jobs:
           $PYTHON -m pip install --user -Ur .ci/requirements/tools.txt
           $PYTHON -m pip install --user -Ur .ci/${{ matrix.py-version }}/requirements/all_cogs.txt
       - name: Compile all
-        run: >
+        run: |
           DIRS=$( cat .ci/${{ matrix.py-version }}/compileall_file_list.txt )
           echo $DIRS
           $PYTHON -m compileall $DIRS

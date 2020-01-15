@@ -42,7 +42,7 @@ jobs:
           $PYTHON -m pip install -U pip setuptools wheel
           $PYTHON -m pip install --user -Ur .ci/requirements/style.txt
       - name: Style check with Black
-        run: >
+        run: |
           DIRS=$( cat .ci/${{ matrix.py-version }}/black_file_list.txt )
           echo $DIRS
           $PYTHON -m black --check --diff --target-version ${{ matrix.py-version }} $DIRS
