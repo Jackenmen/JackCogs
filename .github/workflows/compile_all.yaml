@@ -5,29 +5,45 @@ on:
   - pull_request
 
 jobs:
-  black:
+  compile_all:
     name: Compile all
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python-version:
+          - "3.6"
           - "3.7"
           - "3.8"
+        include:
+          - python-version: "3.6"
+            py-version: "py36"
+          - python-version: "3.7"
+            py-version: "py37"
+          - python-version: "3.8"
+            py-version: "py38"
+    env:
+      PYTHON: python${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v1
       - name: Cache pip requirements
         uses: actions/cache@v1
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashfiles('.ci/requirements/*.txt') }}
+          key: ${{ runner.os }}-${{ env.PYTHON }}-pip-${{ hashfiles('.ci/**/requirements/*.txt') }}
           restore-keys: |
-            ${{ runner.os }}-pip-
+            ${{ runner.os }}-${{ env.PYTHON }}-pip-
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v1
-        with:
-          python-version: ${{ matrix.python-version }}
+        run: |
+          sudo add-apt-repository --yes ppa:deadsnakes/ppa
+          sudo apt install --yes $PYTHON $PYTHON-dev python3-pip build-essential
       - name: Install requirements
-        run: python -m pip install -Ur .ci/requirements/tests.txt
+        run: |
+          $PYTHON -m pip install -U pip setuptools wheel
+          $PYTHON -m pip install --user -Ur .ci/requirements/tools.txt
+          $PYTHON -m pip install --user -Ur .ci/${{ matrix.py-version }}/requirements/all_cogs.txt
       - name: Compile all
-        run: python -m compileall ./
+        run: |
+          DIRS=$( cat .ci/${{ matrix.py-version }}/compileall_file_list.txt )
+          echo $PYTHON -m compileall $DIRS
+          $PYTHON -m compileall $DIRS

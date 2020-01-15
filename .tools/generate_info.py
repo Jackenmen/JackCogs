@@ -396,6 +396,14 @@ def check_command_docstrings(cogs: dict) -> int:
     return ret
 
 
+MAX_RED_VERSIONS = {
+    (3, 6): VersionInfo.from_str("3.1.0"),
+    (3, 7): VersionInfo.from_str("3.2.0"),
+    (3, 8): None,
+}
+MAX_PYTHON_VERSION = next(reversed(MAX_RED_VERSIONS))
+
+
 def main() -> int:
     print("Loading info.yaml...")
     with open(ROOT_PATH / "info.yaml", encoding="utf-8") as fp:
@@ -412,12 +420,53 @@ def main() -> int:
     with open(ROOT_PATH / "info.json", "w", encoding="utf-8") as fp:
         json.dump(repo_info, fp, indent=4)
 
-    requirements: typing.Set[str] = set()
+    all_requirements: typing.Set[str] = set()
+    requirements: typing.Dict[typing.Tuple[int, int], typing.Set[str]] = {
+        (3, 6): set(),
+        (3, 7): set(),
+        (3, 8): set(),
+    }
+    black_file_list: typing.Dict[typing.Tuple[int, int], typing.List[str]] = {
+        (3, 6): [],
+        (3, 7): [],
+        (3, 8): [".ci"],
+    }
+    compileall_file_list: typing.Dict[typing.Tuple[int, int], typing.List[str]] = {
+        (3, 6): [],
+        (3, 7): [],
+        (3, 8): ["."],
+    }
     print("Preparing info.json files for cogs...")
     shared_fields = data["shared_fields"]
     cogs = data["cogs"]
     for pkg_name, cog_info in cogs.items():
-        requirements.update(cog_info["requirements"])
+        all_requirements.update(cog_info["requirements"])
+        min_bot_version = cog_info.get("min_bot_version")
+        min_python_version = (3, 6)
+        if min_bot_version is not None:
+            red_version_info = VersionInfo.from_str(min_bot_version)
+            for python_version, max_red_version in MAX_RED_VERSIONS.items():
+                if max_red_version is None:
+                    min_python_version = python_version
+                    break
+                if red_version_info >= max_red_version:
+                    continue
+                min_python_version = python_version
+                break
+        python_version = cog_info.get("min_python_version")
+        if python_version is not None:
+            if min_python_version < python_version:
+                min_python_version = python_version
+        for python_version, reqs in requirements.items():
+            if python_version >= min_python_version:
+                reqs.update(cog_info["requirements"])
+        for python_version, file_list in compileall_file_list.items():
+            if python_version is MAX_PYTHON_VERSION:
+                continue
+            if python_version >= min_python_version:
+                file_list.append(pkg_name)
+        black_file_list[min_python_version].append(pkg_name)
+
         print(f"Preparing info.json for {pkg_name} cog...")
         output = {}
         for key in AUTOLINT_COG_KEYS_ORDER:
@@ -455,8 +504,28 @@ def main() -> int:
     print("Preparing requirements file for CI...")
     with open(ROOT_PATH / ".ci/requirements/all_cogs.txt", "w", encoding="utf-8") as fp:
         fp.write("Red-DiscordBot\n")
-        for requirement in sorted(requirements):
+        for requirement in sorted(all_requirements):
             fp.write(f"{requirement}\n")
+    for python_version, reqs in requirements.items():
+        folder_name = f"py{''.join(map(str, python_version))}"
+        with open(
+            ROOT_PATH / f".ci/{folder_name}/requirements/all_cogs.txt",
+            "w",
+            encoding="utf-8",
+        ) as fp:
+            fp.write("Red-DiscordBot\n")
+            for req in sorted(reqs):
+                fp.write(f"{req}\n")
+        with open(
+            ROOT_PATH / f".ci/{folder_name}/black_file_list.txt", "w", encoding="utf-8"
+        ) as fp:
+            fp.write(" ".join(sorted(black_file_list[python_version])))
+        with open(
+            ROOT_PATH / f".ci/{folder_name}/compileall_file_list.txt",
+            "w",
+            encoding="utf-8",
+        ) as fp:
+            fp.write(" ".join(sorted(compileall_file_list[python_version])))
 
     print("Preparing all cogs list in README.md...")
     with open(ROOT_PATH / "README.md", "r+", encoding="utf-8") as fp:
@@ -485,7 +554,9 @@ def main() -> int:
 
     print("Updating class docstrings...")
     update_class_docstrings(cogs, repo_info)
+    print("Checking for cog_data_path usage...")
     check_cog_data_path_use(cogs)
+    print("Checking for missing help docstrings...")
     check_command_docstrings(cogs)
 
     print("Done!")

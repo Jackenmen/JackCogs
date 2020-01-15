@@ -1,0 +1,4 @@
+Red-DiscordBot
+pillow~=6.0
+rlapi==0.2.0a1
+typing_extensions>=3.7.4; python_version<="3.7"
