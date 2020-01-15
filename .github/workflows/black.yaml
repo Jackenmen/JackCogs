@@ -35,6 +35,6 @@ jobs:
           python${{ matrix.python-version }} -m pip install --user -Ur .ci/requirements/style.txt
       - name: Style check with Black
         run: >
-          python${{ matrix.python-version }} -m --check
+          python${{ matrix.python-version }} -m black --check
           --target-version $( echo py${{ matrix.python-version }} | sed 's/\.//' )
           $( python${{ matrix.python-version }} .ci/list_files.py )
