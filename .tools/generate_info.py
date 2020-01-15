@@ -513,6 +513,7 @@ def main() -> int:
             "w",
             encoding="utf-8",
         ) as fp:
+            fp.write("Red-DiscordBot\n")
             for req in sorted(reqs):
                 fp.write(f"{req}\n")
         with open(
