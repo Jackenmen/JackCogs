@@ -1,8 +1,7 @@
 import asyncio
 import logging
 import random
-from string import Template
-from typing import Any, Dict, Iterable, Optional, cast
+from typing import Dict, Optional, cast
 
 import discord
 from redbot.core import commands
