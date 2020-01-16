@@ -231,9 +231,7 @@ class VoiceTools(commands.Cog):
             if m is not None
         )
         content_roles = ", ".join(
-            r.mention
-            for r in map(ctx.guild.get_role, vip_role_list)
-            if r is not None
+            r.mention for r in map(ctx.guild.get_role, vip_role_list) if r is not None
         )
         pages_members = list(pagify(content_members, page_length=1024))
         pages_roles = list(pagify(content_roles, page_length=1024))
