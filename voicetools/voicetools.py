@@ -80,17 +80,25 @@ class VoiceTools(commands.Cog):
         and voice channels which won't be checked.
         """
         guild_conf = self.config.guild(ctx.guild)
+        # TODO: lower code repetition
+        # TODO: remove member, role, voice channel IDs when they no longer exist
         ignore_member_list = await guild_conf.forcelimit_ignore_member_list()
         ignore_role_list = await guild_conf.forcelimit_ignore_role_list()
         ignore_vc_list = await guild_conf.forcelimit_ignore_vc_list()
         content_members = ", ".join(
-            m.mention for m in map(ctx.guild.get_member, ignore_member_list)
+            m.mention
+            for m in map(ctx.guild.get_member, ignore_member_list)
+            if m is not None
         )
         content_roles = ", ".join(
-            m.mention for m in map(ctx.guild.get_role, ignore_role_list)
+            r.mention
+            for r in map(ctx.guild.get_role, ignore_role_list)
+            if r is not None
         )
         content_vcs = ", ".join(
-            m.mention for m in map(ctx.guild.get_channel, ignore_vc_list)
+            vc.mention
+            for vc in map(ctx.guild.get_channel, ignore_vc_list)
+            if vc is not None
         )
         pages_members = list(pagify(content_members, page_length=1024))
         pages_roles = list(pagify(content_roles, page_length=1024))
@@ -215,11 +223,17 @@ class VoiceTools(commands.Cog):
         """
         vip_member_list = await self.config.guild(ctx.guild).vip_member_list()
         vip_role_list = await self.config.guild(ctx.guild).vip_role_list()
+        # TODO: lower code repetition
+        # TODO: remove member, role, voice channel IDs when they no longer exist
         content_members = ", ".join(
-            m.mention for m in map(ctx.guild.get_member, vip_member_list)
+            m.mention
+            for m in map(ctx.guild.get_member, vip_member_list)
+            if m is not None
         )
         content_roles = ", ".join(
-            m.mention for m in map(ctx.guild.get_role, vip_role_list)
+            r.mention
+            for r in map(ctx.guild.get_role, vip_role_list)
+            if r is not None
         )
         pages_members = list(pagify(content_members, page_length=1024))
         pages_roles = list(pagify(content_roles, page_length=1024))
