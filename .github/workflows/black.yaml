@@ -34,15 +34,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ env.PYTHON }}-pip-
       - name: Set up Python ${{ matrix.python-version }}
-        run: |
-          sudo add-apt-repository --yes ppa:deadsnakes/ppa
-          sudo apt install --yes $PYTHON $PYTHON-dev python3-pip build-essential
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
       - name: Install requirements
         run: |
-          $PYTHON -m pip install -U pip setuptools wheel
-          $PYTHON -m pip install --user -Ur .ci/requirements/style.txt
+          python -m pip install -U pip setuptools wheel
+          python -m pip install --user -Ur .ci/requirements/style.txt
       - name: Style check with Black
         run: |
           DIRS=$( cat .ci/${{ matrix.py-version }}/black_file_list.txt )
-          echo $PYTHON -m black --check --diff --target-version ${{ matrix.py-version }} $DIRS
-          $PYTHON -m black --check --diff --target-version ${{ matrix.py-version }} $DIRS
+          echo python -m black --check --diff --target-version ${{ matrix.py-version }} $DIRS
+          python -m black --check --diff --target-version ${{ matrix.py-version }} $DIRS
