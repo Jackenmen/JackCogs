@@ -1,4 +1,5 @@
 from redbot.core.bot import Red
+from redbot.core.errors import CogLoadError
 
 try:
     from .cogboard import CogBoard
