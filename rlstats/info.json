@@ -9,7 +9,7 @@
     "required_cogs": {},
     "requirements": [
         "pillow~=6.0",
-        "rlapi==0.2.0a1"
+        "rlapi==0.2.1a1"
     ],
     "tags": [
         "api",
