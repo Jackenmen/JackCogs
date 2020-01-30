@@ -63,7 +63,7 @@ class ModRoles(commands.Cog):
         """
         if not await self._assign_checks(ctx, member, role):
             return
-        if ctx.guild.me.top_role > role:
+        if role >= ctx.guild.me.top_role:
             await ctx.send(
                 f"I can't give {role.name} to {member.display_name}"
                 " because that role is higher than or equal to my highest role"
@@ -94,7 +94,7 @@ class ModRoles(commands.Cog):
         """
         if not await self._assign_checks(ctx, member, role):
             return
-        if ctx.guild.me.top_role > role:
+        if role >= ctx.guild.me.top_role:
             await ctx.send(
                 f"I can't remove {role.name} from {member.display_name}"
                 " because that role is higher than or equal to my highest role"
@@ -127,6 +127,12 @@ class ModRoles(commands.Cog):
         ):
             await ctx.send(
                 "You can't add a role that is above your top role as assignable!"
+            )
+            return
+        if role >= ctx.guild.me.top_role:
+            await ctx.send(
+                "You can't add this role as assignable because it is"
+                " higher than or equal to my highest role in the Discord hierarchy."
             )
             return
         conf_group = self.config.guild(ctx.guild).assignable_roles
