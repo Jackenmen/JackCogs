@@ -61,6 +61,9 @@ class ModRoles(commands.Cog):
 
         NOTE: The role is case sensitive!
         """
+        if role in member.roles:
+            await ctx.send(f'{member.display_name} already has "{role.name}" role.')
+            return
         if not await self._assign_checks(ctx, member, role):
             return
         if role >= ctx.guild.me.top_role:
@@ -92,6 +95,9 @@ class ModRoles(commands.Cog):
 
         NOTE: The role is case sensitive!
         """
+        if role not in member.roles:
+            await ctx.send(f'{member.display_name} doesn\'t have "{role.name}" role.')
+            return
         if not await self._assign_checks(ctx, member, role):
             return
         if role >= ctx.guild.me.top_role:
