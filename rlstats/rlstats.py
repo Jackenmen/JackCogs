@@ -288,10 +288,11 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                     "Rocket League API experiences some issues right now."
                     " Try again later."
                 )
-            await ctx.send(
-                "Rocket League API can't process this request."
-                " If this keeps happening, inform bot's owner about this error."
-            )
+            else:
+                await ctx.send(
+                    "Rocket League API can't process this request."
+                    " If this keeps happening, inform bot's owner about this error."
+                )
         except rlapi.PlayerNotFound as e:
             log.debug(str(e))
             await ctx.send("The specified profile could not be found.")
