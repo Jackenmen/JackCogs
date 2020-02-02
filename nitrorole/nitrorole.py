@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import random
-from typing import Dict, Optional, cast
+from typing import Dict, cast
 
 import discord
 from redbot.core import commands
@@ -12,6 +12,7 @@ from redbot.core.utils.chat_formatting import box, pagify
 from redbot.core.utils.predicates import MessagePredicate
 
 from .guild_data import GuildData
+from .typings import GuildContext, NoParseOptional as Optional
 
 log = logging.getLogger("red.jackcogs.nitrorole")
 
@@ -47,15 +48,15 @@ class NitroRole(commands.Cog):
         )
         return data
 
-    @commands.group()
     @commands.guild_only()
     @commands.admin_or_permissions(manage_roles=True)
-    async def nitrorole(self, ctx: commands.Context) -> None:
+    @commands.group()
+    async def nitrorole(self, ctx: GuildContext) -> None:
         """Settings for NitroRole cog."""
 
     @nitrorole.command(name="unassignonboostend")
     async def nitrorole_unassign_on_boost_end(
-        self, ctx: commands.Context, enabled: bool = None
+        self, ctx: GuildContext, enabled: Optional[bool] = None
     ) -> None:
         """
         Set if booster role should be unassigned when someone stops boosting server.
@@ -93,7 +94,7 @@ class NitroRole(commands.Cog):
 
     @nitrorole.command(name="autoassignrole")
     async def nitrorole_autoassignrole(
-        self, ctx: commands.Context, *, role: discord.Role = None
+        self, ctx: GuildContext, *, role: Optional[discord.Role] = None
     ) -> None:
         """
         Set role that will be autoassigned after someone boosts server.
@@ -121,7 +122,7 @@ class NitroRole(commands.Cog):
 
     @nitrorole.command(name="channel")
     async def nitrorole_channel(
-        self, ctx: commands.Context, channel: discord.TextChannel = None
+        self, ctx: GuildContext, channel: Optional[discord.TextChannel] = None
     ) -> None:
         """Set channel for new booster messages. Leave empty to disable."""
         guild_data = await self.get_guild_data(ctx.guild)
@@ -132,9 +133,7 @@ class NitroRole(commands.Cog):
         await ctx.send(f"New booster messages will now be sent in {channel.mention}")
 
     @nitrorole.command(name="addmessage")
-    async def nitrorole_addmessage(
-        self, ctx: commands.Context, *, message: str
-    ) -> None:
+    async def nitrorole_addmessage(self, ctx: GuildContext, *, message: str) -> None:
         """
         Add new booster message.
 
@@ -161,7 +160,7 @@ class NitroRole(commands.Cog):
         )
 
         filename = next(self.message_images.glob(f"{guild.id}.*"), None)
-        file = discord.File(filename) if filename is not None else None
+        file = None
         warning = ""
         if filename is not None:
             channel_id = guild_data.channel_id
@@ -183,14 +182,14 @@ class NitroRole(commands.Cog):
                 )
                 return
 
-            file = discord.File(filename)
+            file = discord.File(str(filename))
         await ctx.send(
             f"{warning}New booster message set, sending a test message here..."
         )
         await ctx.send(content, file=file)
 
     @nitrorole.command(name="removemessage", aliases=["deletemessage"])
-    async def nitrorole_removemessage(self, ctx: commands.Context) -> None:
+    async def nitrorole_removemessage(self, ctx: GuildContext) -> None:
         """Remove new booster message."""
         guild_data = await self.get_guild_data(ctx.guild)
         if not guild_data.messages:
@@ -204,22 +203,27 @@ class NitroRole(commands.Cog):
             await ctx.send(box(page))
 
         pred = MessagePredicate.valid_int(ctx)
+
         try:
             await self.bot.wait_for(
-                "message", check=lambda m: pred(m) and pred.result >= 1, timeout=30
+                "message",
+                check=lambda m: pred(m) and cast(int, pred.result) >= 1,
+                timeout=30,
             )
         except asyncio.TimeoutError:
             await ctx.send("Okay, no messages will be removed.")
             return
+
+        result = cast(int, pred.result)
         try:
-            await guild_data.remove_message(pred.result - 1)
+            await guild_data.remove_message(result - 1)
         except IndexError:
             await ctx.send("Wow! That's a big number. Too big...")
             return
         await ctx.send("Message removed.")
 
     @nitrorole.command(name="listmessages")
-    async def nitrorole_listmessages(self, ctx: commands.Context) -> None:
+    async def nitrorole_listmessages(self, ctx: GuildContext) -> None:
         """List new booster message templates."""
         guild_data = await self.get_guild_data(ctx.guild)
         if not guild_data.messages:
@@ -235,7 +239,7 @@ class NitroRole(commands.Cog):
             await ctx.send(box(page))
 
     @nitrorole.command(name="setimage")
-    async def nitrorole_setimage(self, ctx: commands.Context) -> None:
+    async def nitrorole_setimage(self, ctx: GuildContext) -> None:
         """Set image for new booster message."""
         guild = ctx.guild
         if len(ctx.message.attachments) != 1:
@@ -268,14 +272,16 @@ class NitroRole(commands.Cog):
             await ctx.send("Image set.")
 
     @nitrorole.command(name="unsetimage")
-    async def nitrorole_unsetimage(self, ctx: commands.Context) -> None:
+    async def nitrorole_unsetimage(self, ctx: GuildContext) -> None:
         """Unset image for new booster message."""
         for file in self.message_images.glob(f"{ctx.guild.id}.*"):
             file.unlink()
         await ctx.send("Image unset.")
 
     @commands.Cog.listener()
-    async def on_member_update(self, before: discord.Member, after: discord.Member):
+    async def on_member_update(
+        self, before: discord.Member, after: discord.Member
+    ) -> None:
         if before.premium_since == after.premium_since:
             return
         guild_data = await self.get_guild_data(after.guild)
@@ -374,7 +380,7 @@ class NitroRole(commands.Cog):
         file = None
         if filename is not None:
             if channel.permissions_for(guild.me).attach_files:
-                file = discord.File(filename)
+                file = discord.File(str(filename))
             else:
                 log.info(
                     'Bot doesn\'t have "Attach files"'

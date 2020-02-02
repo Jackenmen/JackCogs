@@ -8,7 +8,8 @@ from redbot.core.config import Config
 from redbot.core.utils import menus
 from redbot.core.utils.chat_formatting import pagify
 
-from .converters import MemberOrRole, MemberOrRoleorVoiceChannel
+from .converters import MemberOrRole, MemberOrRoleOrVoiceChannel
+from .typings import GuildContext
 
 log = logging.getLogger("red.jackcogs.voicetools")
 
@@ -35,11 +36,11 @@ class VoiceTools(commands.Cog):
     @commands.guild_only()
     @commands.admin()
     @commands.group()
-    async def voicetools(self, ctx: commands.Context) -> None:
+    async def voicetools(self, ctx: GuildContext) -> None:
         """Settings for voice tools."""
 
     @voicetools.group()
-    async def forcelimit(self, ctx: commands.Context) -> None:
+    async def forcelimit(self, ctx: GuildContext) -> None:
         """
         Settings for ForceLimit module.
 
@@ -53,7 +54,7 @@ class VoiceTools(commands.Cog):
         """
 
     @forcelimit.command(name="enable")
-    async def forcelimit_enable(self, ctx: commands.Context) -> None:
+    async def forcelimit_enable(self, ctx: GuildContext) -> None:
         """Enables ForceLimit module."""
         if not await self.config.guild(ctx.guild).forcelimit_enabled():
             await self.config.guild(ctx.guild).forcelimit_enabled.set(True)
@@ -62,7 +63,7 @@ class VoiceTools(commands.Cog):
             await ctx.send("ForceLimit module is already enabled on this server")
 
     @forcelimit.command(name="disable")
-    async def forcelimit_disable(self, ctx: commands.Context) -> None:
+    async def forcelimit_disable(self, ctx: GuildContext) -> None:
         """Disables ForceLimit module."""
         if await self.config.guild(ctx.guild).forcelimit_enabled():
             await self.config.guild(ctx.guild).forcelimit_enabled.set(False)
@@ -72,7 +73,7 @@ class VoiceTools(commands.Cog):
 
     @commands.bot_has_permissions(embed_links=True)
     @forcelimit.command(name="ignorelist")
-    async def forcelimit_ignorelist(self, ctx: commands.Context) -> None:
+    async def forcelimit_ignorelist(self, ctx: GuildContext) -> None:
         """
         Shows ignorelist of ForceLimit module.
 
@@ -122,7 +123,7 @@ class VoiceTools(commands.Cog):
 
     @forcelimit.command(name="ignore")
     async def forcelimit_ignore(
-        self, ctx: commands.Context, *ignores: MemberOrRoleorVoiceChannel
+        self, ctx: GuildContext, *ignores: MemberOrRoleOrVoiceChannel
     ) -> None:
         """
         Adds members, roles or voice channels to ignorelist of ForceLimit module.
@@ -155,7 +156,7 @@ class VoiceTools(commands.Cog):
 
     @forcelimit.command(name="unignore")
     async def forcelimit_unignore(
-        self, ctx: commands.Context, *ignores: MemberOrRoleorVoiceChannel
+        self, ctx: GuildContext, *ignores: MemberOrRoleOrVoiceChannel
     ) -> None:
         """
         Adds members, roles or voice channels to ignorelist of ForceLimit module
@@ -187,7 +188,7 @@ class VoiceTools(commands.Cog):
         await ctx.send("Ignore list updated")
 
     @voicetools.group()
-    async def vip(self, ctx: commands.Context) -> None:
+    async def vip(self, ctx: GuildContext) -> None:
         """
         Settings for VIP module.
 
@@ -196,7 +197,7 @@ class VoiceTools(commands.Cog):
         """
 
     @vip.command(name="enable")
-    async def vip_enable(self, ctx: commands.Context) -> None:
+    async def vip_enable(self, ctx: GuildContext) -> None:
         """Enables VIP module."""
         if not await self.config.guild(ctx.guild).vip_enabled():
             await self.config.guild(ctx.guild).vip_enabled.set(True)
@@ -205,7 +206,7 @@ class VoiceTools(commands.Cog):
             await ctx.send("VIP module is already enabled on this server")
 
     @vip.command(name="disable")
-    async def vip_disable(self, ctx: commands.Context) -> None:
+    async def vip_disable(self, ctx: GuildContext) -> None:
         """Disables VIP module."""
         if await self.config.guild(ctx.guild).vip_enabled():
             await self.config.guild(ctx.guild).vip_enabled.set(False)
@@ -215,7 +216,7 @@ class VoiceTools(commands.Cog):
 
     @commands.bot_has_permissions(embed_links=True)
     @vip.command(name="list")
-    async def vip_list(self, ctx: commands.Context) -> None:
+    async def vip_list(self, ctx: GuildContext) -> None:
         """
         Shows vip list of VIP module.
 
@@ -250,7 +251,7 @@ class VoiceTools(commands.Cog):
         await menus.menu(ctx, embed_pages, menus.DEFAULT_CONTROLS)
 
     @vip.command(name="add")
-    async def vip_add(self, ctx: commands.Context, *vips: MemberOrRole) -> None:
+    async def vip_add(self, ctx: GuildContext, *vips: MemberOrRole) -> None:
         """
         Adds members and roles to vip list of VIP module.
 
@@ -272,7 +273,7 @@ class VoiceTools(commands.Cog):
         await ctx.send("VIP list updated")
 
     @vip.command(name="remove")
-    async def vip_remove(self, ctx: commands.Context, *vips: MemberOrRole) -> None:
+    async def vip_remove(self, ctx: GuildContext, *vips: MemberOrRole) -> None:
         """
         Removes members and roles to vip list of VIP module.
 

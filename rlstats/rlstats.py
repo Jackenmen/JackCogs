@@ -4,7 +4,7 @@ import functools
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, TypeVar
+from typing import Any, Callable, Dict, List, Mapping, Tuple, TypeVar, cast
 
 import discord
 import rlapi
@@ -23,6 +23,7 @@ from .abc import CogAndABCMeta
 from .figures import Point
 from .image import CoordsInfo, RLStatsImageTemplate
 from .settings import SettingsMixin
+from .typings import NoParseOptional as Optional
 
 
 log = logging.getLogger("red.jackcogs.rlstats")
@@ -106,12 +107,12 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         )
         self.config.register_user(player_id=None, platform=None)
 
-        self.rlapi_client: rlapi.Client = None  # assigned in initialize()
+        self.rlapi_client: rlapi.Client  # assigned in initialize()
         self.bundled_data_path = bundled_data_path(self)
         self.cog_data_path = cog_data_path(self)
         self._prepare_templates()
 
-    def _prepare_templates(self):
+    def _prepare_templates(self) -> None:
         self.fonts = {
             "ArimoRegular56": ImageFont.truetype(
                 str(self.bundled_data_path / "fonts/ArimoRegular.ttf"), 56
@@ -331,7 +332,8 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             finally:
                 await msg.delete()
 
-            return players[pred.result]
+            result = cast(int, pred.result)
+            return players[result]
         return players[0]
 
     def _generate_image(
@@ -351,7 +353,9 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
     @commands.bot_has_permissions(embed_links=True, attach_files=True)
     @commands.cooldown(rate=3, per=5, type=commands.BucketType.user)
     @commands.command()
-    async def rlstats(self, ctx: commands.Context, *, player_id: str = None) -> None:
+    async def rlstats(
+        self, ctx: commands.Context, *, player_id: Optional[str] = None
+    ) -> None:
         playlists = (
             rlapi.PlaylistKey.solo_duel,
             rlapi.PlaylistKey.doubles,
@@ -366,7 +370,9 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
     @commands.bot_has_permissions(embed_links=True, attach_files=True)
     @commands.cooldown(rate=3, per=5, type=commands.BucketType.user)
     @commands.command()
-    async def rlsports(self, ctx: commands.Context, *, player_id: str = None) -> None:
+    async def rlsports(
+        self, ctx: commands.Context, *, player_id: Optional[str] = None
+    ) -> None:
         playlists = (
             rlapi.PlaylistKey.hoops,
             rlapi.PlaylistKey.rumble,
@@ -432,6 +438,8 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 return
 
             # TODO: This should probably be handled in rlapi module
+            # be careful when touching this part,
+            # we rely on `player.get_playlist` not returning None in .image
             for playlist_key in playlists:
                 if playlist_key not in player.playlists:
                     player.add_playlist({"playlist": playlist_key.value})
@@ -484,7 +492,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
     @commands.Cog.listener()
     async def on_red_api_tokens_update(
         self, service_name: str, api_tokens: Mapping[str, str]
-    ):
+    ) -> None:
         if service_name != "rocket_league":
             return
 

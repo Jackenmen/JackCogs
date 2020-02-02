@@ -1,8 +1,8 @@
 from io import BytesIO
 from pathlib import Path
-from typing import Optional
+from typing import cast
 
-from PIL import Image
+from PIL import Image, ImageFile
 from redbot.core import commands
 from redbot.core.config import Value
 from redbot.core.utils.chat_formatting import inline
@@ -10,6 +10,7 @@ from rlapi.ext.tier_breakdown.trackernetwork import get_tier_breakdown
 
 from .abc import MixinMeta
 from .image import RLStatsImageTemplate
+from .typings import NoParseOptional as Optional
 
 
 class SettingsMixin(MixinMeta):
@@ -78,7 +79,7 @@ class SettingsMixin(MixinMeta):
 
     @rlset_bgimage_extramodes.command("overlay")
     async def rlset_bgimage_extramodes_overlay(
-        self, ctx: commands.Context, percentage: int = None
+        self, ctx: commands.Context, percentage: Optional[int] = None
     ) -> None:
         """
         Set overlay percentage for extra modes stats image.
@@ -122,7 +123,7 @@ class SettingsMixin(MixinMeta):
 
     @rlset_bgimage_competitive.command("overlay")
     async def rlset_bgimage_competitive_overlay(
-        self, ctx: commands.Context, percentage: int = None
+        self, ctx: commands.Context, percentage: Optional[int] = None
     ) -> None:
         """
         Set overlay percentage for competitive stats image.
@@ -159,7 +160,9 @@ class SettingsMixin(MixinMeta):
             if im.size != (1920, 1080):
                 await ctx.send("Background image needs to be in 1920x1080 size.")
                 return
-            im = await self._run_in_executor(im.convert, "RGBA")
+            im = cast(
+                ImageFile.ImageFile, await self._run_in_executor(im.convert, "RGBA")
+            )
             await self._run_in_executor(im.save, filename, "PNG")
             template.bg_image = filename
         await ctx.send("Background image was successfully set.")

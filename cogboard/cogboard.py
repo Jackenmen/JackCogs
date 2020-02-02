@@ -1,7 +1,7 @@
 import re
 import sys
 import time
-from typing import Dict, List, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Tuple, Union
 
 import aiohttp
 import discord
@@ -14,6 +14,7 @@ from redbot.core.utils.menus import DEFAULT_CONTROLS, menu
 from yarl import URL
 
 from . import errors
+from .typings import DMContext, GuildContext
 
 if sys.version_info[:2] >= (3, 8):
     from typing import TypedDict
@@ -152,7 +153,9 @@ class CogBoard(commands.Cog):
         await ctx.send(f"Cache expire time set to {expire_time} seconds.")
 
     @cogboard.command(name="search")
-    async def cogboard_search(self, ctx: commands.Context, query: str) -> None:
+    async def cogboard_search(
+        self, ctx: Union[DMContext, GuildContext], query: str
+    ) -> None:
         """Find cog on CogBoard by name."""
         async with ctx.typing():
             repo_list, cog_list = await self.get_repos_and_cogs()
@@ -171,7 +174,15 @@ class CogBoard(commands.Cog):
             )
             pages = []
             # I don't like how `[p]embedset` currently works, using regular perm check
-            use_embeds = ctx.channel.permissions_for(ctx.me).embed_links
+            if TYPE_CHECKING:
+                # things you do to make mypy happy...
+                # see https://github.com/python/mypy/issues/8355
+                if isinstance(ctx, GuildContext):
+                    use_embeds = ctx.channel.permissions_for(ctx.me).embed_links
+                else:
+                    use_embeds = ctx.channel.permissions_for(ctx.me).embed_links
+            else:
+                use_embeds = ctx.channel.permissions_for(ctx.me).embed_links
             if use_embeds:
                 embed_color = await ctx.embed_color()
             page: Union[discord.Embed, str]

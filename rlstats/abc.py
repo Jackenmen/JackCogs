@@ -24,7 +24,7 @@ class CogAndABCMeta(CogMeta, ABCMeta):
 class MixinMeta(ABC):
     """Base class for well behaved type hint detection with composite class."""
 
-    def __init__(self, *_args):
+    def __init__(self, *_args: Any) -> None:
         self.loop: asyncio.AbstractEventLoop
         self._executor: ThreadPoolExecutor
         self.config: Config

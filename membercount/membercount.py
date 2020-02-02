@@ -3,12 +3,15 @@ from datetime import datetime
 import discord
 from redbot.core import commands
 
+from .typings import GuildContext
+
 
 class MemberCount(commands.Cog):
     """Get count of all members + humans and bots separately."""
 
+    @commands.guild_only()
     @commands.command()
-    async def membercount(self, ctx: commands.Context) -> None:
+    async def membercount(self, ctx: GuildContext) -> None:
         """Get count of all members + humans and bots separately."""
         guild = ctx.guild
         member_count = 0

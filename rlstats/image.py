@@ -16,7 +16,7 @@ from typing import (
 )
 
 from PIL import Image, ImageDraw, ImageFont
-from rlapi import Player, PlaylistKey
+from rlapi import Player, Playlist, PlaylistKey
 
 from .figures import Point
 
@@ -71,7 +71,7 @@ class RLStatsImageTemplate:
 
 class MixinMeta(ABC):
     def __init__(self) -> None:
-        self._result: Image
+        self._result: Image.Image
 
 
 class RLStatsImageMixin(MixinMeta):
@@ -81,7 +81,7 @@ class RLStatsImageMixin(MixinMeta):
 
     @property
     def size(self) -> Tuple[int, int]:
-        return cast(Tuple[int, int], self._result.size)
+        return self._result.size
 
     def alpha_composite(
         self,
@@ -89,9 +89,8 @@ class RLStatsImageMixin(MixinMeta):
         dest: Tuple[int, int] = (0, 0),
         source: Union[Tuple[int, int], Tuple[int, int, int, int]] = (0, 0),
     ) -> None:
-        with contextlib.suppress(AttributeError):
-            im = im._result
-        self._result.alpha_composite(im, dest, source)
+        image = getattr(im, "_result", im)
+        self._result.alpha_composite(image, dest, source)
 
     def paste(
         self,
@@ -110,8 +109,8 @@ class RLStatsImageMixin(MixinMeta):
         box: Optional[Union[Tuple[int, int], Tuple[int, int, int, int]]] = None,
         mask: Optional[Image.Image] = None,
     ) -> None:
-        im = getattr(im, "_result", im)
-        self._result.paste(im, box, mask)
+        image = getattr(im, "_result", im)
+        self._result.paste(image, box, mask)
 
     def thumbnail(self, size: Tuple[int, int], resample: int = 3) -> None:
         self._result.thumbnail(size, resample)
@@ -139,7 +138,7 @@ class RLStatsImage(RLStatsImageMixin):
         super().__init__()
         self._generate_image()
 
-    def __del__(self):
+    def __del__(self) -> None:
         self._result.close()
 
     def _generate_image(self) -> None:
@@ -165,7 +164,7 @@ class RLStatsImage(RLStatsImageMixin):
 
     def _draw_username(self) -> None:
         username_coords, font_name = self.template.get_coords("username")
-        font_name = cast(str, font_name)  # username has font name defined
+        assert isinstance(font_name, str), "mypy"  # username has font name defined
         font = self.template.fonts[font_name]
         w, h = font.getsize(self.player.user_name)
         coords = username_coords - (w / 2, h / 2)
@@ -237,7 +236,7 @@ class RLStatsImage(RLStatsImageMixin):
 
         coords, font_name = self.template.get_coords("season_rewards_wins_max")
         # season_rewards_wins_max has font name defined
-        font_name = cast(str, font_name)
+        assert isinstance(font_name, str), "mypy"
         font = self.template.fonts[font_name]
         # TODO: rlapi package should define max
         w, h = font.getsize("10")
@@ -246,7 +245,7 @@ class RLStatsImage(RLStatsImageMixin):
 
         coords, font_name = self.template.get_coords("season_rewards_wins_amount")
         # season_rewards_wins_amount has font name defined
-        font_name = cast(str, font_name)
+        assert isinstance(font_name, str), "mypy"
         font = self.template.fonts[font_name]
         text = str(rewards.wins)
         w, h = font.getsize(text)
@@ -262,7 +261,10 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
         self._result = Image.new("RGBA", img.size)
         super().__init__()
         self.playlist_key = playlist_key
-        self.playlist = self.player.get_playlist(self.playlist_key)
+        playlist = self.player.get_playlist(self.playlist_key)
+        # this assert *should* be safe
+        assert isinstance(playlist, Playlist), "mypy"
+        self.playlist: Playlist = playlist
         self._draw_playlist()
 
     def get_coords(self, coords_name: str) -> CoordsInfo:
@@ -280,7 +282,7 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
 
     def _draw_playlist_name(self) -> None:
         coords, font_name = self.get_coords("playlist_name")
-        font_name = cast(str, font_name)  # playlist_name has font name defined
+        assert isinstance(font_name, str), "mypy"  # playlist_name has font name defined
         font = self.fonts[font_name]
         playlist_name = str(self.playlist_key)
         w, h = font.getsize(playlist_name)
@@ -288,8 +290,9 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
         self._draw.text(xy=coords, text=playlist_name, font=font, fill="white")
 
     def _draw_rank_image(self) -> None:
-        playlist = self.player.get_playlist(self.playlist_key)
-        with Image.open(self.template.images["tier_image"].format(playlist.tier)) as im:
+        with Image.open(
+            self.template.images["tier_image"].format(self.playlist.tier)
+        ) as im:
             rank_image = im.convert("RGBA")
             rank_image.thumbnail(self.template.rank_size, Image.ANTIALIAS)
             coords, _ = self.get_coords("rank_image")
@@ -298,7 +301,7 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
     def _draw_rank_name(self) -> None:
         coords, font_name = self.get_coords("rank_text")
         playlist_name = str(self.playlist)
-        font_name = cast(str, font_name)  # rank_text has font name defined
+        assert isinstance(font_name, str), "mypy"  # rank_text has font name defined
         font = self.fonts[font_name]
         w, h = font.getsize(playlist_name)
         coords -= (w / 2, h / 2)
@@ -306,7 +309,8 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
 
     def _draw_matches_played(self) -> None:
         coords, font_name = self.get_coords("matches_played")
-        font_name = cast(str, font_name)  # matches_played has font name defined
+        # matches_played has font name defined
+        assert isinstance(font_name, str), "mypy"
         font = self.fonts[font_name]
         self._draw.text(
             xy=coords, text=str(self.playlist.matches_played), font=font, fill="white"
@@ -320,9 +324,9 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
         text_coords, text_font_name = self.get_coords("win_streak_text")
         amount_coords, amount_font_name = self.get_coords("win_streak_amount")
         # win_streak_text has font name defined
-        text_font_name = cast(str, text_font_name)
+        assert isinstance(text_font_name, str), "mypy"
         # win_streak_amount has font name defined
-        amount_font_name = cast(str, amount_font_name)
+        assert isinstance(amount_font_name, str), "mypy"
         text_font = self.fonts[text_font_name]
         amount_font = self.fonts[amount_font_name]
         w, _ = text_font.getsize(text)
@@ -339,7 +343,7 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
 
     def _draw_skill_rating(self) -> None:
         coords, font_name = self.get_coords("skill")
-        font_name = cast(str, font_name)  # skill has font name defined
+        assert isinstance(font_name, str), "mypy"  # skill has font name defined
         font = self.fonts[font_name]
         self._draw.text(
             xy=coords, text=str(self.playlist.skill), font=font, fill="white"
@@ -350,7 +354,7 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
         gain = 0
 
         coords, font_name = self.get_coords("gain")
-        font_name = cast(str, font_name)  # gain has font name defined
+        assert isinstance(font_name, str), "mypy"  # gain has font name defined
         font = self.fonts[font_name]
         if gain == 0:
             text = "N/A"
@@ -374,7 +378,7 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
         for attr_name, tier_image_path in attrs.items():
             coords, font_name = self.get_coords(attr_name)
             # div_down, div_up, tier_down and tier_up have font name defined
-            font_name = cast(str, font_name)
+            assert isinstance(font_name, str), "mypy"
             font = self.fonts[font_name]
             # Points
             points = getattr(self.playlist.tier_estimates, attr_name)

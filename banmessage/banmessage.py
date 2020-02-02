@@ -2,7 +2,7 @@ import asyncio
 import logging
 import random
 from string import Template
-from typing import Optional, Union, cast
+from typing import Union, cast
 
 import discord
 from redbot.core import commands, checks
@@ -11,6 +11,8 @@ from redbot.core.config import Config
 from redbot.core.data_manager import cog_data_path
 from redbot.core.utils.chat_formatting import box, pagify
 from redbot.core.utils.predicates import MessagePredicate
+
+from .typings import GuildContext, NoParseOptional as Optional
 
 
 log = logging.getLogger("red.jackcogs.banmessage")
@@ -28,15 +30,15 @@ class BanMessage(commands.Cog):
         self.message_images = cog_data_path(self) / "message_images"
         self.message_images.mkdir(exist_ok=True)
 
-    @commands.group()
     @commands.guild_only()
     @checks.admin()
-    async def banmessageset(self, ctx: commands.Context) -> None:
+    @commands.group()
+    async def banmessageset(self, ctx: GuildContext) -> None:
         """BanMessage settings."""
 
     @banmessageset.command(name="hackban")
     async def banmessageset_hackban(
-        self, ctx: commands.Context, enabled: bool = None
+        self, ctx: GuildContext, enabled: Optional[bool] = None
     ) -> None:
         """
         Set if hackbans should trigger ban messages.
@@ -63,7 +65,7 @@ class BanMessage(commands.Cog):
 
     @banmessageset.command(name="channel")
     async def banmessageset_channel(
-        self, ctx: commands.Context, channel: discord.TextChannel = None
+        self, ctx: GuildContext, channel: Optional[discord.TextChannel] = None
     ) -> None:
         """Set channel for ban messages. Leave empty to disable."""
         if channel is None:
@@ -75,7 +77,7 @@ class BanMessage(commands.Cog):
 
     @banmessageset.command(name="addmessage")
     async def banmessageset_addmessage(
-        self, ctx: commands.Context, *, message: str
+        self, ctx: GuildContext, *, message: str
     ) -> None:
         """
         Add ban message.
@@ -117,12 +119,12 @@ class BanMessage(commands.Cog):
                 )
                 return
 
-            file = discord.File(filename)
+            file = discord.File(str(filename))
         await ctx.send(f"{warning}Ban message set, sending a test message here...")
         await ctx.send(content, file=file)
 
     @banmessageset.command(name="removemessage", aliases=["deletemessage"])
-    async def banmessageset_removemessage(self, ctx: commands.Context) -> None:
+    async def banmessageset_removemessage(self, ctx: GuildContext) -> None:
         """Remove ban message."""
         templates = await self.config.guild(ctx.guild).message_templates()
         if not templates:
@@ -136,15 +138,20 @@ class BanMessage(commands.Cog):
             await ctx.send(box(page))
 
         pred = MessagePredicate.valid_int(ctx)
+
         try:
             await self.bot.wait_for(
-                "message", check=lambda m: pred(m) and pred.result >= 1, timeout=30
+                "message",
+                check=lambda m: pred(m) and cast(int, pred.result) >= 1,
+                timeout=30,
             )
         except asyncio.TimeoutError:
             await ctx.send("Okay, no messages will be removed.")
             return
+
+        result = cast(int, pred.result)
         try:
-            templates.pop(pred.result - 1)
+            templates.pop(result - 1)
         except IndexError:
             await ctx.send("Wow! That's a big number. Too big...")
             return
@@ -152,7 +159,7 @@ class BanMessage(commands.Cog):
         await ctx.send("Message removed.")
 
     @banmessageset.command(name="listmessages")
-    async def banmessageset_listmessages(self, ctx: commands.Context) -> None:
+    async def banmessageset_listmessages(self, ctx: GuildContext) -> None:
         """List ban message templates."""
         templates = await self.config.guild(ctx.guild).message_templates()
         if not templates:
@@ -166,7 +173,7 @@ class BanMessage(commands.Cog):
             await ctx.send(box(page))
 
     @banmessageset.command(name="setimage")
-    async def banmessageset_setimage(self, ctx: commands.Context) -> None:
+    async def banmessageset_setimage(self, ctx: GuildContext) -> None:
         """Set image for ban message."""
         guild = ctx.guild
         if len(ctx.message.attachments) != 1:
@@ -198,7 +205,7 @@ class BanMessage(commands.Cog):
             await ctx.send("Image set.")
 
     @banmessageset.command(name="unsetimage")
-    async def banmessageset_unsetimage(self, ctx: commands.Context) -> None:
+    async def banmessageset_unsetimage(self, ctx: GuildContext) -> None:
         """Unset image for ban message."""
         for file in self.message_images.glob(f"{ctx.guild.id}.*"):
             file.unlink()
@@ -236,7 +243,7 @@ class BanMessage(commands.Cog):
         file = None
         if filename is not None:
             if channel.permissions_for(guild.me).attach_files:
-                file = discord.File(filename)
+                file = discord.File(str(filename))
             else:
                 log.info(
                     'Bot doesn\'t have "Attach files"'

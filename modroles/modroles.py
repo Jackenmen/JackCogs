@@ -6,6 +6,7 @@ from redbot.core.utils.chat_formatting import box
 from redbot.core.utils.mod import is_mod_or_superior
 
 from .converters import AssignableRoleConverter as AssignableRole
+from .typings import GuildContext, NoParseOptional as Optional
 
 
 class ModRoles(commands.Cog):
@@ -21,7 +22,7 @@ class ModRoles(commands.Cog):
         )
 
     async def _assign_checks(
-        self, ctx: commands.Context, member: discord.Member, role: discord.Role
+        self, ctx: GuildContext, member: discord.Member, role: discord.Role
     ) -> bool:
         author = ctx.author
         guild = ctx.guild
@@ -49,12 +50,12 @@ class ModRoles(commands.Cog):
             return False
         return True
 
-    @commands.command()
     @commands.guild_only()
     @commands.bot_has_permissions(manage_roles=True)
     @checks.mod_or_permissions(manage_roles=True)
+    @commands.command()
     async def assignrole(
-        self, ctx: commands.Context, role: AssignableRole, *, member: discord.Member
+        self, ctx: GuildContext, role: AssignableRole, *, member: discord.Member
     ) -> None:
         """
         Assign a role to a member.
@@ -83,12 +84,12 @@ class ModRoles(commands.Cog):
         else:
             await ctx.send(f"Role {role.name} added to {member.display_name}")
 
-    @commands.command()
     @commands.guild_only()
     @commands.bot_has_permissions(manage_roles=True)
     @checks.mod_or_permissions(manage_roles=True)
+    @commands.command()
     async def unassignrole(
-        self, ctx: commands.Context, role: AssignableRole, *, member: discord.Member
+        self, ctx: GuildContext, role: AssignableRole, *, member: discord.Member
     ) -> None:
         """
         Unassign a role from a member.
@@ -117,14 +118,14 @@ class ModRoles(commands.Cog):
         else:
             await ctx.send(f"Role {role.name} removed from {member.display_name}")
 
-    @commands.group()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
-    async def modroles(self, ctx: commands.Context) -> None:
+    @commands.group()
+    async def modroles(self, ctx: GuildContext) -> None:
         """Settings for assignable roles."""
 
     @modroles.command(name="add")
-    async def modroles_add(self, ctx: commands.Context, *, role: discord.Role) -> None:
+    async def modroles_add(self, ctx: GuildContext, *, role: discord.Role) -> None:
         """Add assignable role."""
         if (
             ctx.guild.owner_id != ctx.author.id
@@ -144,15 +145,14 @@ class ModRoles(commands.Cog):
         conf_group = self.config.guild(ctx.guild).assignable_roles
         assignable_roles = await conf_group()
         if role.id in assignable_roles:
-            return await ctx.send("This role is already assignable.")
+            await ctx.send("This role is already assignable.")
+            return
         assignable_roles.append(role.id)
         await conf_group.set(assignable_roles)
         await ctx.send(f"Role {role.name} added to assignable roles.")
 
     @modroles.command(name="remove")
-    async def modroles_remove(
-        self, ctx: commands.Context, *, role: AssignableRole
-    ) -> None:
+    async def modroles_remove(self, ctx: GuildContext, *, role: AssignableRole) -> None:
         """Remove assignable role."""
         if (
             ctx.guild.owner_id != ctx.author.id
@@ -166,7 +166,7 @@ class ModRoles(commands.Cog):
         await ctx.send(f"Role {role.name} removed from assignable roles.")
 
     @modroles.command(name="list")
-    async def modroles_list(self, ctx: commands.Context) -> None:
+    async def modroles_list(self, ctx: GuildContext) -> None:
         """List assignable roles."""
         assignable_roles = set(await self.config.guild(ctx.guild).assignable_roles())
         valid_roles = tuple(r for r in ctx.guild.roles if r.id in assignable_roles)
@@ -182,12 +182,12 @@ class ModRoles(commands.Cog):
         )
 
     @modroles.group(name="targets")
-    async def modroles_targets(self, ctx: commands.Context) -> None:
+    async def modroles_targets(self, ctx: GuildContext) -> None:
         """Settings about allowed targets."""
 
     @modroles_targets.command(name="allowbots")
     async def modroles_targets_allowbots(
-        self, ctx: commands.Context, enabled: bool = None
+        self, ctx: GuildContext, enabled: Optional[bool] = None
     ) -> None:
         """
         Allow to assign roles to bots with `[p]assignrole`
@@ -225,7 +225,7 @@ class ModRoles(commands.Cog):
 
     @modroles_targets.command(name="toprole")
     async def modroles_targets_toprole(
-        self, ctx: commands.Context, enabled: bool = None
+        self, ctx: GuildContext, enabled: Optional[bool] = None
     ) -> None:
         """
         Enable/disable top role check.

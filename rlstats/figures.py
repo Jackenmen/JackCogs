@@ -1,27 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Iterator, Tuple
+from typing import Any, NamedTuple, Tuple
 
 __all__ = ("Point",)
 
 
-class Point:
-    def __init__(self, x: int, y: int) -> None:
-        self.x = x
-        self.y = y
-
-    def __getitem__(self, item: int) -> int:
-        return (self.x, self.y)[item]
-
-    def __iter__(self) -> Iterator[int]:
-        for axis in (self.x, self.y):
-            yield axis
-
-    def __repr__(self) -> str:
-        return f"Point({self.x}, {self.y})"
-
-    def __len__(self) -> int:
-        return 2
+class Point(NamedTuple):
+    x: int
+    y: int
 
     def __add__(self, other: Any) -> Point:
         return self.__class__(self.x + other[0], self.y + other[1])
@@ -39,8 +25,5 @@ class Point:
         return self.__class__(-self.x, -self.y)
 
     def to_tuple(self) -> Tuple[int, int]:
+        # while Point is a tuple, it defines incompatible add and sub operations
         return (self.x, self.y)
-
-    @classmethod
-    def from_tuple(cls, tup: Tuple[int, int]) -> Point:
-        return cls(*tup)
