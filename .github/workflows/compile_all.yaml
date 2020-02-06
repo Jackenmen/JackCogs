@@ -34,16 +34,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ env.PYTHON }}-pip-
       - name: Set up Python ${{ matrix.python-version }}
-        run: |
-          sudo add-apt-repository --yes ppa:deadsnakes/ppa
-          sudo apt install --yes $PYTHON $PYTHON-dev python3-pip build-essential
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
       - name: Install requirements
         run: |
-          $PYTHON -m pip install -U pip setuptools wheel
-          $PYTHON -m pip install --user -Ur .ci/requirements/tools.txt
-          $PYTHON -m pip install --user -Ur .ci/${{ matrix.py-version }}/requirements/all_cogs.txt
+          python -m pip install -U pip setuptools wheel
+          python -m pip install --user -Ur .ci/requirements/tools.txt
+          python -m pip install --user -Ur .ci/${{ matrix.py-version }}/requirements/all_cogs.txt
       - name: Compile all
         run: |
           DIRS=$( cat .ci/${{ matrix.py-version }}/compileall_file_list.txt )
-          echo $PYTHON -m compileall $DIRS
-          $PYTHON -m compileall $DIRS
+          echo python -m compileall $DIRS
+          python -m compileall $DIRS
