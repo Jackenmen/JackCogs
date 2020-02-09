@@ -185,7 +185,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         )
 
     async def initialize(self) -> None:
-        self.rlapi_client = rlapi.Client(await self._get_token(), loop=self.bot.loop)
+        self.rlapi_client = rlapi.Client(await self._get_token())
         tier_breakdown = self._convert_numbers_in_breakdown(
             await self.config.tier_breakdown()
         )
