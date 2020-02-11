@@ -26,13 +26,16 @@ top_folder_name = next(name for name in namelist if len(PurePosixPath(name).part
 
 pattern = re.compile(rf"{re.escape(top_folder_name)}discord/.+\.pyi")
 to_extract = [name for name in namelist if pattern.fullmatch(name)]
+to_extract.append(f"{top_folder_name}LICENSE")
 
 dst = ROOT_PATH / ".stubs" / "discord"
 
 with TemporaryDirectory() as tmpdir:
     zip_file.extractall(tmpdir, members=to_extract)
-    to_copy = Path(tmpdir) / top_folder_name / "discord"
+    extracted_folder = Path(tmpdir) / top_folder_name
+    to_copy = extracted_folder / "discord"
     shutil.copytree(to_copy, dst, dirs_exist_ok=True)
+    shutil.copy(extracted_folder / "LICENSE", dst / "LICENSE.txt")
 
 _, short_hash = top_folder_name[:-1].rsplit("-", maxsplit=1)
 with open(dst / "VENDOR_SHORT_HASH", "w") as f:
