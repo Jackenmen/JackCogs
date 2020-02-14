@@ -11,6 +11,7 @@ If you use any "unfinished" cog, message me on Discord to get info about breakin
 [![Red cogs](https://img.shields.io/badge/Red--DiscordBot-cogs-red.svg)](https://github.com/Cog-Creators/Red-DiscordBot/tree/V3/develop)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fjack1142%2FJackCogs.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fjack1142%2FJackCogs?ref=badge_shield)
 
 Cogs created by jack1142 (Jackenmen#6607 on Discord) for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot). Red-DiscordBot is a multipurpose bot for Discord developed by Twentysix26 and the Core Developer team. Feel free to create issues, if you want to see some function in one of my cogs. If you see a bug in one of my cogs, do that as well ;)
 
@@ -65,3 +66,6 @@ This project bundles screenshot done by reddit user [CastleintheMist](https://ww
 
 > Jakub Kuczys &nbsp;&middot;&nbsp;
 > GitHub [@jack1142](https://github.com/jack1142)
+
+
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fjack1142%2FJackCogs.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fjack1142%2FJackCogs?ref=badge_large)
