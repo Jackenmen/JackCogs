@@ -23,7 +23,7 @@ class SettingsMixin(MixinMeta):
     async def token(self, ctx: commands.Context) -> None:
         """Instructions to set the Rocket League API tokens."""
         command = inline(
-            f"{ctx.prefix}set api rocket_league user_token PUT_YOUR_USER_TOKEN_HERE"
+            f"{ctx.clean_prefix}set api rocket_league user_token PUT_YOUR_USER_TOKEN_HERE"
         )
         message = (
             "**Rocket League API is currently in closed beta"

@@ -237,7 +237,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 await ctx.send(
                     "This cog wasn't configured properly."
                     " You need to set a token first, look at"
-                    f" {inline(f'{ctx.prefix}rlset token')} for instructions."
+                    f" {inline(f'{ctx.clean_prefix}rlset token')} for instructions."
                 )
             else:
                 await ctx.send("The bot owner didn't configure this cog properly.")
@@ -277,7 +277,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             log.error(str(e))
             if await self.bot.is_owner(ctx.author):
                 await ctx.send(
-                    f"Set token is invalid. Use {inline(f'{ctx.prefix}rlset')}"
+                    f"Set token is invalid. Use {inline(f'{ctx.clean_prefix}rlset')}"
                     " to change the token."
                 )
             else:
@@ -405,9 +405,9 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                         "Your game account is not connected with Discord."
                         " If you want to get stats,"
                         " either give your player ID after a command:"
-                        f" {inline(f'{ctx.prefix}rlstats <player_id>')}"
+                        f" {inline(f'{ctx.clean_prefix}rlstats <player_id>')}"
                         " or connect your account using command:"
-                        f" {inline(f'{ctx.prefix}rlconnect <player_id>')}"
+                        f" {inline(f'{ctx.clean_prefix}rlconnect <player_id>')}"
                     )
                     return
             else:
