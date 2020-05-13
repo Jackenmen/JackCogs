@@ -24,7 +24,7 @@ class CategoryHelp(commands.Cog):
         """Get cog with given name (with case-insensitive support)."""
         if (exact_match := self.bot.get_cog(name)) is not None:
             return exact_match
-        cogs = self.categories.get(name)
+        cogs = self.categories.get(name.lower())
         if cogs:
             # TODO: allow to choose the cog if multiple matches found
             return cogs[0]
