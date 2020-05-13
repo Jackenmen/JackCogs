@@ -34,6 +34,16 @@ cogs:
       - banmessage
       - tools
       - utility
+  categoryhelp:
+    name: CategoryHelp
+    short: Command for getting help for category that ignores case-sensitivity.
+    description: '{short}'
+    tags:
+      - categoryhelp
+      - help
+      - tools
+      - utility
+    min_bot_version: 3.3.7
   cogboard:
     name: CogBoard
     short: Search for cogs in approved repos on {cog_name}.

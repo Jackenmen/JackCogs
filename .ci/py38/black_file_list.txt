@@ -1,1 +1,1 @@
-.ci rlstats
+.ci categoryhelp rlstats
