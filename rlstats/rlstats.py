@@ -321,7 +321,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
 
             emojis = ReactionPredicate.NUMBER_EMOJIS[1 : players_len + 1]
             start_adding_reactions(msg, emojis)
-            pred = ReactionPredicate.with_emojis(emojis, msg)
+            pred = ReactionPredicate.with_emojis(emojis, msg, ctx.author)
 
             try:
                 await ctx.bot.wait_for("reaction_add", check=pred, timeout=15)
