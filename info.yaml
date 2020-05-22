@@ -2,7 +2,7 @@
 
 repo:
   name: JackCogs
-  short: Unofficial cogs by jack1142 (Jackenmen#6607).
+  short: Cogs for Red V3 by jack1142 (Jackenmen#6607).
   description: Cogs requested by others and those that I wanted for Red myself.
   install_msg: >-
     Thanks for using {repo_name}. If you have any issues,
