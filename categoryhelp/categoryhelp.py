@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Dict, List, Optional
 
+import discord
 from redbot.core import commands
 from redbot.core.bot import Red
+from redbot.core.utils.chat_formatting import bold, box
+from redbot.core.utils.menus import start_adding_reactions
+from redbot.core.utils.predicates import ReactionPredicate
 
 
 class CategoryHelp(commands.Cog):
@@ -20,21 +25,87 @@ class CategoryHelp(commands.Cog):
             cats.setdefault(cog_name.lower(), []).append(cog)
         return cats
 
-    def get_cog(self, name: str) -> Optional[commands.Cog]:
+    def get_cogs(self, name: str) -> List[commands.Cog]:
         """Get cog with given name (with case-insensitive support)."""
+        # TODO: prevent exact matches from skipping non-exact matches in returned list
         if (exact_match := self.bot.get_cog(name)) is not None:
-            return exact_match
-        cogs = self.categories.get(name.lower())
-        if cogs:
-            # TODO: allow to choose the cog if multiple matches found
+            return [exact_match]
+        cogs = self.categories.get(name.lower()) or []
+        return cogs
+
+    async def choose_cog(
+        self, ctx: commands.Context, cogs: List[commands.Cog]
+    ) -> Optional[commands.Cog]:
+        """Ask user to choose a cog from provided `cogs` list."""
+        if len(cogs) == 1:
             return cogs[0]
-        return None
+        cogs = sorted(cogs[:9], key=lambda cog: cog.qualified_name)
+        emojis = ReactionPredicate.NUMBER_EMOJIS[1 : len(cogs) + 1]
+        use_embeds = await ctx.embed_requested()
+
+        lines = []
+        if use_embeds:
+            for idx, cog in enumerate(cogs, 1):
+                cog_name = cog.qualified_name
+                short_doc, *_ = cog.format_help_for_context(ctx).partition("\n\n")
+
+                if len(short_doc) > 70:
+                    short_doc = f"{short_doc[:67]}..."
+
+                lines.append(f"{idx}. {bold(cog_name)} - {short_doc}")
+
+            description = "\n".join(lines)
+            embed = discord.Embed(
+                title="There are multiple categories with provided name:",
+                description=description,
+            )
+            msg = await ctx.send(embed=embed)
+        else:
+            # all cog names should have the same width since only casing differs
+            doc_max_width = 80 - len(cogs[0].qualified_name)
+
+            for idx, cog in enumerate(cogs, 1):
+                cog_name = cog.qualified_name
+                short_doc, *_ = cog.format_help_for_context(ctx).partition("\n\n")
+
+                if len(short_doc) > doc_max_width:
+                    short_doc = f"{short_doc[: doc_max_width - 3]}..."
+
+                lines.append(f"{idx}. {cog_name}: {short_doc}")
+
+            description = "\n".join(lines)
+            msg = await ctx.send(
+                f"There are multiple categories with provided name: {box(description)}"
+            )
+
+        start_adding_reactions(msg, emojis)
+        pred = ReactionPredicate.with_emojis(emojis, msg)
+        try:
+            await ctx.bot.wait_for("reaction_add", check=pred, timeout=30)
+        except asyncio.TimeoutError:
+            return None
+        finally:
+            await msg.delete()
+
+        assert isinstance(pred.result, int)
+        return cogs[pred.result]
 
     @commands.command()
     async def categoryhelp(self, ctx: commands.Context, *, category_name: str) -> None:
         """Get help for category."""
-        if (cog := self.get_cog(category_name)) is None:
+        if not (cogs := self.get_cogs(category_name)):
             # TODO: make it like help formatter's "Help topic for ... not found."
             await ctx.send("This category doesn't exist!")
             return
+
+        cog = await self.choose_cog(ctx, cogs)
+        if cog is None:
+            await ctx.send("Response timed out.")
+            return
+
         await self.bot.send_help_for(ctx, cog)
+
+    # TODO: add an alternative for full help command
+    # I might want to wait on the help formatter work first, but I probably won't
+    # settings needed for precedence rules
+    # (e.g. skip choose menu for exact command/cog name matches)
