@@ -24,6 +24,7 @@ from .figures import Point
 from .image import CoordsInfo, RLStatsImageTemplate
 from .settings import SettingsMixin
 from .typings import NoParseOptional as Optional
+from .utils import username_from_player
 
 
 log = logging.getLogger("red.jackcogs.rlstats")
@@ -310,7 +311,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             description = ""
             for idx, player in enumerate(players, 1):
                 description += "\n{}. {} account with username: {}".format(
-                    idx, player.platform, player.user_name
+                    idx, player.platform, username_from_player(player)
                 )
             msg = await ctx.send(
                 embed=discord.Embed(
@@ -453,7 +454,9 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 f"connected {str(player.platform)} account of {bold(str(discord_user))}"
             )
         else:
-            account_string = f"{str(player.platform)} account: {bold(player.user_name)}"
+            account_string = (
+                f"{str(player.platform)} account: {bold(username_from_player(player))}"
+            )
         await ctx.send(
             (
                 f"Rocket League Stats for {account_string}\n"
