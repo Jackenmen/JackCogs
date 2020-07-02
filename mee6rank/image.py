@@ -8,6 +8,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from .figures import Point
 from .player import PlayerWithAvatar
+from .utils import natural_size
 
 
 class CoordsInfo(NamedTuple):
@@ -178,11 +179,11 @@ class Mee6RankImage(Mee6RankImageMixin):
         # why do I even use templates when I still do stuff like this...
         parts = {
             "needed_xp": (
-                f"/ {self.player.level_total_xp} XP",
+                f"/ {natural_size(self.player.level_total_xp)} XP",
                 0,
                 "#7f8384",
             ),
-            "current_xp": (self.player.level_xp, 6, "#ffffff"),
+            "current_xp": (natural_size(self.player.level_xp), 6, "#ffffff"),
         }
         offset_x = 0
         for part_name, (text, offset, fill) in parts.items():
