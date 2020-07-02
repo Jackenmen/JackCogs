@@ -23,6 +23,7 @@ Also I suggest to join [Red - Cog Support server](https://discord.gg/GET4DVk) an
 * **banmessage** - Send message on ban in a chosen channel. Supports images!
 * **categoryhelp** - Command for getting help for category that ignores case-sensitivity.
 * **cogboard** - Search for cogs in approved repos on CogBoard.
+* **mee6rank** - Get detailed information about your Mee6 rank.
 * **membercount** - Get count of all members + humans and bots separately.
 * **modroles** - Allow moderators without manage roles permission to assign configured roles to users.
 * **nitrorole** - Welcome new nitro boosters and/or give them a special role!

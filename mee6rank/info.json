@@ -1,10 +1,24 @@
 {
     "name": "Mee6Rank",
-    "author": ["jack1142"],
-    "short": "Shows you Mee6 rank.",
-    "description": "Shows you Mee6 rank.",
-    "install_msg": "Thanks for installing RLStats. Before you will be able to check player's stats you need to configure a Rocket League API user token using command [p]rlset token",
-    "requirements": ["pillow"],
-    "tags": ["tools", "rank", "mee6", "api"],
-    "disabled": false
+    "short": "Get detailed information about your Mee6 rank.",
+    "description": "Shows detailed information about your Mee6 rank like amount of XP amount of XP and estimated amount of messages needed to reach next level and next level role.",
+    "install_msg": "Thanks for installing Mee6Rank. If anything doesn't work, you can report it on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.\n\nThis cog comes with bundled data.",
+    "author": [
+        "jack1142 (Jackenmen#6607)"
+    ],
+    "required_cogs": {},
+    "requirements": [
+        "pillow~=6.0"
+    ],
+    "tags": [
+        "api",
+        "leveling",
+        "mee6",
+        "rank",
+        "tools"
+    ],
+    "min_bot_version": "3.3.9",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
 }
