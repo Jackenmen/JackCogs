@@ -25,12 +25,14 @@ class Mee6RankImageTemplate:
         avatar_mask: Path,
         card_base: Path,
         progressbar: Path,
+        progressbar_rounding_mask: Path,
     ) -> None:
         self.coords = coords
         self.fonts = fonts
         self.avatar_mask = avatar_mask
         self.card_base = card_base
         self.progressbar = progressbar
+        self.progressbar_rounding_mask = progressbar_rounding_mask
 
     def get_coords(self, coords_name: str) -> CoordsInfo:
         """Get coords for given element."""
@@ -162,11 +164,27 @@ class Mee6RankImage(Mee6RankImageMixin):
             # calculate progressbar width
             width = int(
                 self.player.level_xp / self.player.level_total_xp * result.width
+            )
+            # progressbar should be either 0 or 36 when <36 (taken from comments in Mee6's svg)
+            if width < 36 and width != 0:
+                width = 36
 
             # make progressbar
             progressbar = Image.new(mode="RGBA", size=result.size)
             progressbar_draw = ImageDraw.Draw(progressbar)
             progressbar_draw.rectangle(xy=(0, 0, width, result.height), fill="#62d3f5")
+
+            # make and apply rounding mask for end (right side) of the progressbar
+            with Image.open(self.template.progressbar_rounding_mask).convert(
+                "L"
+            ) as rounding_mask:
+                mask = Image.new(mode="L", size=progressbar.size, color="#ffffff")
+                mask.paste(rounding_mask, (width - rounding_mask.width + 1, 0))
+                mask_draw = ImageDraw.Draw(mask)
+                mask_draw.rectangle(
+                    xy=(width, 0, mask.width, mask.height), fill="#000000"
+                )
+            progressbar.putalpha(mask)
 
             # join everything
             result.alpha_composite(progressbar)
