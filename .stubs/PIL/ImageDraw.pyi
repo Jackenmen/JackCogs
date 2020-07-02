@@ -4,6 +4,7 @@
 from . import Image, ImageFont
 from typing import Any, Optional, Tuple, Union
 
+LURD = Tuple[int, int, int, int]  # left, up(per), right, down = x0, y0, x1, y1
 XY = Tuple[int, int]
 Coord = XY
 Mode = str
@@ -28,7 +29,15 @@ class ImageDraw:
         stroke_width: int = ...,
         stroke_fill: Optional[Union[Color, str]] = ...,
         *args: Any,
-        **kwargs: Any
+        **kwargs: Any,
+    ) -> None: ...
+
+    def rectangle(
+        self,
+        xy: LURD,
+        fill: Optional[Union[Color, str]] = ...,
+        outline: Optional[Union[Color, str]] = ...,
+        width: int = ...,
     ) -> None: ...
 
 def Draw(im: Image.Image, mode: Optional[Mode] = ...) -> ImageDraw: ...
