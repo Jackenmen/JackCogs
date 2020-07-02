@@ -53,7 +53,7 @@ class Player:
         return self.level_total_xp - self.level_xp
 
     def xp_until_level(self, level: int) -> int:
-        if self.level <= level:
+        if level <= self.level:
             raise ValueError("Player has already reached the passed `level`")
         # formula taken from https://github.com/PsKramer/mee6calc/blob/master/calc.js
         needed_total_xp = math.ceil(
