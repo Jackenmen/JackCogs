@@ -1,19 +1,33 @@
-from io import BytesIO
-from math import ceil
 import asyncio
+import functools
+import logging
+import math
+from concurrent.futures import ThreadPoolExecutor
+from io import BytesIO
+from typing import Any, Callable, Dict, Literal, TypeVar, Union, overload
 
 import aiohttp
 import discord
 from redbot.core import commands
+from redbot.core.bot import Red
+from redbot.core.commands import NoParseOptional as Optional
 from redbot.core.data_manager import bundled_data_path
 from PIL import ImageFont
 
 from . import errors
 from .figures import Point
 from .image import CoordsInfo, Mee6RankImageTemplate
+from .player import Player, PlayerWithAvatar
+from .utils import json_or_text
+
+log = logging.getLogger("red.jackcogs.rlstats")
+
+T = TypeVar("T")
 
 
 class Mee6Rank(commands.Cog):
+    """Get detailed information about your Mee6 rank."""
+
     MIN_XP_GAIN = 15
     MAX_XP_GAIN = 25
     AVG_XP_GAIN = (MIN_XP_GAIN + MAX_XP_GAIN) / 2
@@ -30,10 +44,11 @@ class Mee6Rank(commands.Cog):
         "avatar": CoordsInfo(Point(40, 60), None),
     }
 
-    def __init__(self, bot):
-        self._session = aiohttp.ClientSession(loop=bot.loop)
+    def __init__(self, bot: Red) -> None:
+        self._session = aiohttp.ClientSession()
         self.bot = bot
-        self.loop = bot.loop
+        self.loop: asyncio.AbstractEventLoop = bot.loop
+        self._executor = ThreadPoolExecutor()
         self.bundled_data_path = bundled_data_path(self)
         self.fonts = {
             "Poppins24": ImageFont.truetype(
@@ -54,129 +69,209 @@ class Mee6Rank(commands.Cog):
             fonts=self.fonts,
             card_base=self.bundled_data_path / "card_base.png",
             progressbar=self.bundled_data_path / "progressbar.png",
+            progressbar_rounding_mask=(
+                self.bundled_data_path / "progressbar_rounding_mask.png"
+            ),
             avatar_mask=self.bundled_data_path / "avatar_mask.png",
         )
 
-    @commands.command()
-    @commands.guild_only()
-    @commands.cooldown(rate=1, per=5, type=commands.BucketType.member)
-    async def mee6rank(self, ctx, member: discord.Member = None):
-        async with ctx.typing():
-            if member is None:
-                member = ctx.author
-            player = await self._get_player(member)
-            if player is None:
-                return_form = "your" if member is ctx.author else "member's"
-                return await ctx.send(f"Could not find {return_form} Mee6 rank.")
+    async def _run_in_executor(
+        self, func: Callable[..., T], *args: Any, **kwargs: Any
+    ) -> T:
+        return await self.loop.run_in_executor(
+            self._executor, functools.partial(func, *args, **kwargs)
+        )
 
-            role_rewards = player["role_rewards"]
-            embed = discord.Embed(title=f"{member.name} Mee6 rank")
-            embed.add_field(name="Level", value=player["level"])
-            embed.add_field(name="XP amount", value=player["xp"])
-            xp_needed = self._xp_to_desired(player["level"] + 1) - player["xp"]
-            embed.add_field(name="XP needed to next level", value=xp_needed)
+    @commands.guild_only()
+    @commands.bot_has_permissions(embed_links=True)
+    @commands.cooldown(rate=1, per=5, type=commands.BucketType.member)
+    @commands.command()
+    async def mee6rank(
+        self, ctx: commands.GuildContext, member: Optional[discord.Member] = None
+    ) -> None:
+        """Get detailed information about Mee6 rank for you or given member."""
+        async with ctx.typing():
+            if (player := await self._maybe_get_player(ctx, member)) is None:
+                return
+
+            embed = discord.Embed(title=f"Mee6 rank for {player.member.name}")
+            embed.add_field(name="Level", value=str(player.level))
+            embed.add_field(name="XP amount", value=str(player.total_xp))
+            xp_needed = player.xp_until_next_level
+            embed.add_field(name="XP needed to next level", value=str(xp_needed))
             embed.add_field(
                 name="Average amount of messages to next lvl",
-                value=self._message_amount_from_xp(xp_needed)[1],
+                value=str(self._message_amount_from_xp(xp_needed)),
             )
-            next_role_reward = self._next_role_reward(role_rewards, player["level"])
+            next_role_reward = player.next_role_reward
             if next_role_reward is not None:
-                xp_needed = self._xp_to_desired(next_role_reward["rank"]) - player["xp"]
+                xp_needed = player.xp_until_level(next_role_reward.rank)
                 embed.add_field(
-                    name=f"XP to next role - {next_role_reward['role']['name']}",
-                    value=xp_needed,
+                    name=f"XP to next role - {next_role_reward.role.name}",
+                    value=str(xp_needed),
                 )
                 embed.add_field(
                     name=(
                         "Average amount of messages to next role"
-                        f" - {next_role_reward['role']['name']}"
+                        f" - {next_role_reward.role.name}"
                     ),
-                    value=self._message_amount_from_xp(xp_needed)[1],
+                    value=str(self._message_amount_from_xp(xp_needed)),
                 )
             await ctx.send(embed=embed)
 
-    @commands.is_owner()
-    @commands.command()
-    @commands.guild_only()
-    @commands.cooldown(rate=1, per=5, type=commands.BucketType.member)
-    async def mee6rankimage(self, ctx, member: discord.Member = None):
-        if member is None:
-            member = ctx.author
-        player = await self._get_player(member, get_avatar=True)
-        if player is None:
-            return_form = "your" if member is ctx.author else "member's"
-            return await ctx.send(f"Could not find {return_form} Mee6 rank.")
-
+    def _generate_image(self, player: PlayerWithAvatar) -> BytesIO:
         image = self.template.generate_image(player)
-        bytes_object = BytesIO()
-        image.save(bytes_object, format="PNG", quality=100)
-        bytes_object.seek(0)
-        await ctx.send(file=discord.File(bytes_object, filename="card.png"))
+        fp = BytesIO()
+        image.save(fp, format="PNG", quality=100)
+        fp.seek(0)
+        return fp
 
-    async def _request(self, guild_id, page):
+    @commands.guild_only()
+    @commands.bot_has_permissions(attach_files=True)
+    @commands.cooldown(rate=1, per=5, type=commands.BucketType.member)
+    @commands.command()
+    async def mee6rankimage(
+        self, ctx: commands.GuildContext, member: Optional[discord.Member] = None
+    ) -> None:
+        """
+        Get Mee6 rank image for you or given member.
+
+        This tries to imitate Mee6's !rank command.
+        """
+        if (
+            player := await self._maybe_get_player(ctx, member, get_avatar=True)
+        ) is None:
+            return
+
+        fp = await self._run_in_executor(self._generate_image, player)
+
+        await ctx.send(file=discord.File(fp, filename="card.png"))
+
+    async def _request(self, guild_id: int, page: int) -> Dict[str, Any]:
         url = (
             "https://mee6.xyz/api/plugins/levels/leaderboard/"
             f"{guild_id}?page={page}&limit=999"
         )
         for tries in range(5):
             async with self._session.get(url) as resp:
+                data = await json_or_text(resp)
                 if 300 > resp.status >= 200:
-                    return await resp.json()
+                    assert isinstance(data, dict), "mypy"
+                    return data
+
+                if resp.status == 404:
+                    raise errors.GuildNotFound(resp, data)
 
                 # received 500 or 502 error, API has some troubles, retrying
                 if resp.status in {500, 502}:
-                    await asyncio.sleep(1 + tries * 2, loop=self.loop)
+                    # maybe switch this to exponential backoff someday...
+                    await asyncio.sleep(1 + tries * 2)
                     continue
-                raise errors.HTTPException()
+                raise errors.HTTPException(resp, data)
         # still failed after 5 tries
-        raise errors.HTTPException()
+        raise errors.HTTPException(resp, data)
 
-    async def _get_player(self, member: discord.Member, *, get_avatar=False):
-        player = None
+    @overload
+    async def _maybe_get_player(
+        self,
+        ctx: commands.GuildContext,
+        member: Optional[discord.Member],
+        *,
+        get_avatar: Literal[True] = ...,
+    ) -> Optional[PlayerWithAvatar]:
+        ...
+
+    @overload
+    async def _maybe_get_player(
+        self,
+        ctx: commands.GuildContext,
+        member: Optional[discord.Member],
+        *,
+        get_avatar: Literal[False] = ...,
+    ) -> Optional[Player]:
+        ...
+
+    async def _maybe_get_player(
+        self,
+        ctx: commands.GuildContext,
+        member: Optional[discord.Member],
+        *,
+        get_avatar: Union[Literal[True], Literal[False]] = False,  # why mypy :(
+    ) -> Optional[Player]:
+        try:
+            player = await self._get_player(member or ctx.author, get_avatar=get_avatar)
+        except errors.GuildNotFound:
+            await ctx.send("There's no Mee6 leaderboard for this guild.")
+        except errors.HTTPException as e:
+            log.error(str(e))
+            if e.status >= 500:
+                await ctx.send(
+                    "Mee6 API experiences some issues right now. Try again later."
+                )
+            else:
+                await ctx.send(
+                    "Mee6 API can't process this request."
+                    " If this keeps happening, inform bot's owner about this error."
+                )
+        else:
+            if player is not None:
+                return player
+
+            if member is None:
+                await ctx.send("I wasn't able to find your Mee6 rank.")
+            else:
+                await ctx.send("I wasn't able to find Mee6 rank for the given member.")
+
+        return None
+
+    @overload
+    async def _get_player(
+        self, member: discord.Member, *, get_avatar: Literal[True] = ...
+    ) -> Optional[PlayerWithAvatar]:
+        ...
+
+    @overload
+    async def _get_player(
+        self, member: discord.Member, *, get_avatar: Literal[False] = ...
+    ) -> Optional[Player]:
+        ...
+
+    async def _get_player(
+        self, member: discord.Member, *, get_avatar: bool = False
+    ) -> Optional[Player]:
+        """
+        Gets Mee6 player object from `discord.Member`.
+        Returns `None` when player wasn't found.
+
+        Raises
+        ------
+        HTTPException
+            Raised when the API returned error response.
+        """
+        player_data: Optional[Dict[str, Any]] = None
         page = 0
         guild_id = member.guild.id
-        while player is None:
+        while player_data is None:
             leaderboard = await self._request(guild_id, page)
             players = leaderboard["players"]
             if not players:
                 return None
+
             for idx, p in enumerate(players, 1):
                 if p["id"] == str(member.id):
-                    player = p
-                    player["rank"] = page * 999 + idx
+                    player_data = p
+                    player_data["rank"] = page * 999 + idx
                     break
             page += 1
-        player["member_obj"] = member
-        player["role_rewards"] = leaderboard["role_rewards"]
+
         if get_avatar:
-            avatar = BytesIO()
+            avatar = BytesIO(await member.avatar_url_as(format="png").read())
             avatar.name = f"{member.id}.png"
-            await member.avatar_url_as(format="png").save(avatar)
-            player["avatar"] = avatar
-        return player
+            return PlayerWithAvatar(
+                player_data, member, leaderboard["role_rewards"], avatar
+            )
 
-    def _xp_to_desired(self, desired_level):
-        return ceil(
-            5
-            / 6
-            * desired_level
-            * (2 * desired_level * desired_level + 27 * desired_level + 91)
-        )
+        return Player(player_data, member, leaderboard["role_rewards"])
 
-    def _message_amount_from_xp(self, xp_needed):
-        minimum = ceil(xp_needed / self.MAX_XP_GAIN)
-        avg = ceil(xp_needed / (self.AVG_XP_GAIN / 2))
-        maximum = ceil(xp_needed / self.MIN_XP_GAIN)
-        return (minimum, avg, maximum)
-
-    def _next_role_reward(self, role_rewards, current_level):
-        next_role_reward = None
-        for role_reward in role_rewards:
-            if role_reward["rank"] > current_level:
-                try:
-                    next_role_reward = min(
-                        role_reward, next_role_reward, key=lambda x: x["rank"]
-                    )
-                except TypeError:
-                    next_role_reward = role_reward
-        return next_role_reward
+    def _message_amount_from_xp(self, xp_needed: int) -> int:
+        return math.ceil(xp_needed / self.AVG_XP_GAIN)

@@ -1,10 +1,13 @@
-import contextlib
+from __future__ import annotations
+
+from abc import ABC
 from pathlib import Path
-from typing import NamedTuple, Optional, Dict
+from typing import Any, BinaryIO, Dict, NamedTuple, Optional, Tuple, Union
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from .figures import Point
+from .player import PlayerWithAvatar
 
 
 class CoordsInfo(NamedTuple):
@@ -21,45 +24,80 @@ class Mee6RankImageTemplate:
         avatar_mask: Path,
         card_base: Path,
         progressbar: Path,
-    ):
+    ) -> None:
         self.coords = coords
         self.fonts = fonts
         self.avatar_mask = avatar_mask
         self.card_base = card_base
         self.progressbar = progressbar
 
-    def get_coords(self, coords_name: str):
+    def get_coords(self, coords_name: str) -> CoordsInfo:
         """Get coords for given element."""
         return self.coords[coords_name]
 
-    def generate_image(self, player: dict) -> "Mee6RankImage":
+    def generate_image(self, player: PlayerWithAvatar) -> Mee6RankImage:
         return Mee6RankImage(self, player)
 
 
-class Mee6RankImageMixin:
-    def __init__(self):
+class MixinMeta(ABC):
+    def __init__(self) -> None:
+        self._result: Image.Image
+
+
+class Mee6RankImageMixin(MixinMeta):
+    def __init__(self) -> None:
+        super().__init__()
         self._draw = ImageDraw.Draw(self._result)
 
     @property
-    def size(self):
+    def size(self) -> Tuple[int, int]:
         return self._result.size
 
-    def alpha_composite(self, im, dest=(0, 0), source=(0, 0)):
-        with contextlib.suppress(AttributeError):
-            im = im._result
-        self._result.alpha_composite(im, dest, source)
+    def alpha_composite(
+        self,
+        im: Union[Image.Image, Mee6RankImageMixin],
+        dest: Tuple[int, int] = (0, 0),
+        source: Union[Tuple[int, int], Tuple[int, int, int, int]] = (0, 0),
+    ) -> None:
+        image = getattr(im, "_result", im)
+        self._result.alpha_composite(image, dest, source)
 
-    def paste(self, im, box=None, mask=None):
-        with contextlib.suppress(AttributeError):
-            im = im._result
-        self._result.paste(im, box, mask)
+    def paste(
+        self,
+        im: Union[
+            Image.Image,
+            Union[
+                int,
+                float,
+                Tuple[int, int],
+                Tuple[int, int, int],
+                Tuple[int, int, int, int],
+            ],
+            str,
+            Mee6RankImageMixin,
+        ],
+        box: Optional[Union[Tuple[int, int], Tuple[int, int, int, int]]] = None,
+        mask: Optional[Image.Image] = None,
+    ) -> None:
+        image = getattr(im, "_result", im)
+        self._result.paste(image, box, mask)
 
-    def save(self, fp, format=None, **params):
+    def thumbnail(self, size: Tuple[int, int], resample: int = 3) -> None:
+        self._result.thumbnail(size, resample)
+
+    def save(
+        self,
+        fp: Union[str, Path, BinaryIO],
+        format: Optional[str] = None,
+        **params: Any,
+    ) -> None:
         self._result.save(fp, format, **params)
 
 
 class Mee6RankImage(Mee6RankImageMixin):
-    def __init__(self, template, player):
+    def __init__(
+        self, template: Mee6RankImageTemplate, player: PlayerWithAvatar
+    ) -> None:
         self.template = template
         self.fonts = self.template.fonts
         self.player = player
@@ -67,100 +105,101 @@ class Mee6RankImage(Mee6RankImageMixin):
         super().__init__()
         self._generate_image()
 
-    def _generate_image(self):
+    def __del__(self) -> None:
+        self._result.close()
+
+    def _generate_image(self) -> None:
         self._draw_level()
         self._draw_username()
         self._draw_progressbar()
         self._draw_xp()
         self._draw_avatar()
 
-    def _draw_level(self):
-        # Level number
-        text = str(self.player["level"])
-        coords, font_name = self.template.get_coords("level_number")
-        font = self.fonts[font_name]
-        offset_x, offset_y = font.getsize(text)
-        coords -= (offset_x, offset_y)
-        self._draw.text(xy=coords, text=text, fill="#62d3f5", font=font)
-        # Level caption
-        coords, font_name = self.template.get_coords("level_caption")
-        font = self.fonts[font_name]
-        x, offset_y = font.getsize("LEVEL")
-        offset_x += x + 6
-        coords -= (offset_x, offset_y)
-        self._draw.text(xy=coords, text="LEVEL", fill="#62d3f5", font=font)
-        # Rank number
-        text = f"#{self.player['rank']}"
-        coords, font_name = self.template.get_coords("rank_number")
-        font = self.fonts[font_name]
-        x, offset_y = font.getsize(text)
-        offset_x += x + 15
-        coords -= (offset_x, offset_y)
-        self._draw.text(xy=coords, text=text, fill="#fff", font=font)
-        # Rank caption
-        coords, font_name = self.template.get_coords("rank_caption")
-        font = self.fonts[font_name]
-        x, offset_y = font.getsize("RANK")
-        offset_x += x + 6
-        coords -= (offset_x, offset_y)
-        self._draw.text(xy=coords, text="RANK", fill="#fff", font=font)
+    def _draw_level(self) -> None:
+        # why do I even use templates when I still do stuff like this...
+        parts = {
+            "level_number": (str(self.player.level), 0, "#62d3f5"),
+            "level_caption": ("LEVEL", 6, "#62d3f5"),
+            "rank_number": (f"#{self.player.rank}", 15, "#ffffff"),
+            "rank_caption": ("RANK", 6, "#ffffff"),
+        }
+        offset_x = 0
+        for part_name, (text, offset, fill) in parts.items():
+            coords, font_name = self.template.get_coords(part_name)
+            # all parts from dict above have font name defined
+            assert isinstance(font_name, str), "mypy"
+            font = self.fonts[font_name]
+            x, offset_y = font.getsize(text)
+            offset_x += x + offset
+            coords -= (offset_x, offset_y)
+            self._draw.text(xy=coords, text=text, fill=fill, font=font)
 
-    def _draw_username(self):
+    def _draw_username(self) -> None:
         # Username
-        text = self.player["member_obj"].name
+        # TODO: fix the math here - cut long usernames, change font size for longer text, etc.
+        text = self.player.member.name
         coords, font_name = self.template.get_coords("username")
+        assert isinstance(font_name, str), "mypy"  # username has font name defined
         font = self.fonts[font_name]
         offset_x, offset_y = font.getsize(text)
         coords -= (0, offset_y)
-        self._draw.text(xy=coords, text=text, fill="#fff", font=self.fonts["DejaVu40"])
+        self._draw.text(xy=coords, text=text, fill="#fff", font=font)
         # discriminator
-        text = self.player["member_obj"].discriminator
+        text = f"#{self.player.member.discriminator}"
         coords, font_name = self.template.get_coords("discriminator")
+        assert isinstance(font_name, str), "mypy"  # discriminator has font name defined
         font = self.fonts[font_name]
         _, offset_y = font.getsize(text)
         offset_x += 10
         coords += (offset_x, -offset_y)
         self._draw.text(xy=coords, text=text, fill="#7f8384", font=font)
 
-    def _draw_progressbar(self):
-        progressbar_border = Image.open(self.template.progressbar)
-        progressbar = Image.new(
-            mode="RGBA", size=progressbar_border.size, color="#484b4e"
-        )
-        progressbar_draw = ImageDraw.Draw(progressbar)
-        progressbar_draw.rectangle(
-            xy=(0, 0, int(4446 / 11495 * progressbar.width), progressbar.height),
-            fill="#62d3f5",
-        )
-        progressbar.alpha_composite(progressbar_border)
-        coords, _ = self.template.get_coords("progressbar")
-        self._result.alpha_composite(progressbar, coords.to_tuple())
+    def _draw_progressbar(self) -> None:
+        with Image.open(self.template.progressbar) as progressbar_top:
+            result = Image.new(mode="RGBA", size=progressbar_top.size, color="#484b4e")
 
-    def _draw_xp(self):
-        # Needed XP
-        text = f"/ {self.player['detailed_xp'][1]} XP"
-        coords, font_name = self.template.get_coords("needed_xp")
-        font = self.fonts[font_name]
-        offset_x, offset_y = font.getsize(text)
-        coords -= (offset_x, offset_y)
-        self._draw.text(
-            xy=coords, text=text, fill="#7f8384", font=self.fonts["Poppins24"]
-        )
-        # Current XP
-        text = str(self.player["detailed_xp"][0])
-        coords, font_name = self.template.get_coords("current_xp")
-        font = self.fonts[font_name]
-        x, offset_y = font.getsize(text)
-        offset_x += x + 6
-        coords -= (offset_x, offset_y)
-        self._draw.text(xy=coords, text=text, fill="#fff", font=self.fonts["Poppins24"])
+            # calculate progressbar width
+            width = int(
+                self.player.level_xp / self.player.level_total_xp * result.width
 
-    def _draw_avatar(self):
-        # Avatar Generation
-        avatar_mask = Image.open(self.template.avatar_mask).convert("L")
-        avatar_file = self.player["avatar"]
-        avatar_file.seek(0)
-        avatar = Image.open(avatar_file)
-        avatar_output = ImageOps.fit(avatar, (avatar_mask.size), centering=(0.5, 0.5))
-        avatar_output.putalpha(avatar_mask)
-        self._result.alpha_composite(avatar_output, (40, 60))
+            # make progressbar
+            progressbar = Image.new(mode="RGBA", size=result.size)
+            progressbar_draw = ImageDraw.Draw(progressbar)
+            progressbar_draw.rectangle(xy=(0, 0, width, result.height), fill="#62d3f5")
+
+            # join everything
+            result.alpha_composite(progressbar)
+            result.alpha_composite(progressbar_top)
+
+            coords, _ = self.template.get_coords("progressbar")
+            self._result.alpha_composite(result, coords.to_tuple())
+
+    def _draw_xp(self) -> None:
+        # why do I even use templates when I still do stuff like this...
+        parts = {
+            "needed_xp": (
+                f"/ {self.player.level_total_xp} XP",
+                0,
+                "#7f8384",
+            ),
+            "current_xp": (self.player.level_xp, 6, "#ffffff"),
+        }
+        offset_x = 0
+        for part_name, (text, offset, fill) in parts.items():
+            coords, font_name = self.template.get_coords(part_name)
+            # all parts from dict above have font name defined
+            assert isinstance(font_name, str), "mypy"
+            font = self.fonts[font_name]
+            x, offset_y = font.getsize(text)
+            offset_x += x + offset
+            coords -= (offset_x, offset_y)
+            self._draw.text(xy=coords, text=text, fill=fill, font=font)
+
+    def _draw_avatar(self) -> None:
+        with Image.open(self.template.avatar_mask).convert("L") as avatar_mask:
+            avatar_file = self.player.avatar
+            avatar_file.seek(0)
+            avatar = Image.open(avatar_file)
+            avatar_output = ImageOps.fit(avatar, avatar_mask.size, centering=(0.5, 0.5))
+            avatar_output.putalpha(avatar_mask)
+            self._result.alpha_composite(avatar_output, (40, 60))
