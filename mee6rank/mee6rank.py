@@ -45,6 +45,7 @@ class Mee6Rank(commands.Cog):
     }
 
     def __init__(self, bot: Red) -> None:
+        super().__init__()
         self._session = aiohttp.ClientSession()
         self.bot = bot
         self.loop: asyncio.AbstractEventLoop = bot.loop
@@ -74,6 +75,11 @@ class Mee6Rank(commands.Cog):
             ),
             avatar_mask=self.bundled_data_path / "avatar_mask.png",
         )
+
+    def cog_unload(self) -> None:
+        self._session.detach()
+
+    __del__ = cog_unload
 
     async def _run_in_executor(
         self, func: Callable[..., T], *args: Any, **kwargs: Any
