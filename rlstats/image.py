@@ -19,7 +19,6 @@ from PIL import Image, ImageDraw, ImageFont
 from rlapi import Player, Playlist, PlaylistKey
 
 from .figures import Point
-from .utils import username_from_player
 
 
 class CoordsInfo(NamedTuple):
@@ -167,10 +166,9 @@ class RLStatsImage(RLStatsImageMixin):
         username_coords, font_name = self.template.get_coords("username")
         assert isinstance(font_name, str), "mypy"  # username has font name defined
         font = self.template.fonts[font_name]
-        username = username_from_player(self.player)
-        w, h = font.getsize(username)
+        w, h = font.getsize(self.player.user_name)
         coords = username_coords - (w / 2, h / 2)
-        self._draw.text(xy=coords, text=username, font=font, fill="white")
+        self._draw.text(xy=coords, text=self.player.user_name, font=font, fill="white")
         self._draw_platform(w)
 
     def _draw_platform(self, w: int) -> None:
