@@ -15,14 +15,14 @@ limitations under the License.
 """
 
 import discord
-from redbot.core import commands, checks
+from redbot.core import commands
 from redbot.core.bot import Red
+from redbot.core.commands import GuildContext, NoParseOptional as Optional
 from redbot.core.config import Config
 from redbot.core.utils.chat_formatting import box
 from redbot.core.utils.mod import is_mod_or_superior
 
 from .converters import AssignableRoleConverter as AssignableRole
-from .typings import GuildContext, NoParseOptional as Optional
 
 
 class ModRoles(commands.Cog):
@@ -68,7 +68,7 @@ class ModRoles(commands.Cog):
 
     @commands.guild_only()
     @commands.bot_has_permissions(manage_roles=True)
-    @checks.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_roles=True)
     @commands.command()
     async def assignrole(
         self, ctx: GuildContext, role: AssignableRole, *, member: discord.Member
@@ -102,7 +102,7 @@ class ModRoles(commands.Cog):
 
     @commands.guild_only()
     @commands.bot_has_permissions(manage_roles=True)
-    @checks.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_roles=True)
     @commands.command()
     async def unassignrole(
         self, ctx: GuildContext, role: AssignableRole, *, member: discord.Member
@@ -135,7 +135,7 @@ class ModRoles(commands.Cog):
             await ctx.send(f"Role {role.name} removed from {member.display_name}")
 
     @commands.guild_only()
-    @checks.admin_or_permissions(manage_roles=True)
+    @commands.admin_or_permissions(manage_roles=True)
     @commands.group()
     async def modroles(self, ctx: GuildContext) -> None:
         """Settings for assignable roles."""

@@ -141,8 +141,8 @@ class CogBoard(commands.Cog):
     async def cogboard(self, ctx: commands.Context) -> None:
         """CogBoard commands."""
 
-    @cogboard.command(name="refreshcache")
     @commands.is_owner()
+    @cogboard.command(name="refreshcache")
     async def cogboard_refreshcache(self, ctx: commands.Context) -> None:
         """Refresh CogBoard cache."""
         failed = False
@@ -156,8 +156,8 @@ class CogBoard(commands.Cog):
         else:
             await ctx.send("CogBoard cache refreshed.")
 
-    @cogboard.command(name="updateevery")
     @commands.is_owner()
+    @cogboard.command(name="updateevery")
     async def cogboard_cacheexpire(
         self, ctx: commands.Context, expire_time: int
     ) -> None:
