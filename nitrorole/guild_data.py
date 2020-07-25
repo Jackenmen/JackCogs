@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 from string import Template
-from typing import List, Optional, cast
+from typing import List, Optional
 
 import discord
 from redbot.core.config import Config, Group

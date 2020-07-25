@@ -16,7 +16,6 @@ limitations under the License.
 
 from __future__ import annotations
 
-import contextlib
 from abc import ABC
 from pathlib import Path
 from typing import (
@@ -28,7 +27,6 @@ from typing import (
     Sequence,
     Tuple,
     Union,
-    cast,
 )
 
 from PIL import Image, ImageDraw, ImageFont

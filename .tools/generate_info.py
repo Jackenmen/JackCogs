@@ -206,7 +206,7 @@ def check_order(data: dict) -> int:
     if original_cog_names != sorted_cog_names:
         print(
             "\033[93m\033[1mWARNING:\033[0m "
-            f"Cog names in `cogs` section aren't sorted. Use alphabetical order."
+            "Cog names in `cogs` section aren't sorted. Use alphabetical order."
         )
         exit_code = 1
 

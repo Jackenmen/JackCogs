@@ -41,6 +41,6 @@ class AssignableRoleConverter(discord.Role):
 
         if role.id not in assignable_roles:
             raise commands.BadArgument(
-                f"The provided role is not a valid assignable role."
+                "The provided role is not a valid assignable role."
             )
         return role

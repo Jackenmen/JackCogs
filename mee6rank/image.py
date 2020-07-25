@@ -155,7 +155,8 @@ class Mee6RankImage(Mee6RankImageMixin):
 
     def _draw_username(self) -> None:
         # Username
-        # TODO: fix the math here - cut long usernames, change font size for longer text, etc.
+        # TODO: fix the math here - cut long usernames,
+        # change font size for longer text, etc.
         text = self.player.member.name
         coords, font_name = self.template.get_coords("username")
         assert isinstance(font_name, str), "mypy"  # username has font name defined
@@ -181,7 +182,8 @@ class Mee6RankImage(Mee6RankImageMixin):
             width = int(
                 self.player.level_xp / self.player.level_total_xp * result.width
             )
-            # progressbar should be either 0 or 36 when <36 (taken from comments in Mee6's svg)
+            # progressbar should be either 0 or 36 when <36
+            # (taken from comments in Mee6's svg)
             if width < 36 and width != 0:
                 width = 36
 

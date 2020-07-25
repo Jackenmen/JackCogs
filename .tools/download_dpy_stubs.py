@@ -1,6 +1,7 @@
 """Script to automatically download d.py typings PR and extract *.pyi files from it.
 
-Script also saves short hash of the repo at the time of downloading to VENDOR_SHORT_HASH file.
+Script also saves short hash of the repo
+at the time of downloading to VENDOR_SHORT_HASH file.
 
 ---
 
