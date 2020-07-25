@@ -20,8 +20,7 @@ from typing import TYPE_CHECKING, Iterator, Optional, Union
 
 import discord
 from redbot.core import commands
-
-from .typings import GuildContext
+from redbot.core.commands import GuildContext
 
 """
 Converters below are originally from permissions core cog:

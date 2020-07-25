@@ -27,6 +27,7 @@ import rlapi
 from PIL import ImageFont
 from redbot.core import commands
 from redbot.core.bot import Red
+from redbot.core.commands import NoParseOptional as Optional
 from redbot.core.config import Config
 from redbot.core.data_manager import bundled_data_path, cog_data_path
 from redbot.core.utils.chat_formatting import bold, inline
@@ -39,7 +40,6 @@ from .abc import CogAndABCMeta
 from .figures import Point
 from .image import CoordsInfo, RLStatsImageTemplate
 from .settings import SettingsMixin
-from .typings import NoParseOptional as Optional
 
 
 log = logging.getLogger("red.jackcogs.rlstats")

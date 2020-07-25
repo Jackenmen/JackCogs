@@ -20,13 +20,13 @@ from typing import cast
 
 from PIL import Image, ImageFile
 from redbot.core import commands
+from redbot.core.commands import NoParseOptional as Optional
 from redbot.core.config import Value
 from redbot.core.utils.chat_formatting import inline
 from rlapi.ext.tier_breakdown.trackernetwork import get_tier_breakdown
 
 from .abc import MixinMeta
 from .image import RLStatsImageTemplate
-from .typings import NoParseOptional as Optional
 
 
 class SettingsMixin(MixinMeta):

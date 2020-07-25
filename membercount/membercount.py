@@ -18,8 +18,7 @@ from datetime import datetime
 
 import discord
 from redbot.core import commands
-
-from .typings import GuildContext
+from redbot.core.commands import GuildContext
 
 
 class MemberCount(commands.Cog):

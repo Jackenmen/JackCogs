@@ -17,7 +17,7 @@
         "rank",
         "tools"
     ],
-    "min_bot_version": "3.3.9",
+    "min_bot_version": "3.3.10",
     "hidden": false,
     "disabled": false,
     "type": "COG"

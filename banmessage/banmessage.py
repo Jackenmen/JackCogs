@@ -23,12 +23,11 @@ from typing import Union, cast
 import discord
 from redbot.core import commands
 from redbot.core.bot import Red
+from redbot.core.commands import GuildContext, NoParseOptional as Optional
 from redbot.core.config import Config
 from redbot.core.data_manager import cog_data_path
 from redbot.core.utils.chat_formatting import box, pagify
 from redbot.core.utils.predicates import MessagePredicate
-
-from .typings import GuildContext, NoParseOptional as Optional
 
 
 log = logging.getLogger("red.jackcogs.banmessage")

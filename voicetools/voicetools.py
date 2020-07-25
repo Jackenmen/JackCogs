@@ -20,12 +20,12 @@ from typing import Optional, cast
 
 import discord
 from redbot.core import commands
+from redbot.core.commands import GuildContext
 from redbot.core.config import Config
 from redbot.core.utils import menus
 from redbot.core.utils.chat_formatting import pagify
 
 from .converters import MemberOrRole, MemberOrRoleOrVoiceChannel
-from .typings import GuildContext
 
 log = logging.getLogger("red.jackcogs.voicetools")
 

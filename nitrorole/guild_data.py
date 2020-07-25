@@ -81,10 +81,7 @@ class GuildData:
         try:
             return self._config_group
         except AttributeError:
-            # this is a big lie but Config only cares about the guild's id
-            # remove this when I start requiring Red 3.2 for this cog
-            fake_guild = cast(discord.Guild, discord.Object(id=self.id))
-            config_group = self._config.guild(fake_guild)
+            config_group = self._config.guild_from_id(self.id)
             self._config_group = config_group
             return config_group
 

@@ -16,6 +16,7 @@ shared_fields:
     on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.
   author:
     - jack1142 (Jackenmen#6607)
+  min_bot_version: 3.3.10
   hidden: false
   disabled: false
   type: COG
@@ -43,13 +44,10 @@ cogs:
       - help
       - tools
       - utility
-    min_bot_version: 3.3.7
   cogboard:
     name: CogBoard
     short: Search for cogs in approved repos on {cog_name}.
     description: '{short}'
-    requirements:
-      - typing_extensions>=3.7.4; python_version<="3.7"
     tags:
       - cogboard
       - tools
@@ -69,7 +67,6 @@ cogs:
       - mee6
       - rank
       - tools
-    min_bot_version: 3.3.9
   membercount:
     name: MemberCount
     short: Get count of all members + humans and bots separately.
@@ -131,7 +128,6 @@ cogs:
       - gaming
       - rlstats
       - rocketleague
-    min_bot_version: 3.2.0
   voicetools:
     name: VoiceTools
     short: Various tools to make voice channels better!
@@ -151,4 +147,3 @@ cogs:
       - utility
       - voice
       - voicetools
-    min_bot_version: 3.1.3

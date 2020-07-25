@@ -7,14 +7,13 @@
         "jack1142 (Jackenmen#6607)"
     ],
     "required_cogs": {},
-    "requirements": [
-        "typing_extensions>=3.7.4; python_version<=\"3.7\""
-    ],
+    "requirements": [],
     "tags": [
         "cogboard",
         "tools",
         "utility"
     ],
+    "min_bot_version": "3.3.10",
     "hidden": false,
     "disabled": false,
     "type": "COG"
