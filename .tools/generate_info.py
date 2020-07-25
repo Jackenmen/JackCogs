@@ -454,10 +454,12 @@ def main() -> int:
     }
     print("Preparing info.json files for cogs...")
     shared_fields = data["shared_fields"]
+    global_min_bot_version = shared_fields.get("min_bot_version")
+    global_min_python_version = shared_fields.get("min_python_version")
     cogs = data["cogs"]
     for pkg_name, cog_info in cogs.items():
         all_requirements.update(cog_info["requirements"])
-        min_bot_version = cog_info.get("min_bot_version")
+        min_bot_version = cog_info.get("min_bot_version", global_min_bot_version)
         min_python_version = (3, 6)
         if min_bot_version is not None:
             red_version_info = VersionInfo.from_str(min_bot_version)
@@ -469,7 +471,7 @@ def main() -> int:
                     continue
                 min_python_version = python_version
                 break
-        python_version = cog_info.get("min_python_version")
+        python_version = cog_info.get("min_python_version", global_min_python_version)
         if python_version is not None:
             if min_python_version < python_version:
                 min_python_version = python_version
