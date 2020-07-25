@@ -9,7 +9,7 @@ If you use any "unfinished" cog, message me on Discord to get info about breakin
 [![Build Status](https://travis-ci.com/jack1142/JackCogs.svg?branch=wip/cleaning-code-v3)](https://travis-ci.com/jack1142/JackCogs/branches)
 [![Code style: black](https://github.com/jack1142/JackCogs/workflows/black/badge.svg)](https://github.com/ambv/black)
 [![Red cogs](https://img.shields.io/badge/Red--DiscordBot-cogs-red.svg)](https://github.com/Cog-Creators/Red-DiscordBot/tree/V3/develop)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
 Cogs created by jack1142 (Jackenmen#6607 on Discord) for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot). Red-DiscordBot is a multipurpose bot for Discord developed by Twentysix26 and the Core Developer team. Feel free to create issues, if you want to see some function in one of my cogs. If you see a bug in one of my cogs, do that as well ;)
@@ -57,7 +57,7 @@ Redjumpman and PaddoInWonderlands, for this neat readme file template :D
 
 # License
 
-Please see MIT License for details. This project is open source and you are free to modify and use my work as long as you credit me.
+Please see Apache License 2.0 for details. In short, this project is open source and you are free to modify and use my work as long as you credit me.
 
 This project bundles fonts from [Roboto family](https://fonts.google.com/specimen/Roboto) which is distributed on Apache License 2.0
 
