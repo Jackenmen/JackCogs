@@ -53,7 +53,7 @@ class CogBoard(commands.Cog):
     REPOS_POST = "https://cogboard.red/posts/533.json"
     REPOS_REGEX = re.compile(
         r"""
-        ^(?!\|-+\|)  # skip table header
+        ^
         \|\ *(?P<author>[^|]*[^ |])\ *
         \|\ *(?P<repo_name>[^|]*[^ |])\ *
         \|\ *(?P<repo_url>[^|]*[^ |])\ *
@@ -66,7 +66,9 @@ class CogBoard(commands.Cog):
         r"""
         \n_{29}\n
         \*{2}(?P<repo_name>[^\n*]*)\*{2}
-        \n{2}(?P<cog_list>.*?(?=\n{2,}))
+        \nRepo\ Link:\ (?P<repo_url>[^\n]*)
+        \n(?:Branch:\ (?P<branch>[^\n]*))?
+        \n(?P<cog_list>.*?(?=\n{2,}))
         """,
         re.VERBOSE | re.DOTALL,
     )
@@ -118,7 +120,9 @@ class CogBoard(commands.Cog):
         repo_list: Dict[str, RepoItem] = {}
         cog_list: List[CogItem] = []
         start_index = 0
-        for match in self.REPOS_REGEX.finditer(raw_content):
+        repos_it = self.REPOS_REGEX.finditer(raw_content)
+        next(repos_it, None)
+        for match in repos_it:
             repo_url = match.group("repo_url")
             repo: RepoItem = {
                 "author": match.group("author"),
