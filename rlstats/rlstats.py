@@ -505,6 +505,15 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
 
     rlconnect.callback.__doc__ += f"\n\n{SUPPORTED_PLATFORMS}"
 
+    @commands.command()
+    async def rldisconnect(self, ctx: commands.Context) -> None:
+        """
+        Disconnect the game profile associated with
+        your Discord account from RLStats cog.
+        """
+        await self.config.user(ctx.author).clear()
+        await ctx.send("Your game account was successfully disconnected from Discord!")
+
     @commands.Cog.listener()
     async def on_red_api_tokens_update(
         self, service_name: str, api_tokens: Mapping[str, str]
