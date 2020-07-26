@@ -20,7 +20,7 @@ import functools
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
-from typing import Any, Callable, Dict, List, Mapping, Tuple, TypeVar, cast
+from typing import Any, Callable, Dict, List, Literal, Mapping, Tuple, TypeVar, cast
 
 import discord
 import rlapi
@@ -45,6 +45,7 @@ from .settings import SettingsMixin
 log = logging.getLogger("red.jackcogs.rlstats")
 
 T = TypeVar("T")
+RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 
 SUPPORTED_PLATFORMS = """Supported platforms:
@@ -217,6 +218,23 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
 
     __del__ = cog_unload
 
+    async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, BytesIO]:
+        try:
+            player_id, platform = await self._get_player_data_by_user_id(user_id)
+        except errors.PlayerDataNotFound:
+            return {}
+        contents = (
+            f"Rocket League game account for Discord user with ID {user_id}:\n"
+            "- Platform: {platform}\n"
+            "- Player ID: {player_id}\n"
+        )
+        return {"user_data.txt": BytesIO(contents.encode())}
+
+    async def red_delete_data_for_user(
+        self, *, requester: RequestType, user_id: int
+    ) -> None:
+        await self.config.user_from_id(user_id).clear()
+
     async def _run_in_executor(
         self, func: Callable[..., T], *args: Any, **kwargs: Any
     ) -> T:
@@ -260,16 +278,21 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             return False
         return True
 
-    async def _get_player_data_by_user(
-        self, user: discord.abc.User
+    async def _get_player_data_by_user_id(
+        self, user_id: int
     ) -> Tuple[str, rlapi.Platform]:
-        user_data = await self.config.user(user).all()
+        user_data = await self.config.user_from_id(user_id).all()
         player_id, platform = user_data["player_id"], user_data["platform"]
         if player_id is not None:
             return (player_id, rlapi.Platform[platform])
         raise errors.PlayerDataNotFound(
-            f"Couldn't find player data for discord user with ID {user.id}"
+            f"Couldn't find player data for discord user with ID {user_id}"
         )
+
+    async def _get_player_data_by_user(
+        self, user: discord.abc.User
+    ) -> Tuple[str, rlapi.Platform]:
+        return self._get_player_data_by_user_id(user.id)
 
     async def _get_players(
         self, player_ids: List[Tuple[str, Optional[rlapi.Platform]]]

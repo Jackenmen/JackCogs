@@ -18,6 +18,12 @@ from redbot.core.bot import Red
 
 from .nitrorole import NitroRole
 
+__red_end_user_data_statement__ = (
+    "This cog does not persistently store data or metadata about users.\n"
+    "Discord IDs of users may occasionally be logged to file"
+    " as part of error logging."
+)
+
 
 async def setup(bot: Red) -> None:
     bot.add_cog(NitroRole(bot))

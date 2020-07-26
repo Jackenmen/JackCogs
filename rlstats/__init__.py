@@ -32,6 +32,14 @@ except ModuleNotFoundError as e:
         )
     raise
 
+__red_end_user_data_statement__ = (
+    "This cog stores data provided by users"
+    " for the purpose of better user experience.\n"
+    "It does not store user data which was not provided through a command.\n"
+    "Users may remove their own data without making a data removal request.\n"
+    "This cog will remove data when a data removal request is made."
+)
+
 
 async def setup(bot: Red) -> None:
     cog = RLStats(bot)

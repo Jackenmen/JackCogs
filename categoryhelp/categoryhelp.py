@@ -17,7 +17,7 @@ limitations under the License.
 from __future__ import annotations
 
 import asyncio
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import discord
 from redbot.core import commands
@@ -26,12 +26,24 @@ from redbot.core.utils.chat_formatting import bold, box
 from redbot.core.utils.menus import start_adding_reactions
 from redbot.core.utils.predicates import ReactionPredicate
 
+RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
+
 
 class CategoryHelp(commands.Cog):
     """Command for getting help for category that ignores case-sensitivity."""
 
     def __init__(self, bot: Red) -> None:
         self.bot = bot
+
+    async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, Any]:
+        # this cog does not story any data
+        return {}
+
+    async def red_delete_data_for_user(
+        self, *, requester: RequestType, user_id: int
+    ) -> None:
+        # this cog does not story any data
+        pass
 
     @property
     def categories(self) -> Dict[str, List[commands.Cog]]:

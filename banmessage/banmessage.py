@@ -18,7 +18,7 @@ import asyncio
 import logging
 import random
 from string import Template
-from typing import Union, cast
+from typing import Any, Dict, Literal, Union, cast
 
 import discord
 from redbot.core import commands
@@ -29,8 +29,9 @@ from redbot.core.data_manager import cog_data_path
 from redbot.core.utils.chat_formatting import box, pagify
 from redbot.core.utils.predicates import MessagePredicate
 
-
 log = logging.getLogger("red.jackcogs.banmessage")
+
+RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 
 class BanMessage(commands.Cog):
@@ -44,6 +45,16 @@ class BanMessage(commands.Cog):
         self.config.register_guild(channel=None, hackban=True, message_templates=[])
         self.message_images = cog_data_path(self) / "message_images"
         self.message_images.mkdir(exist_ok=True)
+
+    async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, Any]:
+        # this cog does not story any data
+        return {}
+
+    async def red_delete_data_for_user(
+        self, *, requester: RequestType, user_id: int
+    ) -> None:
+        # this cog does not story any data
+        pass
 
     @commands.admin_or_permissions(manage_guild=True)
     @commands.guild_only()

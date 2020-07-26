@@ -39,6 +39,7 @@ from .utils import json_or_text
 log = logging.getLogger("red.jackcogs.rlstats")
 
 T = TypeVar("T")
+RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 
 class Mee6Rank(commands.Cog):
@@ -96,6 +97,16 @@ class Mee6Rank(commands.Cog):
         self._session.detach()
 
     __del__ = cog_unload
+
+    async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, Any]:
+        # this cog does not story any data
+        return {}
+
+    async def red_delete_data_for_user(
+        self, *, requester: RequestType, user_id: int
+    ) -> None:
+        # this cog does not story any data
+        pass
 
     async def _run_in_executor(
         self, func: Callable[..., T], *args: Any, **kwargs: Any

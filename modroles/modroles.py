@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from typing import Any, Dict, Literal
+
 import discord
 from redbot.core import commands
 from redbot.core.bot import Red
@@ -23,6 +25,8 @@ from redbot.core.utils.chat_formatting import box
 from redbot.core.utils.mod import is_mod_or_superior
 
 from .converters import AssignableRoleConverter as AssignableRole
+
+RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 
 class ModRoles(commands.Cog):
@@ -36,6 +40,16 @@ class ModRoles(commands.Cog):
         self.config.register_guild(
             assignable_roles=[], allow_bots=False, toprole_check=True
         )
+
+    async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, Any]:
+        # this cog does not story any data
+        return {}
+
+    async def red_delete_data_for_user(
+        self, *, requester: RequestType, user_id: int
+    ) -> None:
+        # this cog does not story any data
+        pass
 
     async def _assign_checks(
         self, ctx: GuildContext, member: discord.Member, role: discord.Role

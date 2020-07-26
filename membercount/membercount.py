@@ -15,14 +15,27 @@ limitations under the License.
 """
 
 from datetime import datetime
+from typing import Any, Dict, Literal
 
 import discord
 from redbot.core import commands
 from redbot.core.commands import GuildContext
 
+RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
+
 
 class MemberCount(commands.Cog):
     """Get count of all members + humans and bots separately."""
+
+    async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, Any]:
+        # this cog does not story any data
+        return {}
+
+    async def red_delete_data_for_user(
+        self, *, requester: RequestType, user_id: int
+    ) -> None:
+        # this cog does not story any data
+        pass
 
     @commands.guild_only()
     @commands.command(aliases=["memberc"])

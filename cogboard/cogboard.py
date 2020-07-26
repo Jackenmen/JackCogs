@@ -16,7 +16,7 @@ limitations under the License.
 
 import re
 import time
-from typing import TYPE_CHECKING, Dict, List, Tuple, TypedDict, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Tuple, TypedDict, Union
 
 import aiohttp
 import discord
@@ -30,6 +30,8 @@ from redbot.core.utils.menus import DEFAULT_CONTROLS, menu
 from yarl import URL
 
 from . import errors
+
+RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 
 class RepoItem(TypedDict):
@@ -83,6 +85,16 @@ class CogBoard(commands.Cog):
         self.session.detach()
 
     __del__ = cog_unload
+
+    async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, Any]:
+        # this cog does not story any data
+        return {}
+
+    async def red_delete_data_for_user(
+        self, *, requester: RequestType, user_id: int
+    ) -> None:
+        # this cog does not story any data
+        pass
 
     async def get_repos_and_cogs(
         self, *, force_refresh: bool = False

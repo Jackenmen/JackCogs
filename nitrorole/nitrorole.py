@@ -17,7 +17,7 @@ limitations under the License.
 import asyncio
 import logging
 import random
-from typing import Dict, cast
+from typing import Any, Dict, Literal, cast
 
 import discord
 from redbot.core import commands
@@ -31,6 +31,8 @@ from redbot.core.utils.predicates import MessagePredicate
 from .guild_data import GuildData
 
 log = logging.getLogger("red.jackcogs.nitrorole")
+
+RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 
 class NitroRole(commands.Cog):
@@ -51,6 +53,16 @@ class NitroRole(commands.Cog):
         self.message_images.mkdir(parents=True, exist_ok=True)
         self.guild_cache: Dict[int, GuildData] = {}
         # TODO: possibly load guild data in cache on load?
+
+    async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, Any]:
+        # this cog does not story any data
+        return {}
+
+    async def red_delete_data_for_user(
+        self, *, requester: RequestType, user_id: int
+    ) -> None:
+        # this cog does not story any data
+        pass
 
     async def get_guild_data(self, guild: discord.Guild) -> GuildData:
         try:
