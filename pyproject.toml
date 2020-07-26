@@ -1,0 +1,33 @@
+[tool.black]
+target-version = ['py38']
+exclude = '''
+/(
+      \.eggs
+    | \.git
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+    | \.stubs\/discord
+)/
+'''
+
+[tool.isort]
+profile = "black"
+skip = [
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    ".stubs/discord",
+]

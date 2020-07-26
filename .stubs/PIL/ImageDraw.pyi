@@ -49,7 +49,6 @@ class ImageDraw:
         *args: Any,
         **kwargs: Any,
     ) -> None: ...
-
     def rectangle(
         self,
         xy: LURD,
