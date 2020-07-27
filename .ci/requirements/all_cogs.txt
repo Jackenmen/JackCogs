@@ -1,3 +1,3 @@
 Red-DiscordBot
 pillow~=6.0
-rlapi==0.4.0a1
+rlapi==0.4.1a1
