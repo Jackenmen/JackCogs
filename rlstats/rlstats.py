@@ -292,7 +292,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
     async def _get_player_data_by_user(
         self, user: discord.abc.User
     ) -> Tuple[str, rlapi.Platform]:
-        return self._get_player_data_by_user_id(user.id)
+        return await self._get_player_data_by_user_id(user.id)
 
     async def _get_players(
         self, player_ids: List[Tuple[str, Optional[rlapi.Platform]]]
