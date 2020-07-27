@@ -302,7 +302,8 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 players += await self.rlapi_client.get_player(player_id, platform)
         if not players:
             raise rlapi.PlayerNotFound
-        return tuple(players)
+        # using dict.fromkeys() to make duplicates go away
+        return tuple(dict.fromkeys(players))
 
     async def _maybe_get_players(
         self,
