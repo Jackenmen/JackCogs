@@ -19,7 +19,6 @@ from redbot.core import commands
 
 from . import modroles
 
-
 _RoleConverter = commands.RoleConverter()
 
 

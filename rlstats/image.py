@@ -18,16 +18,7 @@ from __future__ import annotations
 
 from abc import ABC
 from pathlib import Path
-from typing import (
-    Any,
-    BinaryIO,
-    Dict,
-    NamedTuple,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-)
+from typing import Any, BinaryIO, Dict, NamedTuple, Optional, Sequence, Tuple, Union
 
 from PIL import Image, ImageDraw, ImageFont
 from rlapi import Player, Playlist, PlaylistKey

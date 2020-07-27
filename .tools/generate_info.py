@@ -21,19 +21,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from collections.abc import Sequence
-from pathlib import Path
-from types import SimpleNamespace
 import json
 import re
 import string
 import subprocess
 import sys
 import typing
+from collections.abc import Sequence
+from pathlib import Path
+from types import SimpleNamespace
 
+import parso
 from redbot import VersionInfo
 from strictyaml import (
-    load as yaml_load,
     Bool,
     EmptyDict,
     EmptyList,
@@ -46,12 +46,11 @@ from strictyaml import (
     Seq,
     Str,
     Url,
+    load as yaml_load,
 )
-from strictyaml.exceptions import YAMLValidationError, YAMLSerializationError
+from strictyaml.exceptions import YAMLSerializationError, YAMLValidationError
 from strictyaml.utils import is_string
 from strictyaml.yamllocation import YAMLChunk
-import parso
-
 
 ROOT_PATH = Path(__file__).absolute().parent.parent
 

@@ -41,7 +41,6 @@ from .figures import Point
 from .image import CoordsInfo, RLStatsImageTemplate
 from .settings import SettingsMixin
 
-
 log = logging.getLogger("red.jackcogs.rlstats")
 
 T = TypeVar("T")

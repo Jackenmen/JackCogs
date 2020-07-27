@@ -24,11 +24,11 @@ from typing import Any, Callable, Dict, Literal, TypeVar, Union, overload
 
 import aiohttp
 import discord
+from PIL import ImageFont
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.commands import NoParseOptional as Optional
 from redbot.core.data_manager import bundled_data_path
-from PIL import ImageFont
 
 from . import errors
 from .figures import Point

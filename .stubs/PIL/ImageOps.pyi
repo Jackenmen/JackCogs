@@ -20,6 +20,7 @@ limitations under the License.
 """
 
 from typing import Tuple
+
 from . import Image
 
 XY = Tuple[int, int]

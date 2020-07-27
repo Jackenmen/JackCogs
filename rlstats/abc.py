@@ -21,11 +21,10 @@ from pathlib import Path
 from typing import Any, Callable, TypeVar
 
 import rlapi
-
 from discord.ext.commands import CogMeta
 from redbot.core.config import Config
-from .image import RLStatsImageTemplate
 
+from .image import RLStatsImageTemplate
 
 T = TypeVar("T")
 

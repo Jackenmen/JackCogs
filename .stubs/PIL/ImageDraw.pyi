@@ -19,8 +19,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from . import Image, ImageFont
 from typing import Any, Optional, Tuple, Union
+
+from . import Image, ImageFont
 
 LURD = Tuple[int, int, int, int]  # left, up(per), right, down = x0, y0, x1, y1
 XY = Tuple[int, int]
