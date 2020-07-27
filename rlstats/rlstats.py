@@ -473,7 +473,9 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 player = await self._choose_player(ctx, players)
             except errors.NoChoiceError as e:
                 log.debug(e)
-                await ctx.send("You didn't select a profile that you would like to check.")
+                await ctx.send(
+                    "You didn't select a profile that you would like to check."
+                )
                 return
 
             # TODO: This should probably be handled in rlapi module
@@ -516,7 +518,9 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 player = await self._choose_player(ctx, players)
             except errors.NoChoiceError as e:
                 log.debug(str(e))
-                await ctx.send("You didn't select a profile that you would like to connect.")
+                await ctx.send(
+                    "You didn't select a profile that you would like to connect."
+                )
                 return
 
             await self.config.user(ctx.author).platform.set(player.platform.name)
