@@ -27,4 +27,4 @@ __red_end_user_data_statement__ = (
 
 
 async def setup(bot: Red) -> None:
-    bot.add_cog(VoiceTools())
+    bot.add_cog(VoiceTools(bot))

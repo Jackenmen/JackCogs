@@ -20,6 +20,7 @@ from typing import Any, Awaitable, Callable, Dict, Literal, Optional, cast
 
 import discord
 from redbot.core import commands
+from redbot.core.bot import Red
 from redbot.core.commands import GuildContext
 from redbot.core.config import Config
 from redbot.core.utils import AsyncIter, menus
@@ -35,8 +36,9 @@ RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 class VoiceTools(commands.Cog):
     """Various tools to make voice channels better!"""
 
-    def __init__(self) -> None:
+    def __init__(self, bot: Red) -> None:
         super().__init__()
+        self.bot = bot
         self.config = Config.get_conf(
             self, identifier=6672039729, force_registration=True
         )
