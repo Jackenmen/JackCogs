@@ -17,7 +17,7 @@ limitations under the License.
 import asyncio
 import logging
 import random
-from typing import Any, Dict, Literal, cast
+from typing import Any, Awaitable, Callable, Dict, Literal, cast
 
 import discord
 from redbot.core import commands
@@ -306,12 +306,25 @@ class NitroRole(commands.Cog):
             file.unlink()
         await ctx.send("Image unset.")
 
+    async def cog_disabled_in_guild(self, guild: Optional[discord.Guild]) -> bool:
+        # compatibility layer with Red 3.3.10
+        func: Optional[
+            Callable[[commands.Cog, Optional[discord.Guild]], Awaitable[bool]]
+        ] = getattr(self.bot, "cog_disabled_in_guild", None)
+        if func is None:
+            return False
+        return await func(self, guild)
+
     @commands.Cog.listener()
     async def on_member_update(
         self, before: discord.Member, after: discord.Member
     ) -> None:
         if before.premium_since == after.premium_since:
             return
+
+        if await self.cog_disabled_in_guild(after.guild):
+            return
+
         guild_data = await self.get_guild_data(after.guild)
 
         if before.premium_since is None and after.premium_since is not None:

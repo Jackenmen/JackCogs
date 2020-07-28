@@ -18,7 +18,7 @@ import asyncio
 import logging
 import random
 from string import Template
-from typing import Any, Dict, Literal, Union, cast
+from typing import Any, Awaitable, Callable, Dict, Literal, Union, cast
 
 import discord
 from redbot.core import commands
@@ -237,10 +237,21 @@ class BanMessage(commands.Cog):
             file.unlink()
         await ctx.send("Image unset.")
 
+    async def cog_disabled_in_guild(self, guild: Optional[discord.Guild]) -> bool:
+        # compatibility layer with Red 3.3.10
+        func: Optional[
+            Callable[[commands.Cog, Optional[discord.Guild]], Awaitable[bool]]
+        ] = getattr(self.bot, "cog_disabled_in_guild", None)
+        if func is None:
+            return False
+        return await func(self, guild)
+
     @commands.Cog.listener()
     async def on_member_ban(
         self, guild: discord.Guild, user: Union[discord.User, discord.Member]
     ) -> None:
+        if await self.cog_disabled_in_guild(guild):
+            return
         # TODO: add caching to prevent a lot of fetches when mass-banning users
         settings = await self.config.guild(guild).all()
         channel_id = settings["channel"]

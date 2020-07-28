@@ -16,7 +16,7 @@ limitations under the License.
 
 import logging
 from itertools import zip_longest
-from typing import Any, Dict, Literal, Optional, cast
+from typing import Any, Awaitable, Callable, Dict, Literal, Optional, cast
 
 import discord
 from redbot.core import commands
@@ -334,6 +334,15 @@ class VoiceTools(commands.Cog):
         await self.config.guild(ctx.guild).vip_role_list.set(vip_role_list)
         await ctx.send("VIP list updated")
 
+    async def cog_disabled_in_guild(self, guild: Optional[discord.Guild]) -> bool:
+        # compatibility layer with Red 3.3.10
+        func: Optional[
+            Callable[[commands.Cog, Optional[discord.Guild]], Awaitable[bool]]
+        ] = getattr(self.bot, "cog_disabled_in_guild", None)
+        if func is None:
+            return False
+        return await func(self, guild)
+
     @commands.Cog.listener()
     async def on_voice_state_update(
         self,
@@ -341,6 +350,8 @@ class VoiceTools(commands.Cog):
         before: discord.VoiceState,
         after: discord.VoiceState,
     ) -> None:
+        if await self.cog_disabled_in_guild(member.guild):
+            return
         if await self.config.guild(member.guild).vip_enabled():
             if await self._vip_check(member, before, after):
                 return
