@@ -224,8 +224,8 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             return {}
         contents = (
             f"Rocket League game account for Discord user with ID {user_id}:\n"
-            "- Platform: {platform}\n"
-            "- Player ID: {player_id}\n"
+            f"- Platform: {platform}\n"
+            f"- Player ID: {player_id}\n"
         )
         return {"user_data.txt": BytesIO(contents.encode())}
 
