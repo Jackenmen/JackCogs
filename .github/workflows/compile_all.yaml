@@ -12,14 +12,8 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.6"
-          - "3.7"
           - "3.8"
         include:
-          - python-version: "3.6"
-            py-version: "py36"
-          - python-version: "3.7"
-            py-version: "py37"
           - python-version: "3.8"
             py-version: "py38"
     env:

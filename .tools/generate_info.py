@@ -412,8 +412,6 @@ def check_command_docstrings(cogs: dict) -> int:
 
 
 MAX_RED_VERSIONS = {
-    (3, 6): VersionInfo.from_str("3.1.0"),
-    (3, 7): VersionInfo.from_str("3.2.0"),
     (3, 8): None,
 }
 MAX_PYTHON_VERSION = next(reversed(MAX_RED_VERSIONS))
@@ -437,18 +435,12 @@ def main() -> int:
 
     all_requirements: typing.Set[str] = set()
     requirements: typing.Dict[typing.Tuple[int, int], typing.Set[str]] = {
-        (3, 6): set(),
-        (3, 7): set(),
         (3, 8): set(),
     }
     black_file_list: typing.Dict[typing.Tuple[int, int], typing.List[str]] = {
-        (3, 6): [],
-        (3, 7): [],
         (3, 8): [".ci"],
     }
     compileall_file_list: typing.Dict[typing.Tuple[int, int], typing.List[str]] = {
-        (3, 6): [],
-        (3, 7): [],
         (3, 8): ["."],
     }
     print("Preparing info.json files for cogs...")
@@ -459,7 +451,7 @@ def main() -> int:
     for pkg_name, cog_info in cogs.items():
         all_requirements.update(cog_info["requirements"])
         min_bot_version = cog_info.get("min_bot_version", global_min_bot_version)
-        min_python_version = (3, 6)
+        min_python_version = (3, 8)
         if min_bot_version is not None:
             red_version_info = VersionInfo.from_str(min_bot_version)
             for python_version, max_red_version in MAX_RED_VERSIONS.items():
