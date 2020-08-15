@@ -16,7 +16,7 @@ limitations under the License.
 
 import re
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Tuple, TypedDict, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Tuple, Union
 
 import aiohttp
 import discord
@@ -30,21 +30,13 @@ from redbot.core.utils.menus import DEFAULT_CONTROLS, menu
 from yarl import URL
 
 from . import errors
+from .menus import construct_menu
+from .typings import CogItem, RepoItem
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 
-class RepoItem(TypedDict):
-    author: str
-    repo_url: str
-    branch: str
-    repo_name: str
-
-
-class CogItem(TypedDict):
-    repo_name: str
-    name: str
-    description: str
+DOWNWARDS_ARROW = "\N{DOWNWARDS BLACK ARROW}\N{VARIATION SELECTOR-16}"
 
 
 class CogBoard(commands.Cog):
@@ -178,6 +170,7 @@ class CogBoard(commands.Cog):
         await self.config.cache_expire.set(expire_time)
         await ctx.send(f"Cache expire time set to {expire_time} seconds.")
 
+    @commands.bot_has_permissions(add_reactions=True)
     @cogboard.command(name="search")
     async def cogboard_search(
         self, ctx: Union[DMContext, GuildContext], query: str
@@ -212,8 +205,10 @@ class CogBoard(commands.Cog):
             if use_embeds:
                 embed_color = await ctx.embed_color()
             page: Union[discord.Embed, str]
-            for match in best_matches:
-                cog = match[0]
+            cogs = []
+            is_owner = await self.bot.is_owner(ctx.author)
+            for cog, _ in best_matches:
+                cogs.append(cog)
                 repo = repo_list.get(
                     cog["repo_name"],
                     {
@@ -233,6 +228,10 @@ class CogBoard(commands.Cog):
                         name="Repo url", value=repo["repo_url"], inline=False
                     )
                     page.add_field(name="Branch", value=repo["branch"], inline=False)
+                    if is_owner:
+                        page.set_footer(
+                            text=f"You can install the cog by clicking on {DOWNWARDS_ARROW}."
+                        )
                 else:
                     page = (
                         f"```asciidoc\n"
@@ -247,5 +246,10 @@ class CogBoard(commands.Cog):
                         f"  {repo['branch']}\n"
                         f"```"
                     )
+                    if is_owner:
+                        page.set_footer(
+                            f"You can install the cog by clicking on {DOWNWARDS_ARROW}."
+                        )
                 pages.append(page)
-        await menu(ctx, pages, DEFAULT_CONTROLS)
+
+        await construct_menu(ctx, pages, cogs, repo_list, allow_install=is_owner)
