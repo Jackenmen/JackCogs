@@ -9,8 +9,11 @@ def _standardize_url(url: str) -> str:
     url_obj = URL(url)
     # remove trailing slash
     if url_obj.parts[-1] == "":
-        return str(url_obj.parent)
-    return str(url_obj)
+        url_obj = url_obj
+    new_url = str(url_obj)
+    if new_url.endswith(".git"):
+        return new_url[:-4]
+    return new_url
 
 
 def get_repo_by_url(downloader: Downloader, url: str) -> Optional[Repo]:
