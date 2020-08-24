@@ -14,13 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import json
+from pathlib import Path
+
 from redbot.core.bot import Red
 
 from .mee6rank import Mee6Rank
 
-__red_end_user_data_statement__ = (
-    "This cog does not persistently store data or metadata about users."
-)
+with open(Path(__file__).parent / "info.json") as fp:
+    __red_end_user_data_statement__ = json.load(fp)["end_user_data_statement"]
 
 
 async def setup(bot: Red) -> None:

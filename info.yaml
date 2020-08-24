@@ -26,6 +26,8 @@ cogs:
     name: BanMessage
     short: Send message on ban in a chosen channel. Supports images!
     description: Send message on ban in a chosen channel. Supports images!
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
     install_msg: >-
       {shared_fields.install_msg}
 
@@ -39,6 +41,8 @@ cogs:
     name: CategoryHelp
     short: Command for getting help for category that ignores case-sensitivity.
     description: '{short}'
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
     tags:
       - categoryhelp
       - help
@@ -48,6 +52,8 @@ cogs:
     name: CogBoard
     short: Search for cogs in approved repos on {cog_name}.
     description: '{short}'
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
     tags:
       - cogboard
       - tools
@@ -59,6 +65,8 @@ cogs:
       Shows detailed information about your Mee6 rank like amount of XP
       amount of XP and estimated amount of messages needed to reach
       next level and next level role.
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
     requirements:
       - pillow~=7.2
     tags:
@@ -71,6 +79,8 @@ cogs:
     name: MemberCount
     short: Get count of all members + humans and bots separately.
     description: '{short}'
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
     tags:
       - tools
       - utility
@@ -82,6 +92,8 @@ cogs:
     description: >-
       Allow moderators without manage roles permission
       to assign configured roles to users.
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
     class_docstring: Allow moderators to assign configured roles to users.
     tags:
       - moderation
@@ -93,6 +105,11 @@ cogs:
     name: NitroRole
     short: Welcome new nitro boosters and/or give them a special role!
     description: Welcome new nitro boosters and/or give them a special role!
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
+
+      Discord IDs of users may occasionally be logged to file
+      as part of error logging.
     install_msg: >-
       {shared_fields.install_msg}
 
@@ -112,6 +129,14 @@ cogs:
     description: >-
       Shows you Rocket League player statistics.
       The cog needs access to Rocket League API which is currently in closed beta.
+    end_user_data_statement: >-
+      This cog stores data provided by users for the purpose of better user experience.
+
+      It does not store user data which was not provided through a command.
+
+      Users may remove their own data without making a data removal request.
+
+      This cog will remove data when a data removal request is made.
     class_docstring: Get your Rocket League stats with a single command!
     install_msg: >-
       Thanks for installing {cog_name}. Before you'll be able to check any stats, you
@@ -140,6 +165,11 @@ cogs:
 
       - ForceLimit - Force user limit to all members of the server including admins
       (kick user when exceeding limit)
+    end_user_data_statement: >-
+      This cog does not persistently store end user data.
+      This cog does store discord IDs as needed for operation.
+
+      Discord IDs of users may occasionally be logged to file as part of debug logging.
     install_msg: >-
       Thanks for installing {cog_name}. Use `[p]voicetools` to configure the cog.
     tags:

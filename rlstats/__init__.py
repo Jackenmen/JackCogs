@@ -14,6 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import json
+from pathlib import Path
+
 from redbot.core.bot import Red
 from redbot.core.errors import CogLoadError
 
@@ -32,13 +35,8 @@ except ModuleNotFoundError as e:
         )
     raise
 
-__red_end_user_data_statement__ = (
-    "This cog stores data provided by users"
-    " for the purpose of better user experience.\n"
-    "It does not store user data which was not provided through a command.\n"
-    "Users may remove their own data without making a data removal request.\n"
-    "This cog will remove data when a data removal request is made."
-)
+with open(Path(__file__).parent / "info.json") as fp:
+    __red_end_user_data_statement__ = json.load(fp)["end_user_data_statement"]
 
 
 async def setup(bot: Red) -> None:

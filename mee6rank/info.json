@@ -2,6 +2,7 @@
     "name": "Mee6Rank",
     "short": "Get detailed information about your Mee6 rank.",
     "description": "Shows detailed information about your Mee6 rank like amount of XP amount of XP and estimated amount of messages needed to reach next level and next level role.",
+    "end_user_data_statement": "This cog does not persistently store data or metadata about users.",
     "install_msg": "Thanks for installing Mee6Rank. If anything doesn't work, you can report it on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.\n\nThis cog comes with bundled data.",
     "author": [
         "jack1142 (Jackenmen#6607)"
