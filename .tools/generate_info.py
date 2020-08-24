@@ -351,13 +351,32 @@ CONTAINERS = parso.python.tree._FUNC_CONTAINERS | {
     "classdef",
 }
 
+SMALL_STMT_LIST = {
+    "expr_stmt",
+    "del_stmt",
+    "pass_stmt",
+    "flow_stmt",
+    "import_stmt",
+    "global_stmt",
+    "nonlocal_stmt",
+    "assert_stmt",
+}
+CONTAINERS_WITHOUT_LOCAL_SCOPE = (
+    parso.python.tree._RETURN_STMT_CONTAINERS
+    | {"with_item"}
+    | parso.python.tree._IMPORTS
+    | SMALL_STMT_LIST
+)
 
-def _scan_recursively(children, name):
+
+def _scan_recursively(
+    children: typing.List[parso.tree.NodeOrLeaf], name: str, containers: typing.Set[str]
+):
     for element in children:
         if element.type == name:
             yield element
-        if element.type in CONTAINERS:
-            for e in _scan_recursively(element.children, name):
+        if element.type in containers:
+            for e in _scan_recursively(element.children, name, containers):
                 yield e
 
 
@@ -368,7 +387,7 @@ def check_command_docstrings(cogs: dict) -> int:
         for file in pkg_folder.glob("**/*.py"):
             with file.open() as fp:
                 tree = parso.parse(fp.read())
-            for node in _scan_recursively(tree.children, "async_funcdef"):
+            for node in _scan_recursively(tree.children, "async_funcdef", CONTAINERS):
                 funcdef = node.children[-1]
                 decorators = funcdef.get_decorators()
                 ignore = False
@@ -408,6 +427,30 @@ def check_command_docstrings(cogs: dict) -> int:
                         " missing-docstring ignore comment!"
                     )
                     ret = 1
+    return ret
+
+
+def check_for_end_user_data_statement(cogs: dict) -> int:
+    ret = 0
+    for pkg_name, cog_info in cogs.items():
+        path = ROOT_PATH / pkg_name / "__init__.py"
+        if not path.is_file():
+            raise RuntimeError("Folder `{pkg_name}` isn't a valid package.")
+        with path.open(encoding="utf-8") as fp:
+            source = fp.read()
+        tree = parso.parse(source)
+        for node in _scan_recursively(
+            tree.children, "name", CONTAINERS_WITHOUT_LOCAL_SCOPE
+        ):
+            if node.value == "__red_end_user_data_statement__":
+                break
+        else:
+            print(
+                "\033[93m\033[1mWARNING:\033[0m "
+                f"cog package `{pkg_name}` is missing end user data statement!"
+            )
+            ret = 1
+
     return ret
 
 
@@ -567,6 +610,8 @@ def main() -> int:
     check_cog_data_path_use(cogs)
     print("Checking for missing help docstrings...")
     check_command_docstrings(cogs)
+    print("Checking for missing end user data statements...")
+    check_for_end_user_data_statement(cogs)
 
     print("Done!")
     return exit_code
