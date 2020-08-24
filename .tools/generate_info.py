@@ -157,6 +157,7 @@ COG_KEYS = {
     "name": Str(),  # Downloader doesn't use this but I can set friendlier name
     "short": Str(),
     "description": Str(),
+    "end_user_data_statement": Str(),
     Optional("class_docstring"): Str(),
     Optional("install_msg"): Str(),
     Optional("author"): Seq(Str()),
