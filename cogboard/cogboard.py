@@ -190,7 +190,6 @@ class CogBoard(commands.Cog):
             best_matches = sorted(
                 name_matches + desc_matches, key=lambda m: m[1], reverse=True
             )
-            pages = []
             # I don't like how `[p]embedset` currently works, using regular perm check
             if TYPE_CHECKING:
                 # things you do to make mypy happy...
@@ -201,9 +200,10 @@ class CogBoard(commands.Cog):
                     use_embeds = ctx.channel.permissions_for(ctx.me).embed_links
             else:
                 use_embeds = ctx.channel.permissions_for(ctx.me).embed_links
+            embed_pages: List[discord.Embed] = []
+            str_pages: List[str] = []
             if use_embeds:
                 embed_color = await ctx.embed_color()
-            page: Union[discord.Embed, str]
             cogs = []
             is_owner = await self.bot.is_owner(ctx.author)
             for cog, _ in best_matches:
@@ -218,22 +218,23 @@ class CogBoard(commands.Cog):
                     },
                 )
                 if use_embeds:
-                    page = discord.Embed(title=cog["name"], color=embed_color)
-                    page.add_field(
+                    embed = discord.Embed(title=cog["name"], color=embed_color)
+                    embed.add_field(
                         name="Description", value=cog["description"], inline=False
                     )
-                    page.add_field(name="Author", value=repo["author"], inline=False)
-                    page.add_field(
+                    embed.add_field(name="Author", value=repo["author"], inline=False)
+                    embed.add_field(
                         name="Repo url", value=repo["repo_url"], inline=False
                     )
-                    page.add_field(name="Branch", value=repo["branch"], inline=False)
+                    embed.add_field(name="Branch", value=repo["branch"], inline=False)
                     if is_owner:
                         text = (
                             f"You can install the cog by clicking on {DOWNWARDS_ARROW}."
                         )
-                        page.set_footer(text=text)
+                        embed.set_footer(text=text)
+                    embed_pages.append(embed)
                 else:
-                    page = (
+                    text = (
                         f"```asciidoc\n"
                         f"= {cog['name']} =\n"
                         f"* Description:\n"
@@ -247,9 +248,11 @@ class CogBoard(commands.Cog):
                         f"```"
                     )
                     if is_owner:
-                        page += (
+                        text += (
                             f"You can install the cog by clicking on {DOWNWARDS_ARROW}."
                         )
-                pages.append(page)
+                    str_pages.append(text)
 
-        await construct_menu(ctx, pages, cogs, repo_list, allow_install=is_owner)
+        await construct_menu(
+            ctx, embed_pages or str_pages, cogs, repo_list, allow_install=is_owner
+        )

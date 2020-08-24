@@ -17,7 +17,7 @@ limitations under the License.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, cast
 
 import discord
 from redbot.core import commands
@@ -115,8 +115,8 @@ class CategoryHelp(commands.Cog):
         finally:
             await msg.delete()
 
-        assert isinstance(pred.result, int)
-        return cogs[pred.result]
+        result = cast(int, pred.result)
+        return cogs[result]
 
     @commands.command()
     async def categoryhelp(self, ctx: commands.Context, *, category_name: str) -> None:

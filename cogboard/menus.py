@@ -1,6 +1,7 @@
-from typing import Any, Awaitable, Callable, Dict, List, Union
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Union, cast
 
 import discord
+from redbot.cogs.downloader.downloader import Downloader  # DEP-WARN
 from redbot.core import commands
 from redbot.core.utils.menus import DEFAULT_CONTROLS, menu, start_adding_reactions
 from redbot.core.utils.predicates import ReactionPredicate
@@ -15,12 +16,21 @@ DOWNWARDS_ARROW = "\N{DOWNWARDS BLACK ARROW}\N{VARIATION SELECTOR-16}"
 def _make_install_cog_func(
     cogs: List[CogItem], repo_list: Dict[str, RepoItem]
 ) -> Callable[
-    [commands.Context, list, dict, discord.Message, int, float, str], Awaitable[Any]
+    [
+        commands.Context,
+        Union[List[str], List[discord.Embed]],
+        Dict[Any, Callable[..., Awaitable[Any]]],
+        discord.Message,
+        int,
+        float,
+        str,
+    ],
+    Awaitable[Any],
 ]:
     async def install_cog(
         ctx: commands.Context,
-        pages: list,
-        controls: dict,
+        pages: Union[List[str], List[discord.Embed]],
+        controls: Dict[Any, Callable[..., Awaitable[Any]]],
         message: discord.Message,
         page: int,
         timeout: float,
@@ -31,7 +41,7 @@ def _make_install_cog_func(
             await ctx.send("Error: The repo for this cog is unknown.")
             return menu(ctx, pages, controls, message, page, timeout)
 
-        downloader = ctx.bot.get_cog("Downloader")
+        downloader = cast(Optional[Downloader], ctx.bot.get_cog("Downloader"))
         if downloader is None:
             await ctx.send("Error: Downloader is not loaded.")
             return menu(ctx, pages, controls, message, page, timeout)
@@ -45,7 +55,8 @@ def _make_install_cog_func(
             start_adding_reactions(msg, ReactionPredicate.YES_OR_NO_EMOJIS)
             pred = ReactionPredicate.yes_or_no(msg, ctx.author)
             await ctx.bot.wait_for("reaction_add", check=pred)
-            if not pred.result:
+            result = cast(bool, pred.result)
+            if not result:
                 return menu(ctx, pages, controls, message, page, timeout)
 
             command = downloader._repo_add
@@ -80,6 +91,8 @@ def construct_menu(
             DOWNWARDS_ARROW: _make_install_cog_func(cogs, repo_list),
         }
     else:
-        controls = DEFAULT_CONTROLS
+        # Red isn't typed that well (+ this is recursive type),
+        # and I don't want to deal with this
+        controls = DEFAULT_CONTROLS  # type: ignore[assignment]
 
     return menu(ctx, pages, controls)

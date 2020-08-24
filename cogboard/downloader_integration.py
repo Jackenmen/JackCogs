@@ -1,6 +1,6 @@
 from typing import Optional
 
-from redbot.cogs.downloader import Downloader  # DEP-WARN
+from redbot.cogs.downloader.downloader import Downloader  # DEP-WARN
 from redbot.cogs.downloader.repo_manager import Repo  # DEP-WARN
 from yarl import URL
 
