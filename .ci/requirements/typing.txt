@@ -1,1 +1,3 @@
+git+https://github.com/jack1142/Red-DiscordBot@V3/typing_progress
+mypy
 discord.py-stubs~=1.4.0
