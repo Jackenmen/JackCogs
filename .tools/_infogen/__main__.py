@@ -15,17 +15,8 @@ limitations under the License.
 """
 
 import sys
-from strictyaml import YAMLValidationError
 
-from .checks import (
-    check_cog_data_path_use,
-    check_command_docstrings,
-    check_key_order,
-    check_package_end_user_data_statements,
-)
-from .file_generators import generate_repo_info_file, process_cogs
-from .schema import load_info_yaml
-from .transformations import update_class_docstrings
+from .context import InfoGenMainCommand
 
 
 # TODO: allow author in COG_KEYS and merge them with repo/shared fields lists
@@ -33,39 +24,8 @@ from .transformations import update_class_docstrings
 
 
 def main() -> bool:
-    print("Loading info.yaml...")
-    try:
-        data = load_info_yaml()
-    except YAMLValidationError as e:
-        print(str(e))
-        return False
-
-    success = True
-
-    print("Checking order in sections...")
-    success &= check_key_order(data)
-
-    cogs = data["cogs"]
-    repo_info = data["repo"]
-
-    print("Preparing repo's info.json...")
-    generate_repo_info_file(repo_info)
-
-    print("Preparing info.json files for cogs...")
-    if not process_cogs(data):
-        return False
-
-    print("Updating class docstrings...")
-    update_class_docstrings(cogs, repo_info)
-    print("Checking for cog_data_path usage...")
-    success &= check_cog_data_path_use(cogs)
-    print("Checking for missing help docstrings...")
-    success &= check_command_docstrings(cogs)
-    print("Checking for missing end user data statements...")
-    success &= check_package_end_user_data_statements(cogs)
-
-    print("Done!")
-    return success
+    ctx = InfoGenMainCommand()
+    return ctx.run()
 
 
 if __name__ == "__main__":

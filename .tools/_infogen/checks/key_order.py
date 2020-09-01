@@ -14,33 +14,37 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from typing import Dict, List, Literal, Tuple
+from __future__ import annotations
+
+from typing import Dict, List, Literal, Tuple, TYPE_CHECKING
 
 from ..schema import COG_KEYS_ORDER, REPO_KEYS_ORDER, SHARED_FIELDS_KEYS_ORDER
-from ..typedefs import CogsDict, CogInfoDict, InfoYAMLDict
+from ..typedefs import CogInfoDict
+
+if TYPE_CHECKING:
+    from ..context import InfoGenMainCommand
 
 __all__ = ("check_key_order",)
 
 
-def check_key_order(data: InfoYAMLDict) -> bool:
+def check_key_order(ctx: InfoGenMainCommand) -> bool:
     """Temporary order checking, until strictyaml adds proper support for sorting."""
     success = True
-    success &= _check_repo_info_and_shared_fields_key_order(data)
-    cogs = data["cogs"]
-    success &= _check_cog_names_alphaorder(cogs)
-    success &= _check_cog_info_key_order(cogs)
+    success &= _check_repo_info_and_shared_fields_key_order(ctx)
+    success &= _check_cog_names_alphaorder(ctx)
+    success &= _check_cog_info_key_order(ctx)
 
     return success
 
 
-def _check_repo_info_and_shared_fields_key_order(data: InfoYAMLDict) -> bool:
+def _check_repo_info_and_shared_fields_key_order(ctx: InfoGenMainCommand) -> bool:
     to_check: Dict[Literal["repo", "shared_fields"], List[str]] = {
         "repo": REPO_KEYS_ORDER,
         "shared_fields": SHARED_FIELDS_KEYS_ORDER,
     }
     success = True
     for key, order in to_check.items():
-        section = data[key]
+        section = ctx.data[key]
         original_keys = list(section.keys())
         sorted_keys = sorted(section.keys(), key=order.index)
         if original_keys != sorted_keys:
@@ -54,9 +58,9 @@ def _check_repo_info_and_shared_fields_key_order(data: InfoYAMLDict) -> bool:
     return success
 
 
-def _check_cog_names_alphaorder(cogs: CogsDict) -> bool:
-    original_cog_names = list(cogs.keys())
-    sorted_cog_names = sorted(cogs.keys())
+def _check_cog_names_alphaorder(ctx: InfoGenMainCommand) -> bool:
+    original_cog_names = list(ctx.cogs.keys())
+    sorted_cog_names = sorted(ctx.cogs.keys())
     if original_cog_names != sorted_cog_names:
         print(
             "\033[93m\033[1mWARNING:\033[0m "
@@ -67,9 +71,9 @@ def _check_cog_names_alphaorder(cogs: CogsDict) -> bool:
     return True
 
 
-def _check_cog_info_key_order(cogs: CogsDict) -> bool:
+def _check_cog_info_key_order(ctx: InfoGenMainCommand) -> bool:
     success = True
-    for pkg_name, cog_info in cogs.items():
+    for pkg_name, cog_info in ctx.cogs.items():
         # strictyaml breaks ordering of keys for optionals with default values
         original_keys = list((k for k, v in cog_info.items() if v))
         sorted_keys = sorted(

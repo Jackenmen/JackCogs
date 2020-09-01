@@ -18,6 +18,7 @@ from pathlib import Path
 
 ROOT_PATH = Path(__file__).absolute().parent.parent.parent
 
-from .__main__ import main
+# this import needs to be below ROOT_PATH to avoid circular imports
+from .__main__ import main  # noqa: E402
 
 __all__ = ("ROOT_PATH", "main")

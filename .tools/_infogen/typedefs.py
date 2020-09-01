@@ -19,7 +19,11 @@ from __future__ import annotations
 from typing import Dict, List, Literal, Tuple, TypedDict
 
 __all__ = (
-    "CogsDict", "CogInfoDict", "InfoYAMLDict", "RepoInfoDict", "SharedFieldsDict"
+    "CogsDict",
+    "CogInfoDict",
+    "InfoYAMLDict",
+    "RepoInfoDict",
+    "SharedFieldsDict",
 )
 
 

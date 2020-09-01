@@ -109,9 +109,7 @@ COG_KEYS_ORDER = list(getattr(key, "key", key) for key in COG_KEYS)
 REPO_KEYS_ORDER = list(REPO_KEYS.keys())
 
 #: Order the keys in `shared_fields` section of info.yaml should be in.
-SHARED_FIELDS_KEYS_ORDER = list(
-    getattr(key, "key", key) for key in SHARED_FIELDS_KEYS
-)
+SHARED_FIELDS_KEYS_ORDER = list(getattr(key, "key", key) for key in SHARED_FIELDS_KEYS)
 
 
 def load_info_yaml() -> InfoYAMLDict:

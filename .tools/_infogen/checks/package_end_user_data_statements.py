@@ -14,28 +14,31 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from __future__ import annotations
+
 import parso
+from typing import TYPE_CHECKING
 
 from .. import ROOT_PATH
 from ..node_lists import CONTAINERS_WITHOUT_LOCALS
-from ..typedefs import CogsDict
 from ..utils import scan_recursively
+
+if TYPE_CHECKING:
+    from ..context import InfoGenMainCommand
 
 __all__ = ("check_package_end_user_data_statements",)
 
 
-def check_package_end_user_data_statements(cogs: CogsDict) -> bool:
+def check_package_end_user_data_statements(ctx: InfoGenMainCommand) -> bool:
     success = True
-    for pkg_name, cog_info in cogs.items():
+    for pkg_name, cog_info in ctx.cogs.items():
         path = ROOT_PATH / pkg_name / "__init__.py"
         if not path.is_file():
             raise RuntimeError("Folder `{pkg_name}` isn't a valid package.")
         with path.open(encoding="utf-8") as fp:
             source = fp.read()
         tree = parso.parse(source)
-        for node in scan_recursively(
-            tree.children, "name", CONTAINERS_WITHOUT_LOCALS
-        ):
+        for node in scan_recursively(tree.children, "name", CONTAINERS_WITHOUT_LOCALS):
             if node.value == "__red_end_user_data_statement__":
                 break
         else:

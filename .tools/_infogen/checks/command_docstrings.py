@@ -14,19 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from __future__ import annotations
+
 import parso
+from typing import TYPE_CHECKING
 
 from .. import ROOT_PATH
 from ..node_lists import CONTAINERS
-from ..typedefs import CogsDict
 from ..utils import scan_recursively
+
+if TYPE_CHECKING:
+    from ..context import InfoGenMainCommand
 
 __all__ = ("check_command_docstrings",)
 
 
-def check_command_docstrings(cogs: CogsDict) -> bool:
+def check_command_docstrings(ctx: InfoGenMainCommand) -> bool:
     success = True
-    for pkg_name in cogs:
+    for pkg_name in ctx.cogs:
         pkg_folder = ROOT_PATH / pkg_name
         for file in pkg_folder.glob("**/*.py"):
             with file.open() as fp:

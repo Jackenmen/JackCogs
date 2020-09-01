@@ -14,16 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from __future__ import annotations
+
 import subprocess
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 
 from .. import ROOT_PATH
+
+if TYPE_CHECKING:
+    from ..context import InfoGenMainCommand
 
 __all__ = ("check_cog_data_path_use",)
 
 
-def check_cog_data_path_use(cogs: dict) -> Literal[True]:
-    for pkg_name in cogs:
+def check_cog_data_path_use(ctx: InfoGenMainCommand) -> Literal[True]:
+    for pkg_name in ctx.cogs:
         p = subprocess.run(
             ("git", "grep", "-q", "cog_data_path", "--", f"{pkg_name}/"),
             cwd=ROOT_PATH,

@@ -14,15 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from __future__ import annotations
+
+from typing import Literal, TYPE_CHECKING
+
 import parso
 
 from .. import ROOT_PATH
-from ..typedefs import CogsDict, RepoInfoDict
+
+if TYPE_CHECKING:
+    from ..context import InfoGenMainCommand
 
 __all__ = ("update_class_docstrings",)
 
 
-def update_class_docstrings(cogs: CogsDict, repo_info: RepoInfoDict) -> None:
+def update_class_docstrings(ctx: InfoGenMainCommand) -> Literal[True]:
     """Update class docstrings with descriptions from info.yaml
 
     This is created with few assumptions:
@@ -33,15 +39,14 @@ def update_class_docstrings(cogs: CogsDict, repo_info: RepoInfoDict) -> None:
       - import is relative
       - star imports are ignored
     """
-    for pkg_name, cog_info in cogs.items():
+    for pkg_name, cog_info in ctx.cogs.items():
         class_name = cog_info["name"]
         path = ROOT_PATH / pkg_name / "__init__.py"
         if not path.is_file():
             raise RuntimeError("Folder `{pkg_name}` isn't a valid package.")
         while True:
-            with path.open(encoding="utf-8") as fp:
-                source = fp.read()
-                tree = parso.parse(source)
+            source = ctx.results.get_file(path)
+            tree = parso.parse(source)
             class_node = next(
                 (
                     node
@@ -84,7 +89,7 @@ def update_class_docstrings(cogs: CogsDict, repo_info: RepoInfoDict) -> None:
         doc_node = class_node.get_doc_node()
         new_docstring = cog_info.get("class_docstring") or cog_info["short"]
         replacements = {
-            "repo_name": repo_info["name"],
+            "repo_name": ctx.repo_info["name"],
             "cog_name": cog_info["name"],
         }
         new_docstring = new_docstring.format_map(replacements)
@@ -97,6 +102,7 @@ def update_class_docstrings(cogs: CogsDict, repo_info: RepoInfoDict) -> None:
 
         new_code = tree.get_code()
         if source != new_code:
-            print(f"Updated class docstring for {class_name}")
-            with path.open("w", encoding="utf-8") as fp:
-                fp.write(tree.get_code())
+            ctx.vprint(f"Updated class docstring for {class_name}")
+            ctx.results.update_file(path, new_code)
+
+    return True
