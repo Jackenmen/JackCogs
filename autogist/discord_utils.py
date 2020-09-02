@@ -38,7 +38,7 @@ class RawMessage(discord.Message):
         self.id = message_id
         self.channel = channel
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<RawMessage id={self.id} channel={self.channel!r}>"
 
 

@@ -69,7 +69,7 @@ class GuildData:
         except KeyError:
             pass
 
-        state = await self._config.channel(channel).state()
+        state: Optional[bool] = await self._config.channel(channel).state()
         self._channel_cache[channel.id] = state
 
         return state

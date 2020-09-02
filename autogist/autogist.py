@@ -483,7 +483,7 @@ class AutoGist(commands.Cog):
     @commands.Cog.listener()
     async def on_red_api_tokens_update(
         self, service_name: str, api_tokens: Mapping[str, str]
-    ):
+    ) -> None:
         """Update GitHub token when `[p]set api` command is used."""
         if service_name != "github":
             return
