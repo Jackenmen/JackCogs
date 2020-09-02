@@ -193,6 +193,8 @@ def _update_readme(ctx: InfoGenMainCommand) -> bool:
     start, end = match.span(1)
     lines = []
     for pkg_name, cog_info in ctx.cogs.items():
+        if cog_info["disabled"] or cog_info["hidden"]:
+            continue
         replacements = {
             "repo_name": ctx.repo_info["name"],
             "cog_name": cog_info["name"],
