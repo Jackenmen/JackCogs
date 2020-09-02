@@ -146,7 +146,7 @@ async def fetch_attachment_from_message(
     encoding_data = chardet.detect(raw_data)
 
     try:
-        content = raw_data.decode(encoding_data["encoding"])
+        content = raw_data.decode(encoding_data["encoding"] or "utf-8")
     except UnicodeDecodeError:
         log.info(
             "The contents of attachment from message with ID %s-%s"
