@@ -37,7 +37,6 @@ cogs:
       - github
       - tools
       - utility
-    disabled: true
   banmessage:
     name: BanMessage
     short: Send message on ban in a chosen channel. Supports images!

@@ -16,7 +16,7 @@ limitations under the License.
 
 import contextlib
 from io import BytesIO
-from typing import Any, Dict, Literal, Mapping, MutableMapping, Optional, Tuple
+from typing import Any, Dict, Literal, Mapping, MutableMapping, Tuple
 
 import aiohttp
 import cachetools
@@ -25,8 +25,9 @@ import gidgethub
 import gidgethub.aiohttp
 from redbot.core import commands
 from redbot.core.bot import Red
-from redbot.core.commands import GuildContext
+from redbot.core.commands import GuildContext, NoParseOptional as Optional
 from redbot.core.config import Config
+from redbot.core.utils.chat_formatting import humanize_list, inline
 
 from .discord_utils import fetch_attachment_from_message, safe_raw_edit
 from .errors import HandledHTTPError
@@ -151,6 +152,142 @@ class AutoGist(commands.Cog):
         if token is None:
             log.error("No valid token found")
         return token
+
+    @commands.admin_or_permissions(manage_guild=True)
+    @commands.guild_only()
+    @commands.group()
+    async def autogistset(self, ctx: GuildContext) -> None:
+        """AutoGist settings."""
+
+    @autogistset.command(name="channeldefault")
+    async def autogistset_channeldefault(
+        self, ctx: GuildContext, allow: Optional[bool] = None
+    ) -> None:
+        """
+        Set whether AutoGist should by default listen to channels.
+
+        If default is set to True, bot will only listen to channels it was explicitly
+        allowed to listen to with `[p]autogistset allowchannels` command.
+
+        If default is set to False, bot will listen to all channels except the ones
+        it was explicitly blocked from listening to
+        with `[p]autogistset denychannels` command.
+
+        By default, guilds will not listen to any channel.
+        Use `[p]autogist channeldefault` without a setting to see current mode.
+        """
+        guild_data = await self.get_guild_data(ctx.guild)
+        if allow is None:
+            if guild_data.blocklist_mode:
+                msg = "AutoGist listens to channels in this server by default."
+            else:
+                msg = "AutoGist doesn't listen to channels in this server by default."
+            await ctx.send(msg)
+            return
+
+        if guild_data.blocklist_mode is allow:
+            if allow:
+                msg = "AutoGist already listens to channels in this server by default."
+            else:
+                msg = (
+                    "AutoGist already doesn't listen to channels"
+                    " in this server by default."
+                )
+            await ctx.send(msg)
+            return
+
+        await guild_data.edit_blocklist_mode(allow)
+        if allow:
+            msg = "AutoGist will now listen to channels in this server by default."
+        else:
+            msg = "AutoGist will now not listen to channels in this server by default."
+        await ctx.send(msg)
+
+    @autogistset.command(name="allowchannels", aliases=["allowchannel"])
+    async def autogistset_allowchannels(
+        self, ctx: GuildContext, *channels: discord.TextChannel
+    ) -> None:
+        """Allow the bot to listen to the given channels."""
+        guild_data = await self.get_guild_data(ctx.guild)
+        await guild_data.update_channel_states(channels, True)
+        await ctx.send("Bot will now listen to the messages in given channels.")
+
+    @autogistset.command(name="blockchannels", aliases=["blockchannel"])
+    async def autogistset_blockchannels(
+        self, ctx: GuildContext, *channels: discord.TextChannel
+    ) -> None:
+        """Block the bot from listening to the given channels."""
+        guild_data = await self.get_guild_data(ctx.guild)
+        await guild_data.update_channel_states(channels, False)
+        await ctx.send("Bot will no longer listen to the messages in given channels.")
+
+    @autogistset.command(name="listoverridden")
+    async def autogistset_listoverridden(self, ctx: GuildContext) -> None:
+        """List guild channels that don't use the default setting."""
+        guild_data = await self.get_guild_data(ctx.guild)
+        overriden = [
+            channel.mention
+            for channel in ctx.guild.text_channels
+            if await guild_data.is_overridden(channel)
+        ]
+
+        if not overriden:
+            await ctx.send("There are no channels with overriden setting.")
+            return
+
+        # Who cares about plural support, right? :P
+        if guild_data.blocklist_mode:
+            msg = "AutoGist will not listen to messages in these channels:\n"
+        else:
+            msg = "AutoGist will listen to messages in these channels:\n"
+        await ctx.send(f"{msg}{humanize_list(overriden)}")
+
+    @autogistset.group(name="extensions", aliases=["ext", "exts"])
+    async def autogistset_extensions(self, ctx: GuildContext) -> None:
+        """
+        Settings for file extensions
+        that are required for AutoGist to upload file to Gist.
+
+        By default AutoGist will look for files with `.txt` and `.log` extensions.
+        """
+
+    @autogistset_extensions.command(name="add")
+    async def autogistset_extensions_add(
+        self, ctx: GuildContext, *extensions: str
+    ) -> None:
+        """
+        Add file extensions to the list.
+
+        Example:
+        `[p]autogist extensions add txt .log` - adds `.txt` and `.log` extensions.
+        """
+        guild_data = await self.get_guild_data(ctx.guild)
+        await guild_data.add_file_extensions(extensions)
+        await ctx.send("Bot will now upload files with the given extensions.")
+
+    @autogistset_extensions.command(name="remove", aliases=["delete"])
+    async def autogistset_extensions_remove(
+        self, ctx: GuildContext, *extensions: str
+    ) -> None:
+        """
+        Remove file extensions from the list.
+
+        Example:
+        `[p]autogist extensions remove txt .log` - removes `.txt` and `.log` extensions.
+        """
+        guild_data = await self.get_guild_data(ctx.guild)
+        await guild_data.remove_file_extensions(extensions)
+        await ctx.send("Bot will now no longer upload files with the given extensions.")
+
+    @autogistset_extensions.command(name="list")
+    async def autogistset_extensions_list(self, ctx: GuildContext) -> None:
+        """
+        List file extensions that are required for AutoGist to upload file to Gist.
+        """
+        guild_data = await self.get_guild_data(ctx.guild)
+        msg = "AutoGist will upload files with these extensions to Gist:\n"
+        extensions = humanize_list(list(map(inline, guild_data.file_extensions)))
+        await ctx.send(f"{msg}{extensions}")
 
     async def _should_ignore(self, message: discord.Message) -> bool:
         """

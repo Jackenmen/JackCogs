@@ -20,6 +20,7 @@ Also I suggest to join [Red - Cog Support server](https://discord.gg/GET4DVk) an
 
 # Cogs in this repo
 
+* **autogist** - Auto-upload files with configured extension sent by users to gist.github.com.
 * **banmessage** - Send message on ban in a chosen channel. Supports images!
 * **categoryhelp** - Command for getting help for category that ignores case-sensitivity.
 * **cogboard** - Search for cogs in approved repos on CogBoard.

@@ -16,7 +16,8 @@ limitations under the License.
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Sequence, Tuple
+import contextlib
+from typing import Dict, Iterable, Optional, Sequence, Tuple
 
 import discord
 from redbot.core.config import Config, Group
@@ -83,3 +84,42 @@ class GuildData:
                 return False
 
         return True
+
+    async def is_overridden(self, channel: discord.TextChannel) -> bool:
+        channel_state = await self.get_channel_state(channel)
+        if channel_state is True:
+            return not self.blocklist_mode
+        if channel_state is False:
+            return self.blocklist_mode
+        return False
+
+    async def edit_blocklist_mode(self, state: bool) -> None:
+        self.blocklist_mode = state
+        await self.config_group.blocklist_mode.set(state)
+
+    async def update_channel_states(
+        self, channels: Iterable[discord.TextChannel], state: bool
+    ) -> None:
+        for channel in channels:
+            self._channel_cache[channel.id] = state
+            await self._config.channel(channel).state.set(state)
+
+    async def add_file_extensions(self, extensions: Iterable[str]) -> None:
+        async with self.config_group.file_extensions() as file_extensions:
+            for ext in extensions:
+                # normalize extension
+                ext = f".{ext.lstrip('.').lower()}"
+                if ext not in file_extensions:
+                    file_extensions.append(ext)
+
+        self.file_extensions = tuple(file_extensions)
+
+    async def remove_file_extensions(self, extensions: Iterable[str]) -> None:
+        async with self.config_group.file_extensions() as file_extensions:
+            for ext in extensions:
+                # normalize extension
+                ext = f".{ext.lstrip('.').lower()}"
+                with contextlib.suppress(ValueError):
+                    file_extensions.remove(ext)
+
+            self.file_extensions = tuple(file_extensions)
