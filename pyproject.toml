@@ -12,7 +12,6 @@ exclude = '''
     | buck-out
     | build
     | dist
-    | \.stubs\/discord
 )/
 '''
 
@@ -30,5 +29,4 @@ skip = [
     "buck-out",
     "build",
     "dist",
-    ".stubs/discord",
 ]

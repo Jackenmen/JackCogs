@@ -58,11 +58,23 @@ Redjumpman and PaddoInWonderlands, for this neat readme file template :D
 
 # License
 
-Please see Apache License 2.0 for details. In short, this project is open source and you are free to modify and use my work as long as you credit me.
+Please see [LICENSE file](LICENSE) for details. In short, this project is open source and you are free to modify and use my work as long as you credit me.
+
+---
 
 This project bundles fonts from [Roboto family](https://fonts.google.com/specimen/Roboto) which is distributed on Apache License 2.0
 
-This project bundles screenshot done by reddit user [CastleintheMist](https://www.reddit.com/user/CastleintheMist/)
+This project bundles fonts from [Animo family](https://fonts.google.com/specimen/Arimo) which is distributed under the Apache License 2.0.
+
+This project bundles fonts from [DejaVu family](https://github.com/dejavu-fonts/dejavu-fonts) which is distributed under a Free license.
+
+This project bundles fonts from [Poppins family](https://fonts.google.com/specimen/Poppins) which is distributed under the Open Font License.
+
+This project bundles screenshot done by reddit user [CastleintheMist](https://www.reddit.com/user/CastleintheMist/).
+
+This project bundles Steam, Playstation and Xbox logos from [Ionicons icon set](https://ionicons.com/) which is released under the MIT License.
+
+All brand icons are trademarks of their respective owners. The use of these trademarks does not indicate endorsement of the trademark holder by me, nor vice versa.
 
 ---
 

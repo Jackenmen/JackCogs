@@ -194,5 +194,3 @@ This project bundles Steam, Playstation and Xbox logos from Ionicons icon set (h
 Copy of this license can be found in LICENSE.txt file in folder rlstats/data/images/platforms of this repository.
 All brand icons are trademarks of their respective owners. The use of these trademarks does not indicate endorsement of the trademark holder by me, nor vice versa.
 
-This project vendors discord.py stubs by bryanforbes from pull request #1497 on discord.py's repo (https://github.com/Rapptz/discord.py/pull/1497) which are distributed under the MIT License.
-Copy of this license can be found in LICENSE.txt file in folder .stubs/discord/LICENSE.txt of this repository.
