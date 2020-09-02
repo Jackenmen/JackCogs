@@ -76,6 +76,8 @@ This project bundles Steam, Playstation and Xbox logos from [Ionicons icon set](
 
 All brand icons are trademarks of their respective owners. The use of these trademarks does not indicate endorsement of the trademark holder by me, nor vice versa.
 
+This project vendors cachetools stubs by judej from judej/typeshed repository on GitHub (https://github.com/judej/typeshed/tree/cachetools-stubs) which are distributed under the Apache License.
+
 ---
 
 > Jakub Kuczys &nbsp;&middot;&nbsp;

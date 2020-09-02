@@ -12,6 +12,7 @@ exclude = '''
     | buck-out
     | build
     | dist
+    | \.stubs\/cachetools
 )/
 '''
 
@@ -29,4 +30,5 @@ skip = [
     "buck-out",
     "build",
     "dist",
+    ".stubs/cachetools",
 ]
