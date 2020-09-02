@@ -22,6 +22,21 @@ shared_fields:
   type: COG
 
 cogs:
+  autogist:
+    name: AutoGist
+    short: Auto-upload files with configured extension sent by users to gist.github.com.
+    description: '{short}'
+    end_user_data_statement: >-
+      This cog auto-uploads attachments to gist.github.com
+      uploaded by users as configured by the guild administrators.
+    requirements:
+      - cachetools~=4.1
+      - gidgethub~=4.1
+    tags:
+      - autogist
+      - github
+      - tools
+      - utility
   banmessage:
     name: BanMessage
     short: Send message on ban in a chosen channel. Supports images!
