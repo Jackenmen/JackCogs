@@ -14,9 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from typing import Dict, Optional, Tuple
+
+from redbot import VersionInfo
+
 __all__ = ("MAX_PYTHON_VERSION", "MAX_RED_VERSIONS")
 
-MAX_RED_VERSIONS = {
+MAX_RED_VERSIONS: Dict[Tuple[int, int], Optional[VersionInfo]] = {
     (3, 8): None,
 }
-MAX_PYTHON_VERSION = next(reversed(MAX_RED_VERSIONS))
+MAX_PYTHON_VERSION = next(reversed(MAX_RED_VERSIONS.keys()))

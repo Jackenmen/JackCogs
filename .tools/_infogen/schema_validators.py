@@ -19,12 +19,19 @@ import re
 import typing
 
 from redbot import VersionInfo
-from strictyaml import Regex, ScalarValidator
+from strictyaml import Regex
 from strictyaml.exceptions import YAMLSerializationError, YAMLValidationError
 from strictyaml.utils import is_string
 from strictyaml.yamllocation import YAMLChunk
 
 __all__ = ("PythonVersion", "RedVersion")
+
+if typing.TYPE_CHECKING:
+    # TODO: stub strictyaml
+    # this is awful workaround (along with the ignore missing imports in mypy.ini)
+    ScalarValidator = object
+else:
+    from strictyaml import ScalarValidator
 
 
 class PythonVersion(ScalarValidator):

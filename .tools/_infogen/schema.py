@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from typing import cast
+
 from strictyaml import (
     Bool,
     EmptyDict,
@@ -127,4 +129,6 @@ def load_info_yaml() -> InfoYAMLDict:
         YAML data of the info.yaml file.
     """
     with open(ROOT_PATH / "info.yaml", encoding="utf-8") as fp:
-        return yaml_load(fp.read(), SCHEMA, label="info.yaml").data
+        data = yaml_load(fp.read(), SCHEMA, label="info.yaml").data
+        # the proper dictionary is already ensured by StrictYAML
+        return cast(InfoYAMLDict, data)

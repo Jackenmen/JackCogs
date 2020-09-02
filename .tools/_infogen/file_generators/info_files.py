@@ -19,13 +19,14 @@ from __future__ import annotations
 import json
 import re
 from types import SimpleNamespace
-from typing import Dict, List, Literal, Set, Tuple, TYPE_CHECKING
+from typing import Dict, List, Literal, Set, Tuple, TYPE_CHECKING, cast
 
 from redbot import VersionInfo
 
 from .. import ROOT_PATH
 from ..max_versions import MAX_PYTHON_VERSION, MAX_RED_VERSIONS
 from ..schema import COG_KEYS_ORDER, KEYS_TO_SKIP_IN_COG_INFO
+from ..typedefs import CogInfoDict
 from ..utils import safe_format_alt
 
 if TYPE_CHECKING:
@@ -75,10 +76,12 @@ def process_cogs(ctx: InfoGenMainCommand) -> bool:
                     continue
                 min_python_version = python_version
                 break
-        python_version = cog_info.get("min_python_version", global_min_python_version)
-        if python_version is not None:
-            if min_python_version < python_version:
-                min_python_version = python_version
+        maybe_python_version = cog_info.get(
+            "min_python_version", global_min_python_version
+        )
+        if maybe_python_version is not None:
+            if min_python_version < maybe_python_version:
+                min_python_version = maybe_python_version[:2]
         for python_version, reqs in requirements.items():
             if python_version >= min_python_version:
                 reqs.update(cog_info["requirements"])
@@ -90,7 +93,7 @@ def process_cogs(ctx: InfoGenMainCommand) -> bool:
         black_file_list[min_python_version].append(pkg_name)
 
         ctx.vprint(f"Preparing info.json for {pkg_name} cog...")
-        output = {}
+        _output = {}
         for key in COG_KEYS_ORDER:
             if key in KEYS_TO_SKIP_IN_COG_INFO:
                 continue
@@ -99,7 +102,8 @@ def process_cogs(ctx: InfoGenMainCommand) -> bool:
                 value = shared_fields.get(key)
                 if value is None:
                     continue
-            output[key] = value
+            _output[key] = value
+        output = cast(CogInfoDict, _output)
         replacements = {
             "repo_name": repo_info["name"],
             "cog_name": output["name"],
