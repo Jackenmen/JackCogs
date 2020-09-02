@@ -426,7 +426,10 @@ class AutoGist(commands.Cog):
                 "post",
                 "/gists",
                 data={
-                    "description": f"A file by {author} in the {guild.name} guild",
+                    "description": (
+                        f"A file by {author} ({author.id})"
+                        f" in the {guild.name} ({guild.id}) guild"
+                    ),
                     "public": False,
                     "files": {filename: {"content": content}},
                 },
