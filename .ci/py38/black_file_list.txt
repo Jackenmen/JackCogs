@@ -1,1 +1,1 @@
-.ci banmessage categoryhelp cogboard mee6rank membercount modroles nitrorole rlstats voicetools
+.ci .stubs .tools banmessage categoryhelp cogboard mee6rank membercount modroles nitrorole rlstats voicetools

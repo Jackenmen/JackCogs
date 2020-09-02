@@ -52,7 +52,7 @@ def process_cogs(ctx: InfoGenMainCommand) -> bool:
         (3, 8): set(),
     }
     black_file_list: Dict[Tuple[int, int], List[str]] = {
-        (3, 8): [".ci"],
+        (3, 8): [".ci", ".stubs", ".tools"],
     }
     compileall_file_list: Dict[Tuple[int, int], List[str]] = {
         (3, 8): ["."],
