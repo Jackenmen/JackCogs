@@ -16,8 +16,9 @@ limitations under the License.
 
 from __future__ import annotations
 
-import parso
 from typing import TYPE_CHECKING
+
+import parso
 
 from .. import ROOT_PATH
 from ..node_lists import CONTAINERS

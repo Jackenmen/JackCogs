@@ -18,7 +18,6 @@ import sys
 
 from .context import InfoGenMainCommand
 
-
 # TODO: allow author in COG_KEYS and merge them with repo/shared fields lists
 # TODO: auto-format to proper key order
 

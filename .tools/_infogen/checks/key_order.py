@@ -16,7 +16,7 @@ limitations under the License.
 
 from __future__ import annotations
 
-from typing import Dict, List, Literal, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, List, Literal, Tuple
 
 from ..schema import COG_KEYS_ORDER, REPO_KEYS_ORDER, SHARED_FIELDS_KEYS_ORDER
 from ..typedefs import CogInfoDict

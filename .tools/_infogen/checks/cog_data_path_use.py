@@ -17,7 +17,7 @@ limitations under the License.
 from __future__ import annotations
 
 import subprocess
-from typing import Literal, TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from .. import ROOT_PATH
 

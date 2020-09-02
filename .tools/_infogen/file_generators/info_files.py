@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import re
 from types import SimpleNamespace
-from typing import Dict, List, Literal, Set, Tuple, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Dict, List, Literal, Set, Tuple, cast
 
 from redbot import VersionInfo
 
