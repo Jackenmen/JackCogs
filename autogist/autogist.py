@@ -152,11 +152,30 @@ class AutoGist(commands.Cog):
         return token
 
     @commands.admin_or_permissions(manage_guild=True)
-    @commands.guild_only()
     @commands.group()
     async def autogistset(self, ctx: GuildContext) -> None:
         """AutoGist settings."""
 
+    @commands.is_owner()
+    @autogistset.command()
+    async def autogistset_token(self, ctx: commands.Context) -> None:
+        """Instructions to set the GitHub API token."""
+        command = inline(f"{ctx.clean_prefix}set api github token PUT_YOUR_TOKEN_HERE")
+        message = (
+            "Begin by creating a new personal token on your GitHub Account here:\n"
+            "<https://github.com/settings/tokens>\n"
+            "If you do not trust this to your own account,"
+            " it's recommended that you make a new GitHub account to act for the bot.\n"
+            "No additional permissions are required for public repositories;"
+            " if you want to fetch from private repositories,"
+            " you will need to set full `repo` scope.\n\n"
+            "When you generate the token, copy it"
+            " and use the following command in DMs with the bot:\n"
+            f"{command}"
+        )
+        await ctx.send(message)
+
+    @commands.guild_only()
     @autogistset.command(name="channeldefault")
     async def autogistset_channeldefault(
         self, ctx: GuildContext, allow: Optional[bool] = None
@@ -201,6 +220,7 @@ class AutoGist(commands.Cog):
             msg = "AutoGist will now not listen to channels in this server by default."
         await ctx.send(msg)
 
+    @commands.guild_only()
     @autogistset.command(name="allowchannels", aliases=["allowchannel"])
     async def autogistset_allowchannels(
         self, ctx: GuildContext, *channels: discord.TextChannel
@@ -210,6 +230,7 @@ class AutoGist(commands.Cog):
         await guild_data.update_channel_states(channels, True)
         await ctx.send("Bot will now listen to the messages in given channels.")
 
+    @commands.guild_only()
     @autogistset.command(name="blockchannels", aliases=["blockchannel"])
     async def autogistset_blockchannels(
         self, ctx: GuildContext, *channels: discord.TextChannel
@@ -219,6 +240,7 @@ class AutoGist(commands.Cog):
         await guild_data.update_channel_states(channels, False)
         await ctx.send("Bot will no longer listen to the messages in given channels.")
 
+    @commands.guild_only()
     @autogistset.command(name="listoverridden")
     async def autogistset_listoverridden(self, ctx: GuildContext) -> None:
         """List guild channels that don't use the default setting."""
@@ -240,6 +262,7 @@ class AutoGist(commands.Cog):
             msg = "AutoGist will listen to messages in these channels:\n"
         await ctx.send(f"{msg}{humanize_list(overriden)}")
 
+    @commands.guild_only()
     @autogistset.group(name="extensions", aliases=["ext", "exts"])
     async def autogistset_extensions(self, ctx: GuildContext) -> None:
         """
