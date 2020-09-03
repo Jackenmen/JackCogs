@@ -157,7 +157,7 @@ class AutoGist(commands.Cog):
         """AutoGist settings."""
 
     @commands.is_owner()
-    @autogistset.command()
+    @autogistset.command(name="token")
     async def autogistset_token(self, ctx: commands.Context) -> None:
         """Instructions to set the GitHub API token."""
         command = inline(f"{ctx.clean_prefix}set api github token PUT_YOUR_TOKEN_HERE")
