@@ -13,5 +13,6 @@
 # limitations under the License.
 
 from .class_docstrings import update_class_docstrings
+from .license_headers import update_license_headers
 
-__all__ = ("update_class_docstrings",)
+__all__ = ("update_class_docstrings", "update_license_headers")

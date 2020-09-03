@@ -1,2 +1,4 @@
+pathspec~=0.8.0
 parso~=0.8.0
 strictyaml==1.1.0
+toml~=0.10.1

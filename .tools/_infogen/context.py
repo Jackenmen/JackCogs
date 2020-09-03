@@ -26,7 +26,7 @@ from .cli import Options
 from .file_generators import generate_repo_info_file, process_cogs
 from .results import Results
 from .schema import load_info_yaml
-from .transformations import update_class_docstrings
+from .transformations import update_class_docstrings, update_license_headers
 from .typedefs import CogsDict, InfoYAMLDict, RepoInfoDict, SharedFieldsDict
 
 
@@ -81,6 +81,8 @@ class InfoGenMainCommand:
 
         self.vprint("Updating class docstrings...")
         self.success &= update_class_docstrings(self)
+        self.vprint("Updating license headers...")
+        self.success &= update_license_headers(self)
         self.vprint("Checking for cog_data_path usage...")
         self.success &= check_cog_data_path_use(self)
         self.vprint("Checking for missing help docstrings...")

@@ -14,14 +14,27 @@
 
 from __future__ import annotations
 
+import functools
+import re
 import string
+from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Dict, Generator, List, Literal, Set, overload
+from typing import Any, Dict, Generator, Iterable, List, Literal, Pattern, Set, overload
 
 import parso
+import toml
 from parso.tree import NodeOrLeaf
+from pathspec import PathSpec
 
-__all__ = ("scan_recursively",)
+from . import ROOT_PATH
+
+__all__ = (
+    "get_gitignore",
+    "iter_files",
+    "iter_files_to_format",
+    "safe_format_alt",
+    "scan_recursively",
+)
 
 
 # these overloads are incomplete and only overload string literals used in this package
@@ -90,3 +103,81 @@ class _FormatPlaceholder:
 class _FormatDict(Dict[str, Any]):
     def __missing__(self, key: str) -> _FormatPlaceholder:
         return _FormatPlaceholder(key)
+
+
+def _get_black_config() -> Dict[str, Any]:
+    """
+    Get Black's config.
+
+    This function has been copied from Black (https://github.com/psf/black).
+    """
+    pyproject_toml = toml.load(ROOT_PATH / "pyproject.toml")
+    config = pyproject_toml.get("tool", {}).get("black", {})
+    return {k.replace("--", "").replace("-", "_"): v for k, v in config.items()}
+
+
+def _re_compile_maybe_verbose(regex: str) -> Pattern[str]:
+    """Compile a regular expression string in `regex`.
+    If it contains newlines, use verbose mode.
+    """
+    if "\n" in regex:
+        regex = "(?x)" + regex
+    compiled: Pattern[str] = re.compile(regex)
+    return compiled
+
+
+@functools.lru_cache()
+def get_gitignore() -> PathSpec:
+    """
+    Return a PathSpec matching gitignore content if present.
+
+    This function has been copied from Black (https://github.com/psf/black).
+    """
+    gitignore = ROOT_PATH / ".gitignore"
+    lines: List[str] = []
+    if gitignore.is_file():
+        with gitignore.open() as gf:
+            lines = gf.readlines()
+    return PathSpec.from_lines("gitwildmatch", lines)
+
+
+def iter_files(
+    paths: Iterable[Path],
+    include: Pattern[str],
+    exclude: Pattern[str],
+    gitignore: PathSpec,
+) -> Generator[Path, None, None]:
+    """
+    Iterate through all files matching given parameters.
+
+    Highly influenced by Black (https://github.com/psf/black).
+    """
+    for child in paths:
+        normalized = child.relative_to(ROOT_PATH).as_posix()
+        if gitignore.match_file(normalized):
+            continue
+
+        normalized = f"/{normalized}"
+        if child.is_dir():
+            normalized += "/"
+
+        exclude_match = exclude.search(normalized)
+        if exclude_match is not None and exclude_match.group(0):
+            continue
+
+        if child.is_dir():
+            yield from iter_files(child.iterdir(), include, exclude, gitignore)
+        elif child.is_file():
+            if include.search(normalized) is not None:
+                yield child
+
+
+def iter_files_to_format() -> Generator[Path, None, None]:
+    """Iterate through all files that should be formatted by Black."""
+    black_config = _get_black_config()
+    gitignore = get_gitignore()
+
+    include = _re_compile_maybe_verbose(black_config.get("ignore", r"\.pyi?$"))
+    exclude = _re_compile_maybe_verbose(black_config["exclude"])
+
+    yield from iter_files(ROOT_PATH.iterdir(), include, exclude, gitignore)
