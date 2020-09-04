@@ -12,11 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 from typing import Any, Dict, Literal
 
+import aiohttp
+import discord
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
+
+from .ipykernel_utils import RedIPKernelApp, embed_kernel
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -27,6 +32,23 @@ class Qupyter(commands.Cog):
     def __init__(self, bot: Red) -> None:
         self.bot = bot
         self.config = Config.get_conf(self, 176070082584248320, force_registration=True)
+        self.env = {
+            "bot": bot,
+            "aiohttp": aiohttp,
+            "asyncio": asyncio,
+            "discord": discord,
+            "commands": commands,
+        }
+        self.app: RedIPKernelApp
+
+    def init(self) -> None:
+        """Post-add cog initialization."""
+        self.app = embed_kernel(self.env)
+
+    def cog_unload(self) -> None:
+        """Cog unload cleanup."""
+        self.app.cleanup_connection_file()
+        self.app.close()
 
     async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, Any]:
         # this cog does not story any data
