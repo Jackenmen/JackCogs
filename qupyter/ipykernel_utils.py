@@ -77,6 +77,7 @@ class RedIPythonKernel(IPythonKernel):
 class RedIPKernelApp(IPKernelApp):
     kernel_class = RedIPythonKernel
     kernel: RedIPythonKernel
+    quiet = False  # this prevents ipykernel from suppressing console output
     kernel_name = "IPython Kernel for Red"
 
     def start(self) -> None:
