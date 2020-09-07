@@ -73,6 +73,19 @@ cogs:
       - cogboard
       - tools
       - utility
+  emojiinfo:
+    name: EmojiInfo
+    short: Get information about emojis and see how to use them in your code.
+    description: '{short}'
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
+    tags:
+      - dev
+      - development
+      - emojiinfo
+      - tools
+      - utility
+    hidden: true
   mee6rank:
     name: Mee6Rank
     short: Get detailed information about your Mee6 rank.
