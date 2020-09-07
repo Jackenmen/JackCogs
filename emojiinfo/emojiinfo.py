@@ -16,6 +16,9 @@ from typing import Any, Dict, Literal
 
 from redbot.core import commands
 from redbot.core.bot import Red
+from redbot.core.utils.chat_formatting import pagify
+
+from .utils import iter_emojis
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -35,3 +38,16 @@ class EmojiInfo(commands.Cog):
     ) -> None:
         # this cog does not story any data
         pass
+
+    @commands.command(usage="<emoji>...")
+    async def emojiinfo(self, ctx: commands.Context, *, raw_emojis: str) -> None:
+        """
+        Get detailed informations about passed emojis.
+
+        Non-emoji characters are ignored.
+        """
+        msg = "\n".join(
+            f"{emoji} - `{emoji_repr}`"
+            for emoji, emoji_repr in iter_emojis(raw_emojis)
+        )
+        await ctx.send_interactive(pagify(msg))
