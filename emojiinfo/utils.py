@@ -18,6 +18,8 @@ from typing import Generator, Pattern, Tuple
 
 from emoji import EMOJI_UNICODE
 
+from .variations import EMOJIS_WITH_VARIATIONS
+
 __all__ = ("EMOJI_REGEX", "get_emoji_repr", "iter_emojis")
 
 
@@ -34,7 +36,18 @@ def iter_emojis(raw_emojis: str) -> Generator[Tuple[str, str], None, None]:
 
 
 def get_emoji_repr(emoji: str) -> str:
-    return "".join(f"\\N{{{unicodedata.name(char)}}}" for char in emoji)
+    return "".join(
+        get_char_repr(char)
+        for char in emoji
+        if char not in ("\N{VARIATION SELECTOR-15}", "\N{VARIATION SELECTOR-16}")
+    )
+
+
+def get_char_repr(char: str) -> str:
+    char_repr = f"\\N{{{unicodedata.name(char)}}}"
+    if char in EMOJIS_WITH_VARIATIONS:
+        char_repr += "\\N{VARIATION SELECTOR-16}"
+    return char_repr
 
 
 def _generate_emoji_regex() -> Pattern[str]:
