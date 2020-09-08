@@ -55,7 +55,7 @@ def _generate_emoji_regex() -> Pattern[str]:
     emojis = sorted(EMOJI_UNICODE.values(), key=len, reverse=True)
     custom_emojis_pattern = r"(<a?:\w{2,32}:\d{18,22}>)"
     unicode_emojis_pattern = "|".join(re.escape(emoji) for emoji in emojis)
-    return re.compile(custom_emojis_pattern + unicode_emojis_pattern)
+    return re.compile(f"{custom_emojis_pattern}|{unicode_emojis_pattern}")
 
 
 EMOJI_REGEX = _generate_emoji_regex()
