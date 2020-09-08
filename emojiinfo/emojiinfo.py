@@ -47,7 +47,6 @@ class EmojiInfo(commands.Cog):
         Non-emoji characters are ignored.
         """
         msg = "\n".join(
-            f"{emoji} - `{emoji_repr}`"
-            for emoji, emoji_repr in iter_emojis(raw_emojis)
+            f"{emoji} - `{emoji_repr}`" for emoji, emoji_repr in iter_emojis(raw_emojis)
         )
         await ctx.send_interactive(pagify(msg))
