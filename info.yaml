@@ -87,7 +87,6 @@ cogs:
       - emojiinfo
       - tools
       - utility
-    hidden: true
   mee6rank:
     name: Mee6Rank
     short: Get detailed information about your Mee6 rank.
