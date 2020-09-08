@@ -182,6 +182,19 @@ cogs:
       - gaming
       - rlstats
       - rocketleague
+  shell:
+    name: Shell
+    short: Run shell commands on bot's system from Discord.
+    description: '{short}'
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
+    tags:
+      - bash
+      - dev
+      - development
+      - shell
+      - tools
+      - utility
   voicetools:
     name: VoiceTools
     short: Various tools to make voice channels better!

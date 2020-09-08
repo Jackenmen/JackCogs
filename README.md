@@ -30,6 +30,7 @@ Also I suggest to join [Red - Cog Support server](https://discord.gg/GET4DVk) an
 * **modroles** - Allow moderators without manage roles permission to assign configured roles to users.
 * **nitrorole** - Welcome new nitro boosters and/or give them a special role!
 * **rlstats** - Get your Rocket League stats with a single command! Needs access to Rocket League API which is currently in closed beta.
+* **shell** - Run shell commands on bot's system from Discord.
 * **voicetools** - Various tools to make voice channels better!
 
 # Installation
