@@ -16,6 +16,7 @@ import asyncio
 import asyncio.subprocess as asp
 import os
 import sys
+from typing import Dict
 
 from redbot.core import commands
 from redbot.core.utils.chat_formatting import box, pagify
@@ -26,7 +27,7 @@ from .errors import ProcessTerminatedEarly
 __all__ = ("get_env", "send_pages", "wait_for_result")
 
 
-def get_env():
+def get_env() -> Dict[str, str]:
     env = os.environ.copy()
     if hasattr(sys, "real_prefix") or sys.base_prefix != sys.prefix:
         # os.path.sep - this is folder separator, i.e. `\` on win or `/` on unix
