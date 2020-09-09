@@ -97,3 +97,16 @@ class RedIPKernelApp(IPKernelApp):
 
     def init_sys_modules(self) -> None:
         """Explicitly overwrite this to do nothing in embedded app."""
+
+    def log_connection_info(self) -> None:
+        """
+        This would just be overridden to do nothing,
+        but apparently this method is also supposed to store ports...
+        """
+        self.ports = {
+            "shell": self.shell_port,
+            "iopub": self.iopub_port,
+            "stdin": self.stdin_port,
+            "hb": self.hb_port,
+            "control": self.control_port,
+        }
