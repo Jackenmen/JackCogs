@@ -21,7 +21,7 @@ from redbot.core import commands
 from redbot.core.bot import Red
 
 from .errors import ProcessTerminatedEarly
-from .utils import send_pages, wait_for_result
+from .utils import get_env, send_pages, wait_for_result
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -51,7 +51,7 @@ class Shell(commands.Cog):
         async with ctx.typing():
             async with self._killing_lock:
                 p = await asp.create_subprocess_shell(
-                    command, stdout=asp.PIPE, stderr=asp.STDOUT
+                    command, stdout=asp.PIPE, stderr=asp.STDOUT, env=get_env()
                 )
                 self.active_processes.append(p)
 

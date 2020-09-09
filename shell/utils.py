@@ -14,6 +14,8 @@
 
 import asyncio
 import asyncio.subprocess as asp
+import os
+import sys
 
 from redbot.core import commands
 from redbot.core.utils.chat_formatting import box, pagify
@@ -21,7 +23,22 @@ from redbot.core.utils.menus import DEFAULT_CONTROLS, close_menu, menu
 
 from .errors import ProcessTerminatedEarly
 
-__all__ = ("wait_for_result",)
+__all__ = ("get_env", "send_pages", "wait_for_result")
+
+
+def get_env():
+    env = os.environ.copy()
+    if hasattr(sys, "real_prefix") or sys.base_prefix != sys.prefix:
+        # os.path.sep - this is folder separator, i.e. `\` on win or `/` on unix
+        # os.pathsep - this is paths separator in PATH, i.e. `;` on win or `:` on unix
+        # a wonderful idea to call them almost the same >.<
+        if sys.platform == "win32":
+            binfolder = f"{sys.prefix}{os.path.sep}Scripts"
+            env["PATH"] = f"{binfolder}{os.pathsep}{env['PATH']}"
+        else:
+            binfolder = f"{sys.prefix}{os.path.sep}bin"
+            env["PATH"] = f"{binfolder}{os.pathsep}{env['PATH']}"
+    return env
 
 
 async def _reader(process: asp.Process) -> str:
