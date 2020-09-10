@@ -14,12 +14,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Literal
 
 from ipykernel.ipkernel import IPythonKernel
 from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQInteractiveShell
 from tornado import gen, ioloop
+from traitlets.traitlets import Bool
 from zmq.eventloop.zmqstream import ZMQStream
 
 
@@ -56,9 +57,19 @@ def embed_kernel(local_ns: Dict[str, Any], **kwargs: Any) -> RedIPKernelApp:
     return app
 
 
+class ForceFalse(Bool):
+    def validate(self, obj: object, value: Any) -> Literal[False]:
+        super().validate(obj, value)
+        return False
+
+    def from_string(self, s: str) -> Literal[False]:
+        super().from_string(s)
+        return False
+
+
 class RedZMQInteractiveShell(ZMQInteractiveShell):
     # prevents the shell from closing the event loop, when exiting
-    _update_exit_now = None
+    exit_now = ForceFalse()
 
 
 class RedIPythonKernel(IPythonKernel):
