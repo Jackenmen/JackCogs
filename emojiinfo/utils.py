@@ -16,7 +16,8 @@ import re
 import unicodedata
 from typing import Generator, Pattern, Tuple
 
-from emoji import EMOJI_UNICODE
+# mypy v0.782 has outdated typeshed with inaccurate type hints for this
+from emoji import EMOJI_UNICODE  # type: ignore[attr-defined]
 
 from .variations import EMOJIS_WITH_VARIATIONS
 
