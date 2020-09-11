@@ -29,11 +29,11 @@ def iter_emojis(raw_emojis: str) -> Generator[Tuple[str, str], None, None]:
         emoji = match.group(0)
         if emoji[0] == "<":
             # custom emoji
-            yield emoji, emoji
+            yield emoji, f"<\\{emoji[1:]}"
             continue
 
         # unicode emoji
-        yield emoji, get_emoji_repr(emoji)
+        yield emoji, f"`{get_emoji_repr(emoji)}`"
 
 
 def get_emoji_repr(emoji: str) -> str:

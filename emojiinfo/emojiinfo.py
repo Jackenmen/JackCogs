@@ -47,7 +47,7 @@ class EmojiInfo(commands.Cog):
         Non-emoji characters are ignored.
         """
         msg = "\n".join(
-            f"{emoji} - `{emoji_repr}`" for emoji, emoji_repr in iter_emojis(raw_emojis)
+            f"{emoji} - {emoji_repr}" for emoji, emoji_repr in iter_emojis(raw_emojis)
         )
         if not msg:
             await ctx.send("No valid emojis were passed.")
