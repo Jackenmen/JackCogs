@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import asyncio
-from typing import Any, Dict, Literal
+from typing import Any, Dict, Literal, Optional
 
 import aiohttp
 import discord
@@ -39,18 +39,33 @@ class Qupyter(commands.Cog):
             "discord": discord,
             "commands": commands,
         }
-        self.app: RedIPKernelApp
+        self.app: Optional[RedIPKernelApp] = None
 
-    def init(self) -> None:
+    async def initialize(self) -> None:
         """Post-add cog initialization."""
-        self.app = embed_kernel(self.env)
+        await self.start_app()
 
     def cog_unload(self) -> None:
         """Cog unload cleanup."""
-        self.app.cleanup_connection_file()
-        self.app.close()
+        self.stop_app()
+
+    async def start_app(self) -> None:
+        if self.app is not None:
+            raise RuntimeError("App is already running!")
+
+        self.app = app = embed_kernel(self.env)
+
+    def stop_app(self) -> None:
+        if self.app is not None:
+            self.app.cleanup_connection_file()
+            self.app.close()
+            self.app = None
         # needed for proper hot-reload
         clear_singleton_instances()
+
+    async def restart_app(self) -> None:
+        self.stop_app()
+        await self.start_app()
 
     async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, Any]:
         # this cog does not story any data
