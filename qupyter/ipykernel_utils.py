@@ -282,6 +282,13 @@ class RedIPKernelApp(IPKernelApp):
         self.kernel.start()
         self.io_loop = ioloop.IOLoop.current()
 
+    def close(self) -> None:
+        # cause ipykernel only handled this, because it was closing the whole loop
+        for socket in (self.stdin_socket, self.shell_socket, self.control_socket):
+            if socket is not None:
+                self.io_loop.remove_handler(socket)
+        super().close()
+
     def init_sys_modules(self) -> None:
         """Explicitly overwrite this to do nothing in embedded app."""
 

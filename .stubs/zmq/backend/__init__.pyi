@@ -17,4 +17,7 @@ This an incomplete stub of pyzmq library for use of cogs in this repo.
 Nobody have made a full stub for this library so only stuff used by this repo is typed.
 """
 
-from .sugar import Socket as Socket
+from typing import Optional
+
+class Socket:
+    def close(self, linger: Optional[int] = None) -> None: ...

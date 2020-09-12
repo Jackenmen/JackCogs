@@ -19,6 +19,7 @@ Nobody have made a full stub for this library so only stuff used by this repo is
 
 from typing import Optional, Protocol
 
+import zmq
 from IPython.core.application import BaseIPythonApplication
 from IPython.core.shellapp import InteractiveShellApp
 from jupyter_client.connect import ConnectionFileMixin
@@ -36,6 +37,9 @@ class IPKernelApp(BaseIPythonApplication, InteractiveShellApp, ConnectionFileMix
     trio_loop: bool
     poller: Optional[_Thread]
     session: Session
+    control_socket: Optional[zmq.Socket]
+    shell_socket: Optional[zmq.Socket]
+    stdin_socket: Optional[zmq.Socket]
     connection_file: str
     connection_dir: str
     def cleanup_connection_file(self) -> None: ...
