@@ -10,6 +10,7 @@
     "required_cogs": {},
     "requirements": [
         "ipykernel~=5.3",
+        "ipyparallel",
         "jedi<0.16.0"
     ],
     "tags": [
