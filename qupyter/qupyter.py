@@ -36,7 +36,7 @@ class Qupyter(commands.Cog):
     def __init__(self, bot: Red) -> None:
         self.bot = bot
         self.config = Config.get_conf(self, 176070082584248320, force_registration=True)
-        self.config.register_global(ports=None)
+        self.config.register_global(execution_key=None, ports=None)
         self.env = {
             "bot": bot,
             "aiohttp": aiohttp,
@@ -59,10 +59,14 @@ class Qupyter(commands.Cog):
         if self.app is not None:
             raise RuntimeError("App is already running!")
 
-        ports = await self.config.ports()
+        data = await self.config.all()
+        ports = data["ports"]
+        execution_key = data["execution_key"]
         kwargs = {}
         if ports is not None:
             kwargs.update(zip(_PORT_NAMES, ports))
+        if execution_key is not None:
+            kwargs.update(execution_key=execution_key.encode("ascii"))
 
         self.app = app = embed_kernel(self.env, **kwargs)
 
@@ -97,6 +101,37 @@ class Qupyter(commands.Cog):
     @commands.group()
     async def qupyterset(self, ctx: commands.Context) -> None:
         """Qupyter settings."""
+
+    @qupyterset.command(name="freezekey")
+    async def qupyterset_freezekey(self, ctx: commands.Context) -> None:
+        """
+        Freeze the execution key used for signing messages.
+
+        This ensures that the execution key will be the same between cog reloads.
+
+        Useful (along with port settings), if you don't want to get the connection file
+        from the host machine each time you try to connect to the kernel from different
+        machine.
+        """
+        if self.app is None:
+            await ctx.send("App isn't running, can't freeze the key!")
+            return
+        await self.config.execution_key.set(self.app.session.key.decode())
+        await ctx.send(
+            "Execution key frozen. Key will now remain the same between cog reloads."
+        )
+
+    @qupyterset.command(name="unfreezekey")
+    async def qupyterset_unfreezekey(self, ctx: commands.Context) -> None:
+        """
+        Unfreeze the execution key used for signing messages.
+
+        This ensures that the execution key will be chosen randomly at cog load.
+        """
+        await self.config.execution_key.set(None)
+        await ctx.send(
+            "Execution key unfrozen. Key will now be chosen randomly at cog load."
+        )
 
     @qupyterset.command(name="setports")
     async def qupyterset_setports(

@@ -38,7 +38,12 @@ def clear_singleton_instances() -> None:
     RedZMQInteractiveShell.clear_instance()
 
 
-def embed_kernel(local_ns: Dict[str, Any], **kwargs: Any) -> RedIPKernelApp:
+def embed_kernel(
+    local_ns: Dict[str, Any],
+    *,
+    execution_key: Optional[bytes] = None,
+    **kwargs: Any,
+) -> RedIPKernelApp:
     """
     Embed and start an IPython kernel in a given scope.
 
@@ -46,6 +51,8 @@ def embed_kernel(local_ns: Dict[str, Any], **kwargs: Any) -> RedIPKernelApp:
     ----------
     local_ns: Dict[str, Any]
         The namespace to load into IPython user namespace.
+    execution_key: bytes, optional
+        The execution key used for signing messages.
     kwargs: various, optional
         Further keyword args are relayed to the RedIPKernelApp constructor,
         allowing configuration of the Kernel. Will only have an effect
@@ -56,6 +63,8 @@ def embed_kernel(local_ns: Dict[str, Any], **kwargs: Any) -> RedIPKernelApp:
         app = RedIPKernelApp.instance()
     else:
         app = RedIPKernelApp.instance(**kwargs)
+        if execution_key is not None:
+            app.session.key = execution_key
         app.initialize([])
 
     app.kernel.user_ns = local_ns

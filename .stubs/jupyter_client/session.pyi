@@ -23,6 +23,7 @@ from traitlets.config.configurable import Configurable
 from zmq.eventloop.zmqstream import ZMQStream
 
 class Session(Configurable):
+    key: bytes
     def send(
         self,
         stream: ZMQStream,

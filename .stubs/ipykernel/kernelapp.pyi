@@ -22,6 +22,7 @@ from typing import Optional, Protocol
 from IPython.core.application import BaseIPythonApplication
 from IPython.core.shellapp import InteractiveShellApp
 from jupyter_client.connect import ConnectionFileMixin
+from jupyter_client.session import Session
 
 class _Thread(Protocol):
     def start(self) -> None: ...
@@ -34,6 +35,7 @@ class IPKernelApp(BaseIPythonApplication, InteractiveShellApp, ConnectionFileMix
     stdin_port: int
     trio_loop: bool
     poller: Optional[_Thread]
+    session: Session
     connection_file: str
     connection_dir: str
     def cleanup_connection_file(self) -> None: ...
