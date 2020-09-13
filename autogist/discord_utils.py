@@ -12,11 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 
-import chardet
 import discord
 from redbot.core.bot import Red
+
+if TYPE_CHECKING:
+    import chardet
+else:
+    try:
+        import cchardet as chardet
+    except ModuleNotFoundError:
+        import chardet
 
 from .log import log
 
