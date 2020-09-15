@@ -201,7 +201,9 @@ class ModRoles(commands.Cog):
         valid_roles_ids = set(r.id for r in valid_roles)
 
         if assignable_roles != valid_roles_ids:
-            await self.config.guild(ctx.guild).assignable_roles.set(valid_roles_ids)
+            await self.config.guild(ctx.guild).assignable_roles.set(
+                list(valid_roles_ids)
+            )
 
         fmt_assignable_roles = "\n".join([f"+ {r.name}" for r in valid_roles])
 
