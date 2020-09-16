@@ -174,7 +174,6 @@ cogs:
       - qupyter
       - tools
       - utility
-    hidden: true  # FIXME: unhide this when the cog is finished
   rlstats:
     name: RLStats
     short: >-

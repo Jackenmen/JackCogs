@@ -21,7 +21,7 @@
         "utility"
     ],
     "min_bot_version": "3.3.10",
-    "hidden": true,
+    "hidden": false,
     "disabled": false,
     "type": "COG"
 }
