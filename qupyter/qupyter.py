@@ -23,9 +23,11 @@ from redbot.core.bot import Red
 from redbot.core.config import Config
 from redbot.core.data_manager import cog_data_path
 
+from .converters import PortNumber
 from .ipykernel_utils import RedIPKernelApp, clear_singleton_instances, embed_kernel
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
+_PORT_NAMES = ("shell_port", "iopub_port", "stdin_port", "hb_port", "control_port")
 
 
 class Qupyter(commands.Cog):
@@ -34,6 +36,7 @@ class Qupyter(commands.Cog):
     def __init__(self, bot: Red) -> None:
         self.bot = bot
         self.config = Config.get_conf(self, 176070082584248320, force_registration=True)
+        self.config.register_global(ports=None)
         self.env = {
             "bot": bot,
             "aiohttp": aiohttp,
@@ -56,7 +59,12 @@ class Qupyter(commands.Cog):
         if self.app is not None:
             raise RuntimeError("App is already running!")
 
-        self.app = app = embed_kernel(self.env)
+        ports = await self.config.ports()
+        kwargs = {}
+        if ports is not None:
+            kwargs.update(zip(_PORT_NAMES, ports))
+
+        self.app = app = embed_kernel(self.env, **kwargs)
 
         self.connection_file_symlink.unlink(missing_ok=True)
         connection_file = Path(app.connection_dir) / app.connection_file
@@ -84,3 +92,52 @@ class Qupyter(commands.Cog):
     ) -> None:
         # this cog does not story any data
         pass
+
+    @commands.is_owner()
+    @commands.group()
+    async def qupyterset(self, ctx: commands.Context) -> None:
+        """Qupyter settings."""
+
+    @qupyterset.command(name="setports")
+    async def qupyterset_setports(
+        self,
+        ctx: commands.Context,
+        shell_port: PortNumber,
+        iopub_port: PortNumber,
+        stdin_port: PortNumber,
+        hb_port: PortNumber,
+        control_port: PortNumber,
+    ) -> None:
+        """
+        Set ports Qupyter's IPython kernel should run on.
+
+        Ports are:
+        `shell_port`   - The port the shell ROUTER socket is listening on.
+        `iopub_port`   - The port the PUB socket is listening on.
+        `stdin_port`   - The port the stdin ROUTER socket is listening on.
+        `hb_port`      - The port the heartbeat socket is listening on.
+        `control_port` - The port the control ROUTER socket is listening on.
+        """
+        await self.config.ports.set(
+            [shell_port, iopub_port, stdin_port, hb_port, control_port]
+        )
+        await self.restart_app()
+        await ctx.send("Ports set! Qupyter's IPython kernel has been restarted.")
+
+    @qupyterset.command(name="clearports")
+    async def qupyterset_clearports(self, ctx: commands.Context) -> None:
+        """Clear set ports and use random selection of ports instead."""
+        await self.config.ports.set(None)
+        await self.restart_app()
+        await ctx.send("Ports cleared! Qupyter's IPython kernel has been restarted.")
+
+    @qupyterset.command(name="info")
+    async def qupyterset_info(self, ctx: commands.Context) -> None:
+        """Show information about running kernel."""
+        port_msg = "\n".join(
+            f"`{port_name}`: {getattr(self.app, port_name)}"
+            for port_name in _PORT_NAMES
+        )
+        await ctx.send(
+            f"Qupyter's IPython kernel is currently running on ports:\n{port_msg}"
+        )
