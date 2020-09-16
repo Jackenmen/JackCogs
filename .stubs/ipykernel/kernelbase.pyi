@@ -17,9 +17,14 @@ This an incomplete stub of ipykernel library for use of cogs in this repo.
 Nobody have made a full stub for this library so only stuff used by this repo is typed.
 """
 
+import logging
+
 from jupyter_client.session import Session
 from traitlets.config.configurable import SingletonConfigurable
 
 class Kernel(SingletonConfigurable):
     session: Session
+    log: logging.Logger
+    int_id: int
+    ident: str
     def start(self) -> None: ...

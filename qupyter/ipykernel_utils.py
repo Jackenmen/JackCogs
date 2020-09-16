@@ -14,14 +14,18 @@
 
 from __future__ import annotations
 
+import asyncio
+import functools
 import inspect
 import sys
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, Generator, List, Literal, Optional
 
 from ipykernel.iostream import OutStream
 from ipykernel.ipkernel import IPythonKernel
 from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQInteractiveShell
+from IPython.core.interactiveshell import ExecutionResult, _asyncio_runner
+from ipython_genutils.py3compat import safe_unicode
 from tornado import gen, ioloop
 from traitlets.traitlets import Bool
 from zmq.eventloop.zmqstream import ZMQStream
@@ -93,6 +97,117 @@ class RedIPythonKernel(IPythonKernel):
         self.session.send(
             stream, "shutdown_reply", {"status": "abort"}, parent, ident=ident
         )
+
+    @gen.coroutine
+    def do_execute(
+        self,
+        code: str,
+        silent: bool,
+        store_history: bool = True,
+        user_expressions: Optional[Dict[str, str]] = None,
+        allow_stdin: bool = False,
+    ) -> Generator[Any, Any, Dict[str, Any]]:
+        """
+        Copied from IPythonKernel.do_execute(), stripped from comments.
+
+        Only thing that was modified is running non-async code
+        that uses `loop.run_in_executor()` instead to avoid blocking the bot.
+        While Dev cog's eval doesn't do this, with IPython there are reasons,
+        why it's good to do it like this (e.g. using the shell magic cell).
+        """
+        shell = self.shell
+
+        self._forward_input(allow_stdin)
+
+        reply_content: Dict[str, Any] = {}
+        if hasattr(shell, "run_cell_async") and hasattr(shell, "should_run_async"):
+            run_cell = shell.run_cell_async
+            should_run_async = shell.should_run_async
+        else:
+
+            def should_run_async(*args: Any, **kwargs: Any) -> Literal[False]:
+                return False
+
+            # mypy has its issues with this
+            @gen.coroutine  # type: ignore[arg-type]
+            def run_cell(*args: Any, **kwargs: Any) -> ExecutionResult:
+                return shell.run_cell(*args, **kwargs)
+
+        try:
+
+            if (
+                _asyncio_runner
+                and should_run_async(code)
+                and shell.loop_runner is _asyncio_runner
+                and asyncio.get_event_loop().is_running()
+            ):
+                coro = run_cell(code, store_history=store_history, silent=silent)
+                coro_future = asyncio.ensure_future(coro)
+
+                with self._cancel_on_sigint(coro_future):
+                    res = None
+                    try:
+                        res = yield coro_future
+                    finally:
+                        shell.events.trigger("post_execute")
+                        if not silent:
+                            shell.events.trigger("post_run_cell", res)
+            else:
+                loop = asyncio.get_event_loop()
+                # run non-async code in executor unlike the super-method
+                res = yield loop.run_in_executor(
+                    None,
+                    functools.partial(
+                        shell.run_cell, code, store_history=store_history, silent=silent
+                    ),
+                )
+        finally:
+            self._restore_input()
+
+        if res.error_before_exec is not None:
+            err = res.error_before_exec
+        else:
+            err = res.error_in_exec
+
+        if res.success:
+            reply_content["status"] = "ok"
+        else:
+            reply_content["status"] = "error"
+
+            reply_content.update(
+                {
+                    "traceback": shell._last_traceback or [],
+                    "ename": str(type(err).__name__),
+                    "evalue": safe_unicode(err),
+                }
+            )
+
+            e_info = dict(
+                engine_uuid=self.ident,
+                engine_id=self.int_id,
+                method="execute",
+            )
+            reply_content["engine_info"] = e_info
+
+        reply_content["execution_count"] = shell.execution_count - 1
+
+        if "traceback" in reply_content:
+            self.log.info(
+                "Exception in execute request:\n%s",
+                "\n".join(reply_content["traceback"]),
+            )
+
+        if reply_content["status"] == "ok":
+            reply_content["user_expressions"] = shell.user_expressions(
+                user_expressions or {}
+            )
+        else:
+            reply_content["user_expressions"] = {}
+
+        reply_content["payload"] = shell.payload_manager.read_payload()
+        shell.payload_manager.clear_payload()
+
+        return reply_content
 
 
 class RedOutStream(OutStream):

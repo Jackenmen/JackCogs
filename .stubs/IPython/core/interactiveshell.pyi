@@ -18,11 +18,50 @@ Nobody have made a full stub for this library so only stuff used by this repo is
 """
 
 from types import FrameType
-from typing import Optional, Protocol
+from typing import Any, Dict, Optional, Protocol
 
 from traitlets.config.configurable import SingletonConfigurable
 
-class InteractiveShellABC(Protocol):
-    def set_completer_frame(self, frame: Optional[FrameType] = None) -> None: ...
+from .async_helpers import _asyncio_runner as _asyncio_runner, _AsyncIORunner
+from .events import EventManager
+from .payload import PayloadManager
 
-class InteractiveShell(InteractiveShellABC, SingletonConfigurable): ...
+class ExecutionResult: ...
+
+class InteractiveShellABC(Protocol):
+    execution_count: int
+    events: EventManager
+    loop_runner: _AsyncIORunner
+    payload_manager: PayloadManager
+    def set_completer_frame(self, frame: Optional[FrameType] = None) -> None: ...
+    def run_cell(
+        self,
+        raw_cell: str,
+        store_history: bool = False,
+        silent: bool = False,
+        shell_futures: bool = True,
+    ) -> ExecutionResult: ...
+    async def run_cell_async(
+        self,
+        raw_cell: str,
+        store_history: bool = False,
+        silent: bool = False,
+        shell_futures: bool = True,
+        *,
+        transformed_cell: Optional[str] = None,
+        preprocessing_exc_tuple: Optional[Any] = None,
+    ) -> ExecutionResult: ...
+    def should_run_async(
+        self,
+        raw_cell: str,
+        *,
+        transformed_cell: Optional[str] = None,
+        preprocessing_exc_tuple: Optional[Any] = None,
+    ) -> bool: ...
+    def user_expressions(self, expressions: Dict[str, str]) -> Dict[str, Any]: ...
+
+class InteractiveShell(InteractiveShellABC, SingletonConfigurable):
+    execution_count: int
+    events: EventManager
+    loop_runner: _AsyncIORunner
+    payload_manager: PayloadManager

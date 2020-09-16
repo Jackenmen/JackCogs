@@ -17,12 +17,30 @@ This an incomplete stub of ipykernel library for use of cogs in this repo.
 Nobody have made a full stub for this library so only stuff used by this repo is typed.
 """
 
-from typing import Any, Dict
+import asyncio
+from contextlib import contextmanager
+from typing import Any, Dict, Generator, Optional
 
-from IPython.core.interactiveshell import InteractiveShellABC
+from tornado import gen
 
 from .kernelbase import Kernel
+from .zmqshell import ZMQInteractiveShell
 
 class IPythonKernel(Kernel):
-    shell: InteractiveShellABC
+    shell: ZMQInteractiveShell
     user_ns: Dict[str, Any]
+    @gen.coroutine
+    def do_execute(
+        self,
+        code: str,
+        silent: bool,
+        store_history: bool = True,
+        user_expressions: Optional[Dict[str, str]] = None,
+        allow_stdin: bool = False,
+    ) -> Generator[Any, Any, Dict[str, Any]]: ...
+    def _forward_input(self, allow_stdin: bool = False) -> None: ...
+    def _restore_input(self) -> None: ...
+    @contextmanager
+    def _cancel_on_sigint(
+        self, future: asyncio.Future[Any]
+    ) -> Generator[Any, Any, Any]: ...

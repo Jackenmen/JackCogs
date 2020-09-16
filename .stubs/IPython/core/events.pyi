@@ -13,13 +13,11 @@
 # limitations under the License.
 
 """
-This an incomplete stub of ipykernel library for use of cogs in this repo.
+This an incomplete stub of IPython library for use of cogs in this repo.
 Nobody have made a full stub for this library so only stuff used by this repo is typed.
 """
 
-from typing import List
+from typing import Any
 
-from IPython.core.interactiveshell import InteractiveShell
-
-class ZMQInteractiveShell(InteractiveShell):
-    _last_traceback: List[str]
+class EventManager:
+    def trigger(self, event: str, *args: Any, **kwargs: Any) -> None: ...
