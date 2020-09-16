@@ -21,7 +21,7 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
-from .ipykernel_utils import RedIPKernelApp, embed_kernel
+from .ipykernel_utils import RedIPKernelApp, clear_singleton_instances, embed_kernel
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -49,6 +49,8 @@ class Qupyter(commands.Cog):
         """Cog unload cleanup."""
         self.app.cleanup_connection_file()
         self.app.close()
+        # needed for proper hot-reload
+        clear_singleton_instances()
 
     async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, Any]:
         # this cog does not story any data

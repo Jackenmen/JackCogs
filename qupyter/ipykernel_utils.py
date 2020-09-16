@@ -23,6 +23,13 @@ from tornado import gen, ioloop
 from zmq.eventloop.zmqstream import ZMQStream
 
 
+def clear_singleton_instances() -> None:
+    """Clear singleton instances."""
+    RedIPKernelApp.clear_instance()
+    RedIPythonKernel.clear_instance()
+    RedZMQInteractiveShell.clear_instance()
+
+
 def embed_kernel(local_ns: Dict[str, Any], **kwargs: Any) -> RedIPKernelApp:
     """
     Embed and start an IPython kernel in a given scope.
