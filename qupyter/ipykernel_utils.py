@@ -14,8 +14,11 @@
 
 from __future__ import annotations
 
+import inspect
+import sys
 from typing import Any, Dict, List, Literal
 
+from ipykernel.iostream import OutStream
 from ipykernel.ipkernel import IPythonKernel
 from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQInteractiveShell
@@ -92,10 +95,52 @@ class RedIPythonKernel(IPythonKernel):
         )
 
 
+class RedOutStream(OutStream):
+    """
+    Prevents ipykernel from suppressing console output,
+    while keeping IPython's output from showing up in console.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.__echo = None
+        if self.name == "stdout":
+            self.__echo = sys.__stdout__
+        elif self.name == "stderr":
+            self.__echo = sys.__stderr__
+
+    def _flush(self) -> None:
+        if self.__echo is not None:
+            self.__echo.flush()
+        super()._flush()
+
+    # blame the upstream for not returning int here
+    def write(self, string: str) -> None:  # type: ignore[override]
+        # is this hacky? yes
+        # does it work? also yes
+        try:
+            frame = inspect.currentframe()
+            while frame is not None:
+                if frame.f_code.co_name == "run_code" and getattr(
+                    inspect.getmodule(frame), "__name__", ""
+                ).startswith("IPython"):
+                    break
+                frame = frame.f_back
+            else:
+                # if we don't find a `run_code` frame, we should echo to console
+                if self.__echo is not None:
+                    self.__echo.write(string)
+                # we could probably return here, but writing to IPython's stream
+                # could be helpful if someone spawns a background task
+        finally:
+            del frame
+        super().write(string)
+
+
 class RedIPKernelApp(IPKernelApp):
     kernel_class = RedIPythonKernel
     kernel: RedIPythonKernel
-    quiet = False  # this prevents ipykernel from suppressing console output
+    outstream_class = "qupyter.ipykernel_utils.RedOutStream"
     kernel_name = "IPython Kernel for Red"
 
     def start(self) -> None:
