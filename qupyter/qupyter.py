@@ -102,6 +102,29 @@ class Qupyter(commands.Cog):
     async def qupyterset(self, ctx: commands.Context) -> None:
         """Qupyter settings."""
 
+    @qupyterset.command(name="explain")
+    async def qupyterset_explain(self, ctx: commands.Context) -> None:
+        """Explain how to use Qupyter."""
+        p = ctx.clean_prefix
+        await ctx.send(
+            "This cog runs a kernel application that allows you to run any IPython code"
+            " within Red's environment. You can connect to it"
+            " using `jupyter console` client.\n"
+            "If you're using `jupyter console` on the host machine and you're not"
+            " running other Jupyter kernels (on another bot for example), it should be"
+            " enough to run `jupyter console --existing` which will make Jupyter try to"
+            " connect to the most recently started kernel. If that doesn't work,"
+            " you can explicitly pass path to connection file that is located"
+            " in cog's data path:```"
+            "jupyter console --existing <data_path>/cogs/Qupyter/kernel.json"
+            "```\n"
+            "Alternatively, if you want to use `jupyter console` from"
+            " a different machine, you can copy the connection file"
+            f" and tunnel the ports from the host machine. `{p}qupyterset freezekey`"
+            f" and `{p}qupyterset setports` commands can make this process easier"
+            " by keeping the connection details the same between cog reloads."
+        )
+
     @qupyterset.command(name="freezekey")
     async def qupyterset_freezekey(self, ctx: commands.Context) -> None:
         """
