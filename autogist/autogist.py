@@ -45,7 +45,10 @@ class AutoGist(commands.Cog):
         self._session: aiohttp.ClientSession
         self.config = Config.get_conf(self, 176070082584248320, force_registration=True)
         self.config.register_guild(
-            blocklist_mode=False, file_extensions=[".txt", ".log"]
+            blocklist_mode=False,
+            file_extensions=[".txt", ".log"],
+            listen_to_bots=False,
+            listen_to_self=False,
         )
         # state:
         #  - `True` - allowed
@@ -134,7 +137,7 @@ class AutoGist(commands.Cog):
         except KeyError:
             pass
 
-        data = await GuildData.from_guild(self.config, guild)
+        data = await GuildData.from_guild(self.bot, self.config, guild)
         self._guild_cache[guild.id] = data
 
         return data
@@ -263,6 +266,102 @@ class AutoGist(commands.Cog):
         await ctx.send(f"{msg}{humanize_list(overriden)}")
 
     @commands.guild_only()
+    @autogistset.command(name="listentobots")
+    async def autogistset_listentobots(
+        self, ctx: GuildContext, state: Optional[bool] = None
+    ) -> None:
+        """
+        Make AutoGist listen to messages from other bots in this server.
+
+        NOTE: To make bot listen to messages from itself,
+        you need to use `[p]autogistset listentoself` command.
+        """
+        guild_data = await self.get_guild_data(ctx.guild)
+        if state is None:
+            if guild_data.listen_to_bots:
+                msg = "AutoGist listens to messages from other bots in this server."
+            else:
+                msg = (
+                    "AutoGist doesn't listen to messages"
+                    " from other bots in this server."
+                )
+            await ctx.send(msg)
+            return
+
+        if state is guild_data.listen_to_bots:
+            if state:
+                msg = (
+                    "AutoGist already listens to messages"
+                    " from other bots in this server."
+                )
+            else:
+                msg = (
+                    "AutoGist already doesn't listen to messages"
+                    " from other bots in this server."
+                )
+            await ctx.send(msg)
+            return
+
+        await guild_data.edit_listen_to_bots(state)
+        if state:
+            msg = "AutoGist will now listen to messages from other bots in this server."
+        else:
+            msg = (
+                "AutoGist will no longer listen to messages"
+                " from other bots in this server."
+            )
+        await ctx.send(msg)
+
+    @commands.guild_only()
+    @autogistset.command(name="listentoself")
+    async def autogistset_listentoself(
+        self, ctx: GuildContext, state: Optional[bool] = None
+    ) -> None:
+        """
+        Make the bot listen to messages from itself in this server.
+
+        See also: `[p]autogistset listentobots` command,
+        that makes the bot listen to other bots.
+        """
+        guild_data = await self.get_guild_data(ctx.guild)
+        if state is None:
+            if guild_data.listen_to_self:
+                msg = "AutoGist listens to messages from its bot user in this server."
+            else:
+                msg = (
+                    "AutoGist doesn't listen to messages"
+                    " from its bot user in this server."
+                )
+            await ctx.send(msg)
+            return
+
+        if state is guild_data.listen_to_self:
+            if state:
+                msg = (
+                    "AutoGist already listens to messages"
+                    " from its bot user in this server."
+                )
+            else:
+                msg = (
+                    "AutoGist already doesn't listen to messages"
+                    " from its bot user in this server."
+                )
+            await ctx.send(msg)
+            return
+
+        await guild_data.edit_listen_to_self(state)
+        if state:
+            msg = (
+                "AutoGist will now listen to messages from its bot user in this server."
+            )
+        else:
+            msg = (
+                "AutoGist will no longer listen to messages"
+                " from its bot user in this server."
+            )
+        await ctx.send(msg)
+
+    @commands.guild_only()
     @autogistset.group(name="extensions", aliases=["ext", "exts"])
     async def autogistset_extensions(self, ctx: GuildContext) -> None:
         """
@@ -350,6 +449,9 @@ class AutoGist(commands.Cog):
             return True
 
         guild_data = await self.get_guild_data(guild)
+        if not guild_data.is_permitted(message.author):
+            return True
+
         if not await guild_data.is_enabled_for_channel(channel):
             return True
 
