@@ -14,10 +14,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, List
 
+from ipykernel.ipkernel import IPythonKernel
 from ipykernel.kernelapp import IPKernelApp
-from tornado import ioloop
+from ipykernel.zmqshell import ZMQInteractiveShell
+from tornado import gen, ioloop
+from zmq.eventloop.zmqstream import ZMQStream
 
 
 def embed_kernel(local_ns: Dict[str, Any], **kwargs: Any) -> RedIPKernelApp:
@@ -46,7 +49,34 @@ def embed_kernel(local_ns: Dict[str, Any], **kwargs: Any) -> RedIPKernelApp:
     return app
 
 
+class RedZMQInteractiveShell(ZMQInteractiveShell):
+    # prevents the shell from closing the event loop, when exiting
+    _update_exit_now = None
+
+
+class RedIPythonKernel(IPythonKernel):
+    shell_class = RedZMQInteractiveShell
+
+    # incorrect type hint in tornado
+    # might get fixed by: https://github.com/tornadoweb/tornado/pull/2909
+    @gen.coroutine  # type: ignore[arg-type]
+    def shutdown_request(
+        self, stream: ZMQStream, ident: List[bytes], parent: Dict[str, Any]
+    ) -> None:
+        """
+        I shouldn't be doing what I'm doing here, but who cares?
+
+        Basically prevents `exit` command in Jupyter console from closing
+        the kernel and taking Red (or rather its event loop) with it.
+        """
+        self.session.send(
+            stream, "shutdown_reply", {"status": "abort"}, parent, ident=ident
+        )
+
+
 class RedIPKernelApp(IPKernelApp):
+    kernel_class = RedIPythonKernel
+    kernel: RedIPythonKernel
     kernel_name = "IPython Kernel for Red"
 
     def start(self) -> None:
