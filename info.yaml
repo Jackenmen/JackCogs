@@ -150,6 +150,24 @@ cogs:
       - nitro
       - nitrorole
       - welcome
+  qupyter:
+    name: Qupyter
+    short: Run IPython kernel within Red and connect to it with Jupyter Console.
+    description: >-
+      {short}
+
+      NOTE: This cog currently DOES NOT work on Windows.
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
+    requirements:
+      - ipykernel~=5.3
+    tags:
+      - dev
+      - development
+      - qupyter
+      - tools
+      - utility
+    hidden: true  # FIXME: unhide this when the cog is finished
   rlstats:
     name: RLStats
     short: >-

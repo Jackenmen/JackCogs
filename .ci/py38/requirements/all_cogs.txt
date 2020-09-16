@@ -2,5 +2,6 @@ Red-DiscordBot
 cachetools~=4.1
 emoji~=0.6.0
 gidgethub~=4.1
+ipykernel~=5.3
 pillow~=7.2
 rlapi==0.4.1a1
