@@ -34,5 +34,7 @@ class IPKernelApp(BaseIPythonApplication, InteractiveShellApp, ConnectionFileMix
     stdin_port: int
     trio_loop: bool
     poller: Optional[_Thread]
+    connection_file: str
+    connection_dir: str
     def cleanup_connection_file(self) -> None: ...
     def close(self) -> None: ...

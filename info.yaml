@@ -159,6 +159,11 @@ cogs:
       NOTE: This cog currently DOES NOT work on Windows.
     end_user_data_statement: >-
       This cog does not persistently store data or metadata about users.
+    install_msg: >-
+      {shared_fields.install_msg}
+
+
+      This cog makes a symlink to kernel app's connection file in data path.
     requirements:
       - ipykernel~=5.3
       - ipyparallel

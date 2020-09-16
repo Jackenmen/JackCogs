@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+from pathlib import Path
 from typing import Any, Dict, Literal, Optional
 
 import aiohttp
@@ -20,6 +21,7 @@ import discord
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
+from redbot.core.data_manager import cog_data_path
 
 from .ipykernel_utils import RedIPKernelApp, clear_singleton_instances, embed_kernel
 
@@ -39,6 +41,7 @@ class Qupyter(commands.Cog):
             "discord": discord,
             "commands": commands,
         }
+        self.connection_file_symlink = cog_data_path(self) / "kernel.json"
         self.app: Optional[RedIPKernelApp] = None
 
     async def initialize(self) -> None:
@@ -55,8 +58,13 @@ class Qupyter(commands.Cog):
 
         self.app = app = embed_kernel(self.env)
 
+        self.connection_file_symlink.unlink(missing_ok=True)
+        connection_file = Path(app.connection_dir) / app.connection_file
+        self.connection_file_symlink.symlink_to(connection_file)
+
     def stop_app(self) -> None:
         if self.app is not None:
+            self.connection_file_symlink.unlink(missing_ok=True)
             self.app.cleanup_connection_file()
             self.app.close()
             self.app = None
