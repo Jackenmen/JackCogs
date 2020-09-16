@@ -161,6 +161,7 @@ cogs:
       This cog does not persistently store data or metadata about users.
     requirements:
       - ipykernel~=5.3
+      - jedi<0.16.0  # IPython 7.18.1 uses deprecated things
     tags:
       - dev
       - development

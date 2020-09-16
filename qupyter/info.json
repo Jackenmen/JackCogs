@@ -9,7 +9,8 @@
     ],
     "required_cogs": {},
     "requirements": [
-        "ipykernel~=5.3"
+        "ipykernel~=5.3",
+        "jedi<0.16.0"
     ],
     "tags": [
         "dev",

@@ -23,7 +23,11 @@ from redbot.core.errors import CogLoadError
 if sys.platform == "win32" and not TYPE_CHECKING:
     raise CogLoadError("This cog does not support Windows.")
 
-from .qupyter import Qupyter
+from .depr_warnings import ignore_ipy_depr_warnings
+
+ignore_ipy_depr_warnings()
+
+from .qupyter import Qupyter  # noqa: E402
 
 with open(Path(__file__).parent / "info.json") as fp:
     __red_end_user_data_statement__ = json.load(fp)["end_user_data_statement"]
