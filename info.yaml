@@ -150,6 +150,30 @@ cogs:
       - nitro
       - nitrorole
       - welcome
+  qupyter:
+    name: Qupyter
+    short: Run IPython kernel within Red and connect to it with Jupyter Console.
+    description: >-
+      {short}
+
+      NOTE: This cog currently DOES NOT work on Windows.
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
+    install_msg: >-
+      {shared_fields.install_msg}
+
+
+      This cog makes a symlink to kernel app's connection file in data path.
+    requirements:
+      - ipykernel~=5.3
+      - ipyparallel
+      - jedi<0.16.0  # IPython 7.18.1 uses deprecated things
+    tags:
+      - dev
+      - development
+      - qupyter
+      - tools
+      - utility
   rlstats:
     name: RLStats
     short: >-
