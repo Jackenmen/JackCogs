@@ -98,6 +98,31 @@ class Qupyter(commands.Cog):
         pass
 
     @commands.is_owner()
+    @commands.command()
+    async def qupyctx(self, ctx: commands.Context) -> None:
+        """
+        Update kernel's environment with variables from current invocation context.
+
+        This command assigns relevant d.py objects from current invocation context
+        to `ctx`, `author`, `channel`, `guild`, and `message` variables
+        in kernel's environment.
+
+        This will override any current values that are assigned
+        under these variable names.
+        """
+        self.env.update(
+            ctx=ctx,
+            author=ctx.author,
+            channel=ctx.channel,
+            guild=ctx.guild,
+            message=ctx.message,
+        )
+        await ctx.send(
+            "Kernel's environment updated with variables"
+            " from current invocation context."
+        )
+
+    @commands.is_owner()
     @commands.group()
     async def qupyterset(self, ctx: commands.Context) -> None:
         """Qupyter settings."""
