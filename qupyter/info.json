@@ -1,9 +1,9 @@
 {
     "name": "Qupyter",
-    "short": "Run IPython kernel within Red and connect to it with Jupyter Console.",
-    "description": "Run IPython kernel within Red and connect to it with Jupyter Console.\nNOTE: This cog currently DOES NOT work on Windows.",
+    "short": "Run IPython kernel within Red and connect to it with Jupyter Console. This is a development tool.",
+    "description": "Run IPython kernel within Red and connect to it with Jupyter Console. This is a development tool.\n\nWARNING: This cog is meant for development instances and should NOT ever be used in production environment.\n\nNOTE: This cog currently DOES NOT work on Windows.",
     "end_user_data_statement": "This cog does not persistently store data or metadata about users.",
-    "install_msg": "Thanks for installing Qupyter. If anything doesn't work, you can report it on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.\n\nThis cog makes a symlink to kernel app's connection file in data path.",
+    "install_msg": "Thanks for installing Qupyter. If anything doesn't work, you can report it on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.\n\n**Warning:** This cog is meant for development instances and should NOT ever be used in production environment.\n\nThis cog makes a symlink to kernel app's connection file in data path.",
     "author": [
         "jack1142 (Jackenmen#6607)"
     ],
