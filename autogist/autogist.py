@@ -224,21 +224,31 @@ class AutoGist(commands.Cog):
         await ctx.send(msg)
 
     @commands.guild_only()
-    @autogistset.command(name="allowchannels", aliases=["allowchannel"])
+    @autogistset.command(
+        name="allowchannels", aliases=["allowchannel"], usage="<channels...>"
+    )
     async def autogistset_allowchannels(
         self, ctx: GuildContext, *channels: discord.TextChannel
     ) -> None:
         """Allow the bot to listen to the given channels."""
+        if not channels:
+            await ctx.send_help()
+            return
         guild_data = await self.get_guild_data(ctx.guild)
         await guild_data.update_channel_states(channels, True)
         await ctx.send("Bot will now listen to the messages in given channels.")
 
     @commands.guild_only()
-    @autogistset.command(name="blockchannels", aliases=["blockchannel"])
+    @autogistset.command(
+        name="blockchannels", aliases=["blockchannel"], usage="<channels...>"
+    )
     async def autogistset_blockchannels(
         self, ctx: GuildContext, *channels: discord.TextChannel
     ) -> None:
         """Block the bot from listening to the given channels."""
+        if not channels:
+            await ctx.send_help()
+            return
         guild_data = await self.get_guild_data(ctx.guild)
         await guild_data.update_channel_states(channels, False)
         await ctx.send("Bot will no longer listen to the messages in given channels.")
@@ -371,7 +381,7 @@ class AutoGist(commands.Cog):
         By default AutoGist will look for files with `.txt` and `.log` extensions.
         """
 
-    @autogistset_extensions.command(name="add")
+    @autogistset_extensions.command(name="add", usage="<extensions...>")
     async def autogistset_extensions_add(
         self, ctx: GuildContext, *extensions: str
     ) -> None:
@@ -381,11 +391,16 @@ class AutoGist(commands.Cog):
         Example:
         `[p]autogist extensions add txt .log` - adds `.txt` and `.log` extensions.
         """
+        if not extensions:
+            await ctx.send_help()
+            return
         guild_data = await self.get_guild_data(ctx.guild)
         await guild_data.add_file_extensions(extensions)
         await ctx.send("Bot will now upload files with the given extensions.")
 
-    @autogistset_extensions.command(name="remove", aliases=["delete"])
+    @autogistset_extensions.command(
+        name="remove", aliases=["delete"], usage="<extensions...>"
+    )
     async def autogistset_extensions_remove(
         self, ctx: GuildContext, *extensions: str
     ) -> None:
@@ -395,6 +410,9 @@ class AutoGist(commands.Cog):
         Example:
         `[p]autogist extensions remove txt .log` - removes `.txt` and `.log` extensions.
         """
+        if not extensions:
+            await ctx.send_help()
+            return
         guild_data = await self.get_guild_data(ctx.guild)
         await guild_data.remove_file_extensions(extensions)
         await ctx.send("Bot will now no longer upload files with the given extensions.")
