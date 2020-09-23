@@ -31,6 +31,7 @@ Also I suggest to join [Red - Cog Support server](https://discord.gg/GET4DVk) an
 * **nitrorole** - Welcome new nitro boosters and/or give them a special role!
 * **qupyter** - Run IPython kernel within Red and connect to it with Jupyter Console. This is a development tool.
 * **rlstats** - Get your Rocket League stats with a single command! Needs access to Rocket League API which is currently in closed beta.
+* **rssnotifier** - Get role and/or user mentions about feed updates. This cog requires RSS cog from aikaterna-cogs repo to work.
 * **shell** - Run shell commands on bot's system from Discord.
 * **voicetools** - Various tools to make voice channels better!
 

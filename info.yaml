@@ -218,6 +218,32 @@ cogs:
       - gaming
       - rlstats
       - rocketleague
+  rssnotifier:
+    name: RSSNotifier
+    short: >-
+      Get role and/or user mentions about feed updates.
+      This cog requires RSS cog from aikaterna-cogs repo to work.
+    description: '{short}'
+    end_user_data_statement: >-
+      This cog stores Discord user IDs
+      when the user explicitly opts in receiving mentions about feed updates.
+
+      No personal identifiable data is stored by this cog.
+    class_docstring: Get role and/or user mentions about feed updates.
+    install_msg: >-
+      {shared_fields.install_msg}
+
+
+      **This cog requires RSS cog from aikaterna-cogs repo to work.**
+    required_cogs:
+      rss: https://github.com/aikaterna/aikaterna-cogs
+    tags:
+      - notifications
+      - rss
+      - rssnotifier
+      - tools
+      - utility
+    min_bot_version: 3.4.0
   shell:
     name: Shell
     short: Run shell commands on bot's system from Discord.
