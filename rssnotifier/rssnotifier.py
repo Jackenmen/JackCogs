@@ -15,7 +15,7 @@
 import contextlib
 import itertools
 from io import BytesIO
-from typing import Any, Dict, Literal, Union
+from typing import Any, Dict, Literal
 
 import discord
 from redbot.core import commands
