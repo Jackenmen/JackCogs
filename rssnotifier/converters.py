@@ -35,7 +35,7 @@ else:
     class RawRoleObjectConverter(commands.RoleConverter):
         async def convert(self, ctx: commands.Context, arg: str) -> _RawRole:
             with contextlib.suppress(commands.BadArgument):
-                return super().convert(ctx, arg)
+                return await super().convert(ctx, arg)
 
             if match := _id_regex.match(arg) or _mention_regex.match(arg):
                 return discord.Object(int(match.group(1)))
