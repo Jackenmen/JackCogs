@@ -140,7 +140,7 @@ class RSSNotifier(commands.Cog):
         feed_name: str,
         channel: discord.TextChannel,
         # support the int for the cases where the role no longer exists
-        *roles: Union[discord.Role, RawRoleObject],
+        *roles: RawRoleObject,
     ) -> None:
         """
         Remove roles that should be mentioned when new message for given feed is sent.
