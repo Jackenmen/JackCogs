@@ -34,7 +34,7 @@ from .image import CoordsInfo, Mee6RankImageTemplate
 from .player import Player, PlayerWithAvatar
 from .utils import json_or_text
 
-log = logging.getLogger("red.jackcogs.rlstats")
+log = logging.getLogger("red.jackcogs.mee6rank")
 
 T = TypeVar("T")
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
