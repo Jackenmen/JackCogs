@@ -68,7 +68,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         # competitive
         rlapi.PlaylistKey.solo_duel: (0, 0),
         rlapi.PlaylistKey.doubles: (960, 0),
-        rlapi.PlaylistKey.solo_standard: (0, 383),
+        rlapi.PlaylistKey.tournaments: (0, 383),
         rlapi.PlaylistKey.standard: (960, 383),
         # extra modes
         rlapi.PlaylistKey.hoops: (0, 0),
@@ -396,7 +396,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         playlists = (
             rlapi.PlaylistKey.solo_duel,
             rlapi.PlaylistKey.doubles,
-            rlapi.PlaylistKey.solo_standard,
+            rlapi.PlaylistKey.tournaments,
             rlapi.PlaylistKey.standard,
         )
         await self._rlstats_logic(ctx, self.competitive_template, playlists, player_id)
