@@ -29,7 +29,7 @@ def iter_emojis(raw_emojis: str) -> Generator[Tuple[str, str], None, None]:
         emoji = match.group(0)
         if emoji[0] == "<":
             # custom emoji
-            yield emoji, f"<\\{emoji[1:]}"
+            yield emoji, f"{emoji[:-1]}\\>"
             continue
 
         # unicode emoji
