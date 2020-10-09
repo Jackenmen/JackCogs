@@ -317,7 +317,7 @@ class RSSNotifier(commands.Cog):
         )
 
     @commands.Cog.listener()
-    async def on_aikaternacogs_rss_message(
+    async def on_aikaternacogs_rss_feed_update(
         self,
         *,
         channel: discord.TextChannel,
