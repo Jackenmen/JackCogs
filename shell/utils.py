@@ -48,8 +48,7 @@ async def _reader(process: asp.Process) -> str:
     lines = []
     assert process.stdout is not None
     try:
-        # mypy v0.782 has outdated typeshed with inaccurate type hints for this
-        async for line in process.stdout:  # type: ignore[attr-defined]
+        async for line in process.stdout:
             lines.append(line)
     except asyncio.CancelledError:
         # this is a bit of an abuse,

@@ -62,7 +62,7 @@ class Qupyter(commands.Cog):
         data = await self.config.all()
         ports = data["ports"]
         execution_key = data["execution_key"]
-        kwargs = {}
+        kwargs: Dict[str, Any] = {}
         if ports is not None:
             kwargs.update(zip(_PORT_NAMES, ports))
         if execution_key is not None:
