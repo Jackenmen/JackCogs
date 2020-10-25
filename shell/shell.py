@@ -48,6 +48,26 @@ class Shell(commands.Cog):
     @commands.command()
     async def shell(self, ctx: commands.Context, *, command: str) -> None:
         """Run shell command."""
+        await self._shell_command(ctx, command)
+
+    @commands.is_owner()
+    @commands.command()
+    async def shellq(self, ctx: commands.Context, *, command: str) -> None:
+        """
+        Run shell command quietly.
+
+        If command's exit code is 0, `[p]shellq` will only send a tick reaction.
+        Otherwise, the result will be shown as with regular `[p]shell` command.
+        """
+        await self._shell_command(ctx, command, send_message_on_success=False)
+
+    async def _shell_command(
+        self,
+        ctx: commands.Context,
+        command: str,
+        *,
+        send_message_on_success: bool = True
+    ):
         async with ctx.typing():
             async with self._killing_lock:
                 p = await asp.create_subprocess_shell(
@@ -69,7 +89,10 @@ class Shell(commands.Cog):
                 with contextlib.suppress(ValueError):
                     self.active_processes.remove(p)
 
-        await send_pages(ctx, command=command, output=output, prefix=prefix)
+        if not send_message_on_success and p.returncode == 0:
+            await ctx.tick()
+        else:
+            await send_pages(ctx, command=command, output=output, prefix=prefix)
 
     @commands.is_owner()
     @commands.command()
