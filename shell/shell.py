@@ -67,7 +67,7 @@ class Shell(commands.Cog):
         command: str,
         *,
         send_message_on_success: bool = True
-    ):
+    ) -> None:
         async with ctx.typing():
             async with self._killing_lock:
                 p = await asp.create_subprocess_shell(
