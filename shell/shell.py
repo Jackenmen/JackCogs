@@ -66,7 +66,7 @@ class Shell(commands.Cog):
         ctx: commands.Context,
         command: str,
         *,
-        send_message_on_success: bool = True
+        send_message_on_success: bool = True,
     ) -> None:
         async with ctx.typing():
             async with self._killing_lock:
