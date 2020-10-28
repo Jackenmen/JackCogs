@@ -25,7 +25,7 @@ else:
 
 
 def single_user_pings_enabled() -> CheckDecorator:
-    async def predicate(ctx: commands.GuildContext) -> bool:
+    async def predicate(ctx: commands.Context) -> bool:
         if ctx.guild is None:
             return False
         cog = cast(RSSNotifier, ctx.cog)
