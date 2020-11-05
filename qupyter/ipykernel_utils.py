@@ -93,7 +93,7 @@ class RedIPythonKernel(IPythonKernel):
 
     # incorrect type hint in tornado
     # might get fixed by: https://github.com/tornadoweb/tornado/pull/2909
-    @gen.coroutine  # type: ignore[arg-type]
+    @gen.coroutine
     def shutdown_request(
         self, stream: ZMQStream, ident: List[bytes], parent: Dict[str, Any]
     ) -> None:
@@ -138,7 +138,7 @@ class RedIPythonKernel(IPythonKernel):
                 return False
 
             # mypy has its issues with this
-            @gen.coroutine  # type: ignore[arg-type]
+            @gen.coroutine
             def run_cell(*args: Any, **kwargs: Any) -> ExecutionResult:
                 return shell.run_cell(*args, **kwargs)
 
