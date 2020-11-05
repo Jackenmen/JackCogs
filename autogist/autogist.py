@@ -627,4 +627,4 @@ class AutoGist(commands.Cog):
         """Update GitHub token when `[p]set api` command is used."""
         if service_name != "github":
             return
-        self.oauth_token = await self._get_token(api_tokens)
+        self.gh.oauth_token = await self._get_token(api_tokens)
