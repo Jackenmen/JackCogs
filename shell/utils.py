@@ -54,7 +54,7 @@ async def _reader(process: asp.Process) -> str:
         # this is a bit of an abuse,
         # but cancelling helps nicely with controlling the flow
         raise ProcessTerminatedEarly(lines) from None
-    return b"".join(lines).decode()
+    return b"".join(lines).decode("utf-8", "replace")
 
 
 async def wait_for_result(process: asp.Process) -> str:
