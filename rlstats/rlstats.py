@@ -502,7 +502,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         )
 
     @commands.command()
-    async def rlconnect(self, ctx: commands.Context, player_id: str) -> None:
+    async def rlconnect(self, ctx: commands.Context, *, player_id: str) -> None:
         """Connect game profile with your Discord account."""
         async with ctx.typing():
             if not await self._check_token(ctx):
