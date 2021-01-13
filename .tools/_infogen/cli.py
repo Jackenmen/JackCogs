@@ -15,17 +15,31 @@
 from __future__ import annotations
 
 import argparse
+import shutil
+import textwrap
 from enum import Enum
 
 __all__ = ("parser",)
 
+_terminal_width = shutil.get_terminal_size().columns - 2
+_description = (
+    textwrap.fill(
+        "Script to automatically generate info.json files"
+        " and generate class docstrings from single info.yaml file for whole repo.",
+        _terminal_width,
+    )
+    + "\n\n"
+    + textwrap.fill(
+        "DISCLAIMER: While this script works, it uses some hacks"
+        " and I don't recommend using it if you don't understand how it does some stuff"
+        " and why it does it like this.",
+        _terminal_width,
+    )
+)
 parser = argparse.ArgumentParser(
     usage="%(prog)s [options]",
-    description="Script to automatically generate info.json files"
-    " and generate class docstrings from single info.yaml file for whole repo.\n\n"
-    "DISCLAIMER: While this script works, it uses some hacks"
-    " and I don't recommend using it if you don't understand how it does some stuff"
-    " and why it does it like this.",
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    description=_description,
 )
 parser.add_argument(
     "--check",
