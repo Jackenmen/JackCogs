@@ -1,0 +1,23 @@
+{
+    "name": "ModRoles",
+    "short": "Allow moderators without manage roles permission to assign configured roles to users.",
+    "description": "Allow moderators without manage roles permission to assign configured roles to users.",
+    "end_user_data_statement": "This cog does not persistently store data or metadata about users.",
+    "install_msg": "Thanks for installing ModRoles. If anything doesn't work, you can report it on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.",
+    "author": [
+        "jack1142 (Jackenmen#6607)"
+    ],
+    "required_cogs": {},
+    "requirements": [],
+    "tags": [
+        "moderation",
+        "modroles",
+        "roles",
+        "tools",
+        "utility"
+    ],
+    "min_bot_version": "3.3.10",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}

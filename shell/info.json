@@ -1,0 +1,24 @@
+{
+    "name": "Shell",
+    "short": "Run shell commands on bot's system from Discord.",
+    "description": "Run shell commands on bot's system from Discord.",
+    "end_user_data_statement": "This cog does not persistently store data or metadata about users.",
+    "install_msg": "Thanks for installing Shell. If anything doesn't work, you can report it on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.",
+    "author": [
+        "jack1142 (Jackenmen#6607)"
+    ],
+    "required_cogs": {},
+    "requirements": [],
+    "tags": [
+        "bash",
+        "dev",
+        "development",
+        "shell",
+        "tools",
+        "utility"
+    ],
+    "min_bot_version": "3.3.10",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}

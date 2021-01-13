@@ -1,0 +1,28 @@
+{
+    "name": "Qupyter",
+    "short": "Run IPython kernel within Red and connect to it with Jupyter Console. This is a development tool.",
+    "description": "Run IPython kernel within Red and connect to it with Jupyter Console. This is a development tool.\n\nWARNING: This cog is meant for development instances and should NOT ever be used in production environment.",
+    "end_user_data_statement": "This cog does not persistently store data or metadata about users.",
+    "install_msg": "Thanks for installing Qupyter. If anything doesn't work, you can report it on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.\n\n**Warning:** This cog is meant for development instances and should NOT ever be used in production environment.\n\nThis cog copies a kernel app's connection file to data path.",
+    "author": [
+        "jack1142 (Jackenmen#6607)"
+    ],
+    "required_cogs": {},
+    "requirements": [
+        "ipykernel~=5.4",
+        "ipyparallel",
+        "jedi<0.16.0",
+        "tornado>=6.0"
+    ],
+    "tags": [
+        "dev",
+        "development",
+        "qupyter",
+        "tools",
+        "utility"
+    ],
+    "min_bot_version": "3.3.10",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}

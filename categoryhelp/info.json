@@ -1,0 +1,22 @@
+{
+    "name": "CategoryHelp",
+    "short": "Command for getting help for category that ignores case-sensitivity.",
+    "description": "Command for getting help for category that ignores case-sensitivity.",
+    "end_user_data_statement": "This cog does not persistently store data or metadata about users.",
+    "install_msg": "Thanks for installing CategoryHelp. If anything doesn't work, you can report it on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.",
+    "author": [
+        "jack1142 (Jackenmen#6607)"
+    ],
+    "required_cogs": {},
+    "requirements": [],
+    "tags": [
+        "categoryhelp",
+        "help",
+        "tools",
+        "utility"
+    ],
+    "min_bot_version": "3.3.10",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}

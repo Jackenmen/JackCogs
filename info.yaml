@@ -2,35 +2,91 @@
 
 repo:
   name: JackCogs
-  author:
-    - jack1142 (Jackenmen#6607)
+  short: Cogs for Red V3 by jack1142 (Jackenmen#6607).
+  description: Cogs requested by others and those that I wanted for Red myself.
   install_msg: >-
     Thanks for using {repo_name}. If you have any issues,
     check for more information in my repo: https://github.com/jack1142/JackCogs
-  short: Unofficial cogs by jack1142 (Jackenmen#6607).
-  description: Cogs requested by others and those that I wanted for Red myself.
-
-shared_fields:
   author:
     - jack1142 (Jackenmen#6607)
-  disabled: false
+
+shared_fields:
   install_msg: >-
     Thanks for installing {cog_name}. If anything doesn't work, you can report it
     on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.
-  type: COG
+  author:
+    - jack1142 (Jackenmen#6607)
+  min_bot_version: 3.3.10
   hidden: false
+  disabled: false
+  type: COG
 
 cogs:
+  autogist:
+    name: AutoGist
+    short: Auto-upload files with configured extension sent by users to gist.github.com.
+    description: '{short}'
+    end_user_data_statement: >-
+      This cog auto-uploads attachments to gist.github.com
+      uploaded by users as configured by the guild administrators.
+    requirements:
+      - cachetools~=4.2
+      - gidgethub~=5.0
+    tags:
+      - autogist
+      - github
+      - tools
+      - utility
+  banmessage:
+    name: BanMessage
+    short: Send message on ban in a chosen channel. Supports images!
+    description: Send message on ban in a chosen channel. Supports images!
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
+    install_msg: >-
+      {shared_fields.install_msg}
+
+
+      This cog saves images set with `[p]banmessageset setimage` to data path.
+    tags:
+      - banmessage
+      - tools
+      - utility
+  categoryhelp:
+    name: CategoryHelp
+    short: Command for getting help for category that ignores case-sensitivity.
+    description: '{short}'
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
+    tags:
+      - categoryhelp
+      - help
+      - tools
+      - utility
   cogboard:
     name: CogBoard
     short: Search for cogs in approved repos on {cog_name}.
-    description: Search for cogs in approved repos on {cog_name}.
+    description: '{short}'
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
     tags:
       - cogboard
       - tools
       - utility
+  emojiinfo:
+    name: EmojiInfo
+    short: Get information about emojis and see how to use them in your code.
+    description: '{short}'
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
     requirements:
-      - typing_extensions>=3.7.4
+      - emoji~=0.6.0
+    tags:
+      - dev
+      - development
+      - emojiinfo
+      - tools
+      - utility
   linkwarner:
     name: LinkWarner
     short: >-
@@ -48,40 +104,193 @@ cogs:
       - moderation
       - tools
       - utility
+  mee6rank:
+    name: Mee6Rank
+    short: Get detailed information about your Mee6 rank.
+    description: >-
+      Shows detailed information about your Mee6 rank like amount of XP
+      amount of XP and estimated amount of messages needed to reach
+      next level and next level role.
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
+    requirements:
+      - pillow~=8.1
+    tags:
+      - api
+      - leveling
+      - mee6
+      - rank
+      - tools
+  membercount:
+    name: MemberCount
+    short: Get count of all members + humans and bots separately.
+    description: '{short}'
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
+    tags:
+      - tools
+      - utility
+  modroles:
+    name: ModRoles
+    short: >-
+      Allow moderators without manage roles permission
+      to assign configured roles to users.
+    description: >-
+      Allow moderators without manage roles permission
+      to assign configured roles to users.
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
+    class_docstring: Allow moderators to assign configured roles to users.
+    tags:
+      - moderation
+      - modroles
+      - roles
+      - tools
+      - utility
+  nitrorole:
+    name: NitroRole
+    short: Welcome new nitro boosters and/or give them a special role!
+    description: Welcome new nitro boosters and/or give them a special role!
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
+
+      Discord IDs of users may occasionally be logged to file
+      as part of error logging.
+    install_msg: >-
+      {shared_fields.install_msg}
+
+
+      This cog saves images set with `[p]nitrorole setimage` to data path.
+    tags:
+      - announce
+      - booster
+      - nitro
+      - nitrorole
+      - welcome
+  qupyter:
+    name: Qupyter
+    short: >-
+      Run IPython kernel within Red and connect to it with Jupyter Console.
+      This is a development tool.
+    description: >-
+      {short}
+
+
+      WARNING: This cog is meant for development instances
+      and should NOT ever be used in production environment.
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
+    class_docstring: Run IPython kernel within Red and connect to it with Jupyter Console.
+    install_msg: >-
+      {shared_fields.install_msg}
+
+
+      **Warning:** This cog is meant for development instances
+      and should NOT ever be used in production environment.
+
+
+      This cog copies a kernel app's connection file to data path.
+    requirements:
+      - ipykernel~=5.4
+      - ipyparallel
+      - jedi<0.16.0  # IPython 7.18.1 uses deprecated things
+      - tornado>=6.0
+    tags:
+      - dev
+      - development
+      - qupyter
+      - tools
+      - utility
   rlstats:
     name: RLStats
     short: >-
-      Shows you Rocket League player statistics.
+      Get your Rocket League stats with a single command!
       Needs access to Rocket League API which is currently in closed beta.
     description: >-
       Shows you Rocket League player statistics.
-      Cog works just fine, but I plan more features in near future.
       The cog needs access to Rocket League API which is currently in closed beta.
+    end_user_data_statement: >-
+      This cog stores data provided by users for the purpose of better user experience.
+
+      It does not store user data which was not provided through a command.
+
+      Users may remove their own data without making a data removal request.
+
+      This cog will remove data when a data removal request is made.
+    class_docstring: Get your Rocket League stats with a single command!
     install_msg: >-
       Thanks for installing {cog_name}. Before you'll be able to check any stats, you
       need to configure a Rocket League API user token using command `[p]rlset token`.
-    min_bot_version: 3.1.0
+
+
+      This cog may save background images in data path
+      if the bot owner decides to customize them.
     requirements:
-      - rlapi==0.1.0a1
-      - pillow~=6.0
+      - pillow~=8.1
+      - rlapi==0.4.1a1
     tags:
       - api
       - gaming
       - rlstats
       - rocketleague
+  rssnotifier:
+    name: RSSNotifier
+    short: >-
+      Get role and/or user mentions about feed updates.
+      This cog requires RSS cog from aikaterna-cogs repo to work.
+    description: '{short}'
+    end_user_data_statement: >-
+      This cog stores Discord user IDs
+      when the user explicitly opts in receiving mentions about feed updates.
+
+      No personal identifiable data is stored by this cog.
+    class_docstring: Get role and/or user mentions about feed updates.
+    install_msg: >-
+      {shared_fields.install_msg}
+
+
+      **This cog requires RSS cog from aikaterna-cogs repo to work.**
+    required_cogs:
+      rss: https://github.com/aikaterna/aikaterna-cogs
+    tags:
+      - notifications
+      - rss
+      - rssnotifier
+      - tools
+      - utility
+    min_bot_version: 3.4.0
+  shell:
+    name: Shell
+    short: Run shell commands on bot's system from Discord.
+    description: '{short}'
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
+    tags:
+      - bash
+      - dev
+      - development
+      - shell
+      - tools
+      - utility
   voicetools:
     name: VoiceTools
     short: Various tools to make voice channels better!
     description: >-
+      {short}
+
       Available modules:
 
       - VIP - Set users and roles not counting to user limit on voice channel
 
       - ForceLimit - Force user limit to all members of the server including admins
       (kick user when exceeding limit)
+    end_user_data_statement: >-
+      This cog does not persistently store end user data.
+      This cog does store discord IDs as needed for operation.
+
+      Discord IDs of users may occasionally be logged to file as part of debug logging.
     install_msg: >-
       Thanks for installing {cog_name}. Use `[p]voicetools` to configure the cog.
-    min_bot_version: 3.1.0
     tags:
       - tools
       - utility

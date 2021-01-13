@@ -1,0 +1,48 @@
+# Since version 2.23 (released in August 2019), git-blame has a feature
+# to ignore or bypass certain commits.
+#
+# This file contains a list of commits that are not likely what you
+# are looking for in a blame, such as mass reformatting or renaming.
+# You can set this file as a default ignore file for blame by running
+# the following command.
+#
+# $ git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style(rlstats): Line length fixes
+9223554e9d558ff2df729f4b669c1ae2b69fbf76
+
+# style: format code with black, isort and add more type hints for mypy
+1e7dda8b201f674ad82232fdd29739f188748519
+
+# style: reformat `.tools/generate_info.py`
+3fc2624c5ae9a1e9c46e5798b1faaf7c60de9295
+
+# style(rlstats): ensure docstring consistency
+e0f982ef2cad91a13d247449c2397099f053702d
+
+# style(nitrorole): black formatting
+ac8362087f1aa7dfb672c41261828c4c471fb332
+
+# style(nitrorole): remove unused imports
+206e53a932995c35c859719edd0adc18bff5ac3c
+
+# style(voicetools): black format
+0343eaf9d27b29ce797d17b710320e264100529e
+
+# chore(legal): add Apache License notice to all source files
+2366d32a5869828eba0689077b767a1a0e09452d
+
+# style(flake8): make the repo compliant with flake8
+9a3c350a1ba65e70fa3bdc14e8266c6406fe6ca5
+
+# style: format with isort (+ set `combine_as_imports` to true)
+e2f56909483a032519ea1ba8601edbf15a36041d
+
+# style(cogboard): remove unused imports and fix line length
+81ae7a981943fe501a78836bd87f2cbfce3b67d6
+
+# style(infogen): format with isort
+4b50b66d014a825bb290b9d033d849759a213e8a
+
+# chore: move license notices out of docstrings to single-line comments
+d1fa8c28360b50f2c40e72b713c40ecc5c6112c3

@@ -119,10 +119,6 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
-# this file should be local-only as discord.py isn't really compatible with mypy
-# and I won't be able to use this in CI
-mypy.ini
-
 # Pyre type checker
 .pyre/
 

@@ -1,16 +1,32 @@
+# Copyright 2018-2021 Jakub Kuczys (https://github.com/jack1142)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import asyncio
 import contextlib
+import functools
 import logging
-import os
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, cast
+from typing import Any, Callable, Dict, List, Literal, Mapping, Tuple, TypeVar, cast
 
 import discord
 import rlapi
-from redbot.core import checks, commands
+from PIL import ImageFont
+from redbot.core import commands
 from redbot.core.bot import Red
-from redbot.core.config import Config, Value
+from redbot.core.commands import NoParseOptional as Optional
+from redbot.core.config import Config
 from redbot.core.data_manager import bundled_data_path, cog_data_path
 from redbot.core.utils.chat_formatting import bold, inline
 from redbot.core.utils.menus import start_adding_reactions
@@ -18,18 +34,15 @@ from redbot.core.utils.predicates import ReactionPredicate
 from rlapi.ext.tier_breakdown.trackernetwork import get_tier_breakdown
 
 from . import errors
+from .abc import CogAndABCMeta
 from .figures import Point
 from .image import CoordsInfo, RLStatsImageTemplate
-
-try:
-    from PIL import Image, ImageFont
-except ImportError:
-    raise RuntimeError("Can't load pillow. Do 'pip3 install pillow'.")
-
+from .settings import SettingsMixin
 
 log = logging.getLogger("red.jackcogs.rlstats")
 
 T = TypeVar("T")
+RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 
 SUPPORTED_PLATFORMS = """Supported platforms:
@@ -37,14 +50,16 @@ SUPPORTED_PLATFORMS = """Supported platforms:
 - PlayStation 4 - use PSN ID
 - Xbox One - use Xbox Gamertag"""
 
-RLSTATS_DOCS = f"""Show Rocket League stats in {{mode}} playlists for you or given player.
+RLSTATS_DOCS = f"""
+Show Rocket League stats in {{mode}} playlists for you or given player.
 
 {SUPPORTED_PLATFORMS}
 If the user connected their game profile with `[p]rlconnect`,
-you can also use their Discord tag to show their stats."""
+you can also use their Discord tag to show their stats.
+"""
 
 
-class RLStats(commands.Cog):
+class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
     """Get your Rocket League stats with a single command!"""
 
     RANK_SIZE = (179, 179)
@@ -96,16 +111,8 @@ class RLStats(commands.Cog):
     def __init__(self, bot: Red) -> None:
         super().__init__()
         self.bot = bot
-        if hasattr(bot, "db"):
-            # compatibility layer with Red 3.1.x
-            async def get_shared_api_tokens(service_name: str) -> Dict[str, str]:
-                tokens = await bot.db.api_tokens.get_raw(service_name, default={})
-                # api_tokens spec defines it's a dict of strings
-                return cast(Dict[str, str], tokens)
-
-            self.get_shared_api_tokens = get_shared_api_tokens
-        else:
-            self.get_shared_api_tokens = bot.get_shared_api_tokens
+        self.loop: asyncio.AbstractEventLoop = bot.loop
+        self._executor = ThreadPoolExecutor()
         self.config = Config.get_conf(
             self, identifier=6672039729, force_registration=True
         )
@@ -113,9 +120,13 @@ class RLStats(commands.Cog):
             tier_breakdown={}, competitive_overlay=40, extramodes_overlay=70
         )
         self.config.register_user(player_id=None, platform=None)
-        self.rlapi_client: rlapi.Client = None
+
+        self.rlapi_client: rlapi.Client  # assigned in initialize()
         self.bundled_data_path = bundled_data_path(self)
         self.cog_data_path = cog_data_path(self)
+        self._prepare_templates()
+
+    def _prepare_templates(self) -> None:
         self.fonts = {
             "ArimoRegular56": ImageFont.truetype(
                 str(self.bundled_data_path / "fonts/ArimoRegular.ttf"), 56
@@ -188,7 +199,7 @@ class RLStats(commands.Cog):
         )
 
     async def initialize(self) -> None:
-        self.rlapi_client = rlapi.Client(await self._get_token(), loop=self.bot.loop)
+        self.rlapi_client = rlapi.Client(await self._get_token())
         tier_breakdown = self._convert_numbers_in_breakdown(
             await self.config.tier_breakdown()
         )
@@ -203,6 +214,30 @@ class RLStats(commands.Cog):
         self.rlapi_client.destroy()
 
     __del__ = cog_unload
+
+    async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, BytesIO]:
+        try:
+            player_id, platform = await self._get_player_data_by_user_id(user_id)
+        except errors.PlayerDataNotFound:
+            return {}
+        contents = (
+            f"Rocket League game account for Discord user with ID {user_id}:\n"
+            f"- Platform: {platform}\n"
+            f"- Player ID: {player_id}\n"
+        )
+        return {"user_data.txt": BytesIO(contents.encode())}
+
+    async def red_delete_data_for_user(
+        self, *, requester: RequestType, user_id: int
+    ) -> None:
+        await self.config.user_from_id(user_id).clear()
+
+    async def _run_in_executor(
+        self, func: Callable[..., T], *args: Any, **kwargs: Any
+    ) -> T:
+        return await self.loop.run_in_executor(
+            self._executor, functools.partial(func, *args, **kwargs)
+        )
 
     def _convert_numbers_in_breakdown(
         self, d: Dict[str, Any], curr_lvl: int = 0
@@ -222,213 +257,39 @@ class RLStats(commands.Cog):
             new[int(k)] = v
         return new
 
-    async def _get_token(self) -> str:
-        rocket_league = await self.get_shared_api_tokens("rocket_league")
-        return rocket_league.get("user_token", "")
+    async def _get_token(self, api_tokens: Optional[Mapping[str, str]] = None) -> str:
+        if api_tokens is None:
+            api_tokens = await self.bot.get_shared_api_tokens("rocket_league")
+        return api_tokens.get("user_token", "")
 
-    @checks.is_owner()
-    @commands.group(name="rlset")
-    async def rlset(self, ctx: commands.Context) -> None:
-        """RLStats configuration options."""
+    async def _check_token(self, ctx: commands.Context) -> bool:
+        if not self.rlapi_client._token:
+            if await self.bot.is_owner(ctx.author):
+                await ctx.send(
+                    "This cog wasn't configured properly."
+                    " You need to set a token first, look at"
+                    f" {inline(f'{ctx.clean_prefix}rlset token')} for instructions."
+                )
+            else:
+                await ctx.send("The bot owner didn't configure this cog properly.")
+            return False
+        return True
 
-    @rlset.command()
-    async def token(self, ctx: commands.Context) -> None:
-        """Instructions to set the Rocket League API tokens."""
-        message = (
-            "**Getting API access from Psyonix is very hard right now, "
-            "it's even harder than it was, but you can try:**\n"
-            "1. Go to Psyonix support website and log in with your game account\n"
-            "(https://support.rocketleague.com)\n"
-            '2. Click "Submit a ticket"\n'
-            '3. Under "Issue" field, select '
-            '"Installation and setup > I need API access"\n'
-            "4. Fill out the form provided with your request, etc.\n"
-            '5. Click "Submit"\n'
-            "6. Hope that Psyonix will reply to you\n"
-            "7. When you get API access, copy your user token "
-            "from your account on Rocket League API website\n"
-            f"`{ctx.prefix}set api rocket_league user_token,your_user_token`"
-        )
-        await ctx.maybe_send_embed(message)
-
-    @rlset.command(name="updatebreakdown")
-    async def updatebreakdown(self, ctx: commands.Context) -> None:
-        """Update tier breakdown."""
-        await ctx.send("Updating tier breakdown...")
-        async with ctx.typing():
-            tier_breakdown = await get_tier_breakdown(self.rlapi_client)
-            await self.config.tier_breakdown.set(tier_breakdown)
-            self.rlapi_client.tier_breakdown = tier_breakdown
-        await ctx.send("Tier breakdown updated.")
-
-    @rlset.group(name="image")
-    async def rlset_bgimage(self, ctx: commands.Context) -> None:
-        """Set background for stats image."""
-
-    @rlset_bgimage.group(name="extramodes")
-    async def rlset_bgimage_extramodes(self, ctx: commands.Context) -> None:
-        """Options for background for extra modes stats image."""
-
-    @rlset_bgimage_extramodes.command("set")
-    async def rlset_bgimage_extramodes_set(self, ctx: commands.Context) -> None:
-        """
-        Set background for extra modes stats image.
-
-        Use `[p]rlset bgimage extramodes reset` to reset to default.
-        """
-        await self._rlset_bgimage_set(
-            ctx, self.cog_data_path / "bgs/extramodes.png", self.extramodes_template
-        )
-
-    @rlset_bgimage_extramodes.command("reset")
-    async def rlset_bgimage_extramodes_reset(self, ctx: commands.Context) -> None:
-        """Reset background for extra modes stats image to default."""
-        await self._rlset_bgimage_reset(
-            ctx,
-            "extra modes",
-            self.cog_data_path / "bgs/extramodes.png",
-            self.bundled_data_path / "bgs/extramodes.png",
-            self.extramodes_template,
-        )
-
-    @rlset_bgimage_extramodes.command("overlay")
-    async def rlset_bgimage_extramodes_overlay(
-        self, ctx: commands.Context, percentage: int = None
-    ) -> None:
-        """
-        Set overlay percentage for extra modes stats image.
-
-        Leave empty to reset to default (70)
-        """
-        await self._rlset_bgimage_overlay(
-            ctx,
-            percentage,
-            "extra modes",
-            self.config.extramodes_overlay,
-            self.extramodes_template,
-        )
-
-    @rlset_bgimage.group(name="competitive")
-    async def rlset_bgimage_competitive(self, ctx: commands.Context) -> None:
-        """Options for background for competitive stats image."""
-
-    @rlset_bgimage_competitive.command("set")
-    async def rlset_bgimage_competitive_set(self, ctx: commands.Context) -> None:
-        """
-        Set background for competitive stats image.
-
-        Use `[p]rlset bgimage competitive reset` to reset to default.
-        """
-        await self._rlset_bgimage_set(
-            ctx, self.cog_data_path / "bgs/competitive.png", self.competitive_template
-        )
-
-    @rlset_bgimage_competitive.command("reset")
-    async def rlset_bgimage_competitive_reset(self, ctx: commands.Context) -> None:
-        """Reset background for competitive stats image to default."""
-        await self._rlset_bgimage_reset(
-            ctx,
-            "competitive",
-            self.cog_data_path / "bgs/competitive.png",
-            self.bundled_data_path / "bgs/competitive.png",
-            self.competitive_template,
-        )
-
-    @rlset_bgimage_competitive.command("overlay")
-    async def rlset_bgimage_competitive_overlay(
-        self, ctx: commands.Context, percentage: int = None
-    ) -> None:
-        """
-        Set overlay percentage for competitive stats image.
-
-        Leave empty to reset to default (40)
-        """
-        await self._rlset_bgimage_overlay(
-            ctx,
-            percentage,
-            "competitive",
-            self.config.competitive_overlay,
-            self.competitive_template,
-        )
-
-    async def _rlset_bgimage_set(
-        self, ctx: commands.Context, filename: Path, template: RLStatsImageTemplate
-    ) -> None:
-        if not ctx.message.attachments:
-            await ctx.send("You have to send background image.")
-            return
-        if len(ctx.message.attachments) > 1:
-            await ctx.send("You can send only one attachment.")
-            return
-        async with ctx.typing():
-            a = ctx.message.attachments[0]
-            fp = BytesIO()
-            await a.save(fp)
-            os.makedirs(os.path.dirname(filename), exist_ok=True)
-            try:
-                im = Image.open(fp)
-            except IOError:
-                await ctx.send("Attachment couldn't be open.")
-                return
-            try:
-                im.convert("RGBA").save(filename, "PNG")
-            except FileNotFoundError:
-                await ctx.send("Attachment couldn't be saved.")
-                return
-            template.bg_image = filename
-        await ctx.send("Background image was successfully set.")
-
-    async def _rlset_bgimage_reset(
-        self,
-        ctx: commands.Context,
-        mode: str,
-        custom_filename: Path,
-        default_filename: Path,
-        template: RLStatsImageTemplate,
-    ) -> None:
-        try:
-            os.remove(custom_filename)
-        except FileNotFoundError:
-            await ctx.send(
-                f"There was no custom background set for {mode} stats image."
-            )
-        else:
-            await ctx.send(
-                f"Background for {mode} stats image is changed back to default."
-            )
-            template.bg_image = default_filename
-
-    async def _rlset_bgimage_overlay(
-        self,
-        ctx: commands.Context,
-        percentage: Optional[int],
-        mode: str,
-        value_obj: Value,
-        template: RLStatsImageTemplate,
-    ) -> None:
-        if percentage is None:
-            await value_obj.clear()
-            template.bg_overlay = await value_obj()
-            await ctx.send(f"Overlay percentage for {mode} stats image reset.")
-            return
-        if not 0 <= percentage <= 100:
-            await ctx.send("Percentage value has to be in range 0-100.")
-            return
-        await value_obj.set(percentage)
-        template.bg_overlay = percentage
-        await ctx.send(f"Overlay percentage for {mode} stats set to {percentage}%")
-
-    async def _get_player_data_by_user(
-        self, user: discord.abc.User
+    async def _get_player_data_by_user_id(
+        self, user_id: int
     ) -> Tuple[str, rlapi.Platform]:
-        """nwm"""
-        user_data = await self.config.user(user).all()
+        user_data = await self.config.user_from_id(user_id).all()
         player_id, platform = user_data["player_id"], user_data["platform"]
         if player_id is not None:
             return (player_id, rlapi.Platform[platform])
         raise errors.PlayerDataNotFound(
-            f"Couldn't find player data for discord user with ID {user.id}"
+            f"Couldn't find player data for discord user with ID {user_id}"
         )
+
+    async def _get_player_data_by_user(
+        self, user: discord.abc.User
+    ) -> Tuple[str, rlapi.Platform]:
+        return await self._get_player_data_by_user_id(user.id)
 
     async def _get_players(
         self, player_ids: List[Tuple[str, Optional[rlapi.Platform]]]
@@ -439,7 +300,44 @@ class RLStats(commands.Cog):
                 players += await self.rlapi_client.get_player(player_id, platform)
         if not players:
             raise rlapi.PlayerNotFound
-        return tuple(players)
+        # using dict.fromkeys() to make duplicates go away
+        return tuple(dict.fromkeys(players))
+
+    async def _maybe_get_players(
+        self,
+        ctx: commands.Context,
+        player_ids: List[Tuple[str, Optional[rlapi.Platform]]],
+    ) -> Optional[Tuple[rlapi.Player, ...]]:
+        try:
+            players = await self._get_players(player_ids)
+        except rlapi.Unauthorized as e:
+            log.error(str(e))
+            if await self.bot.is_owner(ctx.author):
+                await ctx.send(
+                    f"Set token is invalid. Use {inline(f'{ctx.clean_prefix}rlset')}"
+                    " to change the token."
+                )
+            else:
+                await ctx.send("The bot owner didn't configure this cog properly.")
+        except rlapi.HTTPException as e:
+            log.error(str(e))
+            if e.status >= 500:
+                await ctx.send(
+                    "Rocket League API experiences some issues right now."
+                    " Try again later."
+                )
+            else:
+                await ctx.send(
+                    "Rocket League API can't process this request."
+                    " If this keeps happening, inform bot's owner about this error."
+                )
+        except rlapi.PlayerNotFound as e:
+            log.debug(str(e))
+            await ctx.send("The specified profile could not be found.")
+        else:
+            return players
+
+        return None
 
     async def _choose_player(
         self, ctx: commands.Context, players: Tuple[rlapi.Player, ...]
@@ -460,10 +358,10 @@ class RLStats(commands.Cog):
 
             emojis = ReactionPredicate.NUMBER_EMOJIS[1 : players_len + 1]
             start_adding_reactions(msg, emojis)
-            pred = ReactionPredicate.with_emojis(emojis, msg)
+            pred = ReactionPredicate.with_emojis(emojis, msg, ctx.author)
 
             try:
-                await ctx.bot.wait_for("reaction_add", check=pred, timeout=15)
+                await ctx.bot.wait_for("reaction_add", check=pred, timeout=25)
             except asyncio.TimeoutError:
                 raise errors.NoChoiceError(
                     "User didn't choose profile he wants to check"
@@ -471,12 +369,30 @@ class RLStats(commands.Cog):
             finally:
                 await msg.delete()
 
-            return players[pred.result]
+            result = cast(int, pred.result)
+            return players[result]
         return players[0]
 
-    @commands.bot_has_permissions(attach_files=True)
+    def _generate_image(
+        self,
+        template: RLStatsImageTemplate,
+        playlists: Tuple[rlapi.PlaylistKey, ...],
+        player: rlapi.Player,
+    ) -> BytesIO:
+        result = template.generate_image(player, playlists)
+        fp = BytesIO()
+        result.thumbnail((960, 540))
+        result.save(fp, "PNG")
+        fp.seek(0)
+        return fp
+
+    # geninfo-ignore: missing-docstring
+    @commands.bot_has_permissions(embed_links=True, attach_files=True)
+    @commands.cooldown(rate=3, per=5, type=commands.BucketType.user)
     @commands.command()
-    async def rlstats(self, ctx: commands.Context, *, player_id: str = None) -> None:
+    async def rlstats(
+        self, ctx: commands.Context, *, player_id: Optional[str] = None
+    ) -> None:
         playlists = (
             rlapi.PlaylistKey.solo_duel,
             rlapi.PlaylistKey.doubles,
@@ -487,9 +403,13 @@ class RLStats(commands.Cog):
 
     rlstats.callback.__doc__ = RLSTATS_DOCS.format(mode="competitive")
 
-    @commands.bot_has_permissions(attach_files=True)
+    # geninfo-ignore: missing-docstring
+    @commands.bot_has_permissions(embed_links=True, attach_files=True)
+    @commands.cooldown(rate=3, per=5, type=commands.BucketType.user)
     @commands.command()
-    async def rlsports(self, ctx: commands.Context, *, player_id: str = None) -> None:
+    async def rlsports(
+        self, ctx: commands.Context, *, player_id: Optional[str] = None
+    ) -> None:
         playlists = (
             rlapi.PlaylistKey.hoops,
             rlapi.PlaylistKey.rumble,
@@ -508,17 +428,8 @@ class RLStats(commands.Cog):
         player_id: Optional[str],
     ) -> None:
         async with ctx.typing():
-            token = await self._get_token()
-            if not token:
-                if self.bot.is_owner(ctx.author):
-                    await ctx.send(
-                        "This cog wasn't configured properly."
-                        f" You can setup the cog using {inline(f'{ctx.prefix}rlset')}."
-                    )
-                else:
-                    await ctx.send("The bot owner didn't configure this cog properly.")
+            if not await self._check_token(ctx):
                 return
-            self.rlapi_client.change_token(token)
 
             player_ids: List[Tuple[str, Optional[rlapi.Platform]]] = []
             discord_user = None
@@ -531,9 +442,9 @@ class RLStats(commands.Cog):
                         "Your game account is not connected with Discord."
                         " If you want to get stats,"
                         " either give your player ID after a command:"
-                        f" `{ctx.prefix}rlstats <player_id>`"
+                        f" {inline(f'{ctx.clean_prefix}rlstats <player_id>')}"
                         " or connect your account using command:"
-                        f" `{ctx.prefix}rlconnect <player_id>`"
+                        f" {inline(f'{ctx.clean_prefix}rlconnect <player_id>')}"
                     )
                     return
             else:
@@ -552,53 +463,30 @@ class RLStats(commands.Cog):
                         discord_user = None
                 player_ids.append((player_id, None))
 
-            try:
-                players = await self._get_players(player_ids)
-            except rlapi.Unauthorized as e:
-                log.error(str(e))
-                if self.bot.is_owner(ctx.author):
-                    await ctx.send(
-                        f"Set token is invalid. Use {inline(f'{ctx.prefix}rlset')}"
-                        " to change the token."
-                    )
-                else:
-                    await ctx.send("The bot owner didn't configure this cog properly.")
-                return
-            except rlapi.HTTPException as e:
-                log.error(str(e))
-                if e.status >= 500:
-                    await ctx.send(
-                        "Rocket League API experiences some issues right now."
-                        " Try again later."
-                    )
-                    return
-                await ctx.send(
-                    "Rocket League API can't process this request."
-                    " If this keeps happening, inform bot's owner about this error."
-                )
-                return
-            except rlapi.PlayerNotFound as e:
-                log.debug(str(e))
-                await ctx.send("The specified profile could not be found.")
+            players = await self._maybe_get_players(ctx, player_ids)
+            if players is None:
                 return
 
             try:
                 player = await self._choose_player(ctx, players)
             except errors.NoChoiceError as e:
                 log.debug(e)
-                await ctx.send("You didn't choose profile you want to check.")
+                await ctx.send(
+                    "You didn't select a profile that you would like to check."
+                )
                 return
 
             # TODO: This should probably be handled in rlapi module
+            # be careful when touching this part,
+            # we rely on `player.get_playlist` not returning None in .image
             for playlist_key in playlists:
                 if playlist_key not in player.playlists:
                     player.add_playlist({"playlist": playlist_key.value})
 
-            result = template.generate_image(player, playlists)
-            fp = BytesIO()
-            result.thumbnail((960, 540))
-            result.save(fp, "PNG")
-            fp.seek(0)
+            # be extra careful when changing this (mypy won't type check this)
+            fp = await self._run_in_executor(
+                self._generate_image, template, playlists, player
+            )
         if discord_user is not None and player.player_id == player_ids[0][0]:
             account_string = (
                 f"connected {str(player.platform)} account of {bold(str(discord_user))}"
@@ -614,28 +502,23 @@ class RLStats(commands.Cog):
         )
 
     @commands.command()
-    async def rlconnect(self, ctx: commands.Context, player_id: str) -> None:
+    async def rlconnect(self, ctx: commands.Context, *, player_id: str) -> None:
         """Connect game profile with your Discord account."""
         async with ctx.typing():
-            try:
-                players = await self.rlapi_client.get_player(player_id)
-            except rlapi.HTTPException as e:
-                log.error(str(e))
-                await ctx.send(
-                    "Rocket League API experiences some issues right now."
-                    " Try again later."
-                )
+            if not await self._check_token(ctx):
                 return
-            except rlapi.PlayerNotFound as e:
-                log.debug(str(e))
-                await ctx.send("The specified profile could not be found.")
+
+            players = await self._maybe_get_players(ctx, [(player_id, None)])
+            if players is None:
                 return
 
             try:
                 player = await self._choose_player(ctx, players)
             except errors.NoChoiceError as e:
                 log.debug(str(e))
-                await ctx.send("You didn't choose profile you want to connect.")
+                await ctx.send(
+                    "You didn't select a profile that you would like to connect."
+                )
                 return
 
             await self.config.user(ctx.author).platform.set(player.platform.name)
@@ -646,3 +529,21 @@ class RLStats(commands.Cog):
         )
 
     rlconnect.callback.__doc__ += f"\n\n{SUPPORTED_PLATFORMS}"
+
+    @commands.command()
+    async def rldisconnect(self, ctx: commands.Context) -> None:
+        """
+        Disconnect the game profile associated with
+        your Discord account from RLStats cog.
+        """
+        await self.config.user(ctx.author).clear()
+        await ctx.send("Your game account was successfully disconnected from Discord!")
+
+    @commands.Cog.listener()
+    async def on_red_api_tokens_update(
+        self, service_name: str, api_tokens: Mapping[str, str]
+    ) -> None:
+        if service_name != "rocket_league":
+            return
+
+        self.rlapi_client.change_token(await self._get_token(api_tokens))

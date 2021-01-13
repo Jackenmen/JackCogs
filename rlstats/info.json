@@ -1,18 +1,16 @@
 {
+    "name": "RLStats",
+    "short": "Get your Rocket League stats with a single command! Needs access to Rocket League API which is currently in closed beta.",
+    "description": "Shows you Rocket League player statistics. The cog needs access to Rocket League API which is currently in closed beta.",
+    "end_user_data_statement": "This cog stores data provided by users for the purpose of better user experience.\nIt does not store user data which was not provided through a command.\nUsers may remove their own data without making a data removal request.\nThis cog will remove data when a data removal request is made.",
+    "install_msg": "Thanks for installing RLStats. Before you'll be able to check any stats, you need to configure a Rocket League API user token using command `[p]rlset token`.\n\nThis cog may save background images in data path if the bot owner decides to customize them.\n\nThis cog comes with bundled data.",
     "author": [
         "jack1142 (Jackenmen#6607)"
     ],
-    "disabled": false,
-    "install_msg": "Thanks for installing RLStats. Before you'll be able to check any stats, you need to configure a Rocket League API user token using command `[p]rlset token`.",
-    "type": "COG",
-    "hidden": false,
-    "name": "RLStats",
-    "short": "Shows you Rocket League player statistics. Needs access to Rocket League API which is currently in closed beta.",
-    "description": "Shows you Rocket League player statistics. Cog works just fine, but I plan more features in near future. The cog needs access to Rocket League API which is currently in closed beta.",
-    "min_bot_version": "3.1.0",
+    "required_cogs": {},
     "requirements": [
-        "rlapi==0.1.0a1",
-        "pillow~=6.0"
+        "pillow~=8.1",
+        "rlapi==0.4.1a1"
     ],
     "tags": [
         "api",
@@ -20,5 +18,8 @@
         "rlstats",
         "rocketleague"
     ],
-    "required_cogs": {}
+    "min_bot_version": "3.3.10",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
 }

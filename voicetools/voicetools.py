@@ -1,22 +1,42 @@
+# Copyright 2018-2021 Jakub Kuczys (https://github.com/jack1142)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import logging
 from itertools import zip_longest
+from typing import Any, Awaitable, Callable, Dict, Literal, Optional, cast
 
 import discord
 from redbot.core import commands
+from redbot.core.bot import Red
+from redbot.core.commands import GuildContext
 from redbot.core.config import Config
-from redbot.core.utils import menus
+from redbot.core.utils import AsyncIter, menus
 from redbot.core.utils.chat_formatting import pagify
 
-from .converters import MemberOrRole, MemberOrRoleorVoiceChannel
+from .converters import MemberOrRole, MemberOrRoleOrVoiceChannel
 
 log = logging.getLogger("red.jackcogs.voicetools")
+
+RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 
 class VoiceTools(commands.Cog):
     """Various tools to make voice channels better!"""
 
-    def __init__(self) -> None:
+    def __init__(self, bot: Red) -> None:
         super().__init__()
+        self.bot = bot
         self.config = Config.get_conf(
             self, identifier=6672039729, force_registration=True
         )
@@ -31,14 +51,36 @@ class VoiceTools(commands.Cog):
         }
         self.config.register_guild(**default_guild)
 
+    async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, Any]:
+        # this cog only stores user IDs which is not EUD
+        return {}
+
+    async def red_delete_data_for_user(
+        self, *, requester: RequestType, user_id: int
+    ) -> None:
+        # this cog only stores user IDs which is not EUD
+        if requester != "discord_deleted_user":
+            return
+
+        # but if Discord asks, you don't say no to them
+        data = await self.config.all_guilds()
+        async for guild_id, guild_data in AsyncIter(data.items(), steps=100):
+            async with self.config.guild_from_id(guild_id).all() as guild_data:
+                for group_name in ("forcelimit_ignore_member_list", "vip_member_list"):
+                    guild_data[group_name] = [
+                        member_id
+                        for member_id in guild_data[group_name]
+                        if member_id != user_id
+                    ]
+
     @commands.guild_only()
     @commands.admin()
     @commands.group()
-    async def voicetools(self, ctx: commands.Context) -> None:
+    async def voicetools(self, ctx: GuildContext) -> None:
         """Settings for voice tools."""
 
     @voicetools.group()
-    async def forcelimit(self, ctx: commands.Context) -> None:
+    async def forcelimit(self, ctx: GuildContext) -> None:
         """
         Settings for ForceLimit module.
 
@@ -52,7 +94,7 @@ class VoiceTools(commands.Cog):
         """
 
     @forcelimit.command(name="enable")
-    async def forcelimit_enable(self, ctx: commands.Context) -> None:
+    async def forcelimit_enable(self, ctx: GuildContext) -> None:
         """Enables ForceLimit module."""
         if not await self.config.guild(ctx.guild).forcelimit_enabled():
             await self.config.guild(ctx.guild).forcelimit_enabled.set(True)
@@ -61,7 +103,7 @@ class VoiceTools(commands.Cog):
             await ctx.send("ForceLimit module is already enabled on this server")
 
     @forcelimit.command(name="disable")
-    async def forcelimit_disable(self, ctx: commands.Context) -> None:
+    async def forcelimit_disable(self, ctx: GuildContext) -> None:
         """Disables ForceLimit module."""
         if await self.config.guild(ctx.guild).forcelimit_enabled():
             await self.config.guild(ctx.guild).forcelimit_enabled.set(False)
@@ -69,8 +111,9 @@ class VoiceTools(commands.Cog):
         else:
             await ctx.send("ForceLimit module is already disabled on this server")
 
+    @commands.bot_has_permissions(embed_links=True)
     @forcelimit.command(name="ignorelist")
-    async def forcelimit_ignorelist(self, ctx: commands.Context) -> None:
+    async def forcelimit_ignorelist(self, ctx: GuildContext) -> None:
         """
         Shows ignorelist of ForceLimit module.
 
@@ -78,17 +121,25 @@ class VoiceTools(commands.Cog):
         and voice channels which won't be checked.
         """
         guild_conf = self.config.guild(ctx.guild)
+        # TODO: lower code repetition
+        # TODO: remove member, role, voice channel IDs when they no longer exist
         ignore_member_list = await guild_conf.forcelimit_ignore_member_list()
         ignore_role_list = await guild_conf.forcelimit_ignore_role_list()
         ignore_vc_list = await guild_conf.forcelimit_ignore_vc_list()
         content_members = ", ".join(
-            m.mention for m in map(ctx.guild.get_member, ignore_member_list)
+            m.mention
+            for m in map(ctx.guild.get_member, ignore_member_list)
+            if m is not None
         )
         content_roles = ", ".join(
-            m.mention for m in map(ctx.guild.get_role, ignore_role_list)
+            r.mention
+            for r in map(ctx.guild.get_role, ignore_role_list)
+            if r is not None
         )
         content_vcs = ", ".join(
-            m.mention for m in map(ctx.guild.get_channel, ignore_vc_list)
+            vc.mention
+            for vc in map(ctx.guild.get_channel, ignore_vc_list)
+            if vc is not None
         )
         pages_members = list(pagify(content_members, page_length=1024))
         pages_roles = list(pagify(content_roles, page_length=1024))
@@ -112,7 +163,7 @@ class VoiceTools(commands.Cog):
 
     @forcelimit.command(name="ignore")
     async def forcelimit_ignore(
-        self, ctx: commands.Context, *ignores: MemberOrRoleorVoiceChannel
+        self, ctx: GuildContext, *ignores: MemberOrRoleOrVoiceChannel
     ) -> None:
         """
         Adds members, roles or voice channels to ignorelist of ForceLimit module.
@@ -145,7 +196,7 @@ class VoiceTools(commands.Cog):
 
     @forcelimit.command(name="unignore")
     async def forcelimit_unignore(
-        self, ctx: commands.Context, *ignores: MemberOrRoleorVoiceChannel
+        self, ctx: GuildContext, *ignores: MemberOrRoleOrVoiceChannel
     ) -> None:
         """
         Adds members, roles or voice channels to ignorelist of ForceLimit module
@@ -177,7 +228,7 @@ class VoiceTools(commands.Cog):
         await ctx.send("Ignore list updated")
 
     @voicetools.group()
-    async def vip(self, ctx: commands.Context) -> None:
+    async def vip(self, ctx: GuildContext) -> None:
         """
         Settings for VIP module.
 
@@ -186,7 +237,7 @@ class VoiceTools(commands.Cog):
         """
 
     @vip.command(name="enable")
-    async def vip_enable(self, ctx: commands.Context) -> None:
+    async def vip_enable(self, ctx: GuildContext) -> None:
         """Enables VIP module."""
         if not await self.config.guild(ctx.guild).vip_enabled():
             await self.config.guild(ctx.guild).vip_enabled.set(True)
@@ -195,7 +246,7 @@ class VoiceTools(commands.Cog):
             await ctx.send("VIP module is already enabled on this server")
 
     @vip.command(name="disable")
-    async def vip_disable(self, ctx: commands.Context) -> None:
+    async def vip_disable(self, ctx: GuildContext) -> None:
         """Disables VIP module."""
         if await self.config.guild(ctx.guild).vip_enabled():
             await self.config.guild(ctx.guild).vip_enabled.set(False)
@@ -203,8 +254,9 @@ class VoiceTools(commands.Cog):
         else:
             await ctx.send("VIP module is already disabled on this server")
 
+    @commands.bot_has_permissions(embed_links=True)
     @vip.command(name="list")
-    async def vip_list(self, ctx: commands.Context) -> None:
+    async def vip_list(self, ctx: GuildContext) -> None:
         """
         Shows vip list of VIP module.
 
@@ -212,11 +264,15 @@ class VoiceTools(commands.Cog):
         """
         vip_member_list = await self.config.guild(ctx.guild).vip_member_list()
         vip_role_list = await self.config.guild(ctx.guild).vip_role_list()
+        # TODO: lower code repetition
+        # TODO: remove member, role, voice channel IDs when they no longer exist
         content_members = ", ".join(
-            m.mention for m in map(ctx.guild.get_member, vip_member_list)
+            m.mention
+            for m in map(ctx.guild.get_member, vip_member_list)
+            if m is not None
         )
         content_roles = ", ".join(
-            m.mention for m in map(ctx.guild.get_role, vip_role_list)
+            r.mention for r in map(ctx.guild.get_role, vip_role_list) if r is not None
         )
         pages_members = list(pagify(content_members, page_length=1024))
         pages_roles = list(pagify(content_roles, page_length=1024))
@@ -235,7 +291,7 @@ class VoiceTools(commands.Cog):
         await menus.menu(ctx, embed_pages, menus.DEFAULT_CONTROLS)
 
     @vip.command(name="add")
-    async def vip_add(self, ctx: commands.Context, *vips: MemberOrRole) -> None:
+    async def vip_add(self, ctx: GuildContext, *vips: MemberOrRole) -> None:
         """
         Adds members and roles to vip list of VIP module.
 
@@ -257,7 +313,7 @@ class VoiceTools(commands.Cog):
         await ctx.send("VIP list updated")
 
     @vip.command(name="remove")
-    async def vip_remove(self, ctx: commands.Context, *vips: MemberOrRole) -> None:
+    async def vip_remove(self, ctx: GuildContext, *vips: MemberOrRole) -> None:
         """
         Removes members and roles to vip list of VIP module.
 
@@ -278,6 +334,15 @@ class VoiceTools(commands.Cog):
         await self.config.guild(ctx.guild).vip_role_list.set(vip_role_list)
         await ctx.send("VIP list updated")
 
+    async def cog_disabled_in_guild(self, guild: Optional[discord.Guild]) -> bool:
+        # compatibility layer with Red 3.3.10
+        func: Optional[
+            Callable[[commands.Cog, Optional[discord.Guild]], Awaitable[bool]]
+        ] = getattr(self.bot, "cog_disabled_in_guild", None)
+        if func is None:
+            return False
+        return await func(self, guild)
+
     @commands.Cog.listener()
     async def on_voice_state_update(
         self,
@@ -285,6 +350,8 @@ class VoiceTools(commands.Cog):
         before: discord.VoiceState,
         after: discord.VoiceState,
     ) -> None:
+        if await self.cog_disabled_in_guild(member.guild):
+            return
         if await self.config.guild(member.guild).vip_enabled():
             if await self._vip_check(member, before, after):
                 return
@@ -310,10 +377,11 @@ class VoiceTools(commands.Cog):
             if member_on_list or role_list:
                 vip_id = member.id if member_on_list else role_list[0]
                 vip_type = "member" if member_on_list else "role"
-                if before.channel is not None and before.channel.user_limit != 0:
-                    await before.channel.edit(user_limit=before.channel.user_limit - 1)
-                    channel_id = before.channel.id
-                    log.info(
+                before_channel = cast(Optional[discord.VoiceChannel], before.channel)
+                if before_channel is not None and before_channel.user_limit != 0:
+                    await before_channel.edit(user_limit=before_channel.user_limit - 1)
+                    channel_id = before_channel.id
+                    log.debug(
                         (
                             "VIP with ID %s (%s)"
                             " left voice channel with ID %s, lowering user limit!"
@@ -324,10 +392,11 @@ class VoiceTools(commands.Cog):
                     )
                     return True
 
-                if after.channel is not None and after.channel.user_limit != 0:
-                    await after.channel.edit(user_limit=after.channel.user_limit + 1)
-                    channel_id = after.channel.id
-                    log.info(
+                after_channel = cast(Optional[discord.VoiceChannel], before.channel)
+                if after_channel is not None and after_channel.user_limit != 0:
+                    await after_channel.edit(user_limit=after_channel.user_limit + 1)
+                    channel_id = after_channel.id
+                    log.debug(
                         (
                             "VIP with ID %s (%s)"
                             " left voice channel with ID %s, raising user limit!"
@@ -350,7 +419,7 @@ class VoiceTools(commands.Cog):
         ignore_member_list = await guild_conf.forcelimit_ignore_member_list()
         ignore_role_list = await guild_conf.forcelimit_ignore_role_list()
         ignore_vc_list = await guild_conf.forcelimit_ignore_vc_list()
-        channel = after.channel
+        channel = cast(Optional[discord.VoiceChannel], after.channel)
         if (
             channel is not None
             and channel.user_limit != 0
@@ -362,8 +431,8 @@ class VoiceTools(commands.Cog):
                 or channel.id in ignore_vc_list
             ):
                 return
-            await member.move_to(discord.Object(id=None))
-            log.info(
+            await member.move_to(None)
+            log.debug(
                 (
                     "Member with ID %s joined voice channel with ID %s"
                     " exceeding its limit, disconnecting!"

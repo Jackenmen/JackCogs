@@ -1,0 +1,23 @@
+{
+    "name": "NitroRole",
+    "short": "Welcome new nitro boosters and/or give them a special role!",
+    "description": "Welcome new nitro boosters and/or give them a special role!",
+    "end_user_data_statement": "This cog does not persistently store data or metadata about users.\nDiscord IDs of users may occasionally be logged to file as part of error logging.",
+    "install_msg": "Thanks for installing NitroRole. If anything doesn't work, you can report it on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.\n\nThis cog saves images set with `[p]nitrorole setimage` to data path.",
+    "author": [
+        "jack1142 (Jackenmen#6607)"
+    ],
+    "required_cogs": {},
+    "requirements": [],
+    "tags": [
+        "announce",
+        "booster",
+        "nitro",
+        "nitrorole",
+        "welcome"
+    ],
+    "min_bot_version": "3.3.10",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}

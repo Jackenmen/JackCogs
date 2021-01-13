@@ -1,0 +1,25 @@
+{
+    "name": "RSSNotifier",
+    "short": "Get role and/or user mentions about feed updates. This cog requires RSS cog from aikaterna-cogs repo to work.",
+    "description": "Get role and/or user mentions about feed updates. This cog requires RSS cog from aikaterna-cogs repo to work.",
+    "end_user_data_statement": "This cog stores Discord user IDs when the user explicitly opts in receiving mentions about feed updates.\nNo personal identifiable data is stored by this cog.",
+    "install_msg": "Thanks for installing RSSNotifier. If anything doesn't work, you can report it on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.\n\n**This cog requires RSS cog from aikaterna-cogs repo to work.**",
+    "author": [
+        "jack1142 (Jackenmen#6607)"
+    ],
+    "required_cogs": {
+        "rss": "https://github.com/aikaterna/aikaterna-cogs"
+    },
+    "requirements": [],
+    "tags": [
+        "notifications",
+        "rss",
+        "rssnotifier",
+        "tools",
+        "utility"
+    ],
+    "min_bot_version": "3.4.0",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}

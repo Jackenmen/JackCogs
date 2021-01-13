@@ -1,6 +1,20 @@
+# Copyright 2018-2021 Jakub Kuczys (https://github.com/jack1142)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import re
 import time
-from typing import Dict, List, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Tuple, Union
 
 import aiohttp
 import discord
@@ -8,32 +22,27 @@ import fuzzywuzzy.process
 import fuzzywuzzy.utils
 from redbot.core import commands
 from redbot.core.bot import Red
+from redbot.core.commands import DMContext, GuildContext
 from redbot.core.config import Config
-from redbot.core.utils.menus import DEFAULT_CONTROLS, menu
-from typing_extensions import TypedDict
 from yarl import URL
 
 from . import errors
+from .menus import construct_menu
+from .typings import CogItem, RepoItem
+
+RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 
-class RepoItem(TypedDict):
-    author: str
-    repo_url: str
-    branch: str
-    repo_name: str
-
-
-class CogItem(TypedDict):
-    repo_name: str
-    name: str
-    description: str
+DOWNWARDS_ARROW = "\N{DOWNWARDS BLACK ARROW}\N{VARIATION SELECTOR-16}"
 
 
 class CogBoard(commands.Cog):
+    """Search for cogs in approved repos on CogBoard."""
+
     REPOS_POST = "https://cogboard.red/posts/533.json"
     REPOS_REGEX = re.compile(
         r"""
-        ^(?!\|-+\|)  # skip table header
+        ^
         \|\ *(?P<author>[^|]*[^ |])\ *
         \|\ *(?P<repo_name>[^|]*[^ |])\ *
         \|\ *(?P<repo_url>[^|]*[^ |])\ *
@@ -46,7 +55,9 @@ class CogBoard(commands.Cog):
         r"""
         \n_{29}\n
         \*{2}(?P<repo_name>[^\n*]*)\*{2}
-        \n{2}(?P<cog_list>.*?(?=\n{2,}))
+        \nRepo\ Link:\ (?P<repo_url>[^\n]*)
+        \n(?:Branch:\ (?P<branch>[^\n]*))?
+        \n(?P<cog_list>.*?(?=\n{2,}))
         """,
         re.VERBOSE | re.DOTALL,
     )
@@ -65,6 +76,16 @@ class CogBoard(commands.Cog):
         self.session.detach()
 
     __del__ = cog_unload
+
+    async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, Any]:
+        # this cog does not story any data
+        return {}
+
+    async def red_delete_data_for_user(
+        self, *, requester: RequestType, user_id: int
+    ) -> None:
+        # this cog does not story any data
+        pass
 
     async def get_repos_and_cogs(
         self, *, force_refresh: bool = False
@@ -88,7 +109,9 @@ class CogBoard(commands.Cog):
         repo_list: Dict[str, RepoItem] = {}
         cog_list: List[CogItem] = []
         start_index = 0
-        for match in self.REPOS_REGEX.finditer(raw_content):
+        repos_it = self.REPOS_REGEX.finditer(raw_content)
+        next(repos_it, None)
+        for match in repos_it:
             repo_url = match.group("repo_url")
             repo: RepoItem = {
                 "author": match.group("author"),
@@ -117,8 +140,8 @@ class CogBoard(commands.Cog):
     async def cogboard(self, ctx: commands.Context) -> None:
         """CogBoard commands."""
 
-    @cogboard.command(name="refreshcache")
     @commands.is_owner()
+    @cogboard.command(name="refreshcache")
     async def cogboard_refreshcache(self, ctx: commands.Context) -> None:
         """Refresh CogBoard cache."""
         failed = False
@@ -132,8 +155,8 @@ class CogBoard(commands.Cog):
         else:
             await ctx.send("CogBoard cache refreshed.")
 
-    @cogboard.command(name="updateevery")
     @commands.is_owner()
+    @cogboard.command(name="updateevery")
     async def cogboard_cacheexpire(
         self, ctx: commands.Context, expire_time: int
     ) -> None:
@@ -144,8 +167,11 @@ class CogBoard(commands.Cog):
         await self.config.cache_expire.set(expire_time)
         await ctx.send(f"Cache expire time set to {expire_time} seconds.")
 
+    @commands.bot_has_permissions(add_reactions=True)
     @cogboard.command(name="search")
-    async def cogboard_search(self, ctx: commands.Context, query: str) -> None:
+    async def cogboard_search(
+        self, ctx: Union[DMContext, GuildContext], query: str
+    ) -> None:
         """Find cog on CogBoard by name."""
         async with ctx.typing():
             repo_list, cog_list = await self.get_repos_and_cogs()
@@ -162,10 +188,24 @@ class CogBoard(commands.Cog):
             best_matches = sorted(
                 name_matches + desc_matches, key=lambda m: m[1], reverse=True
             )
-            pages = []
-            embed_color = await ctx.embed_color()
-            for match in best_matches:
-                cog = match[0]
+            # I don't like how `[p]embedset` currently works, using regular perm check
+            if TYPE_CHECKING:
+                # things you do to make mypy happy...
+                # see https://github.com/python/mypy/issues/8355
+                if isinstance(ctx, GuildContext):
+                    use_embeds = ctx.channel.permissions_for(ctx.me).embed_links
+                else:
+                    use_embeds = ctx.channel.permissions_for(ctx.me).embed_links
+            else:
+                use_embeds = ctx.channel.permissions_for(ctx.me).embed_links
+            embed_pages: List[discord.Embed] = []
+            str_pages: List[str] = []
+            if use_embeds:
+                embed_color = await ctx.embed_color()
+            cogs = []
+            is_owner = await self.bot.is_owner(ctx.author)
+            for cog, _ in best_matches:
+                cogs.append(cog)
                 repo = repo_list.get(
                     cog["repo_name"],
                     {
@@ -175,10 +215,42 @@ class CogBoard(commands.Cog):
                         "repo_name": cog["repo_name"],
                     },
                 )
-                embed = discord.Embed(title=cog["name"], color=embed_color)
-                embed.add_field(name="Description", value=cog["description"])
-                embed.add_field(name="Author", value=repo["author"])
-                embed.add_field(name="Repo url", value=repo["repo_url"])
-                embed.add_field(name="Branch", value=repo["branch"])
-                pages.append(embed)
-        await menu(ctx, pages, DEFAULT_CONTROLS)
+                if use_embeds:
+                    embed = discord.Embed(title=cog["name"], color=embed_color)
+                    embed.add_field(
+                        name="Description", value=cog["description"], inline=False
+                    )
+                    embed.add_field(name="Author", value=repo["author"], inline=False)
+                    embed.add_field(
+                        name="Repo url", value=repo["repo_url"], inline=False
+                    )
+                    embed.add_field(name="Branch", value=repo["branch"], inline=False)
+                    if is_owner:
+                        text = (
+                            f"You can install the cog by clicking on {DOWNWARDS_ARROW}."
+                        )
+                        embed.set_footer(text=text)
+                    embed_pages.append(embed)
+                else:
+                    text = (
+                        f"```asciidoc\n"
+                        f"= {cog['name']} =\n"
+                        f"* Description:\n"
+                        f"  {cog['description']}\n"
+                        f"* Author:\n"
+                        f"  {repo['author']}\n"
+                        f"* Repo url:\n"
+                        f"  {repo['repo_url']}\n"
+                        f"* Branch:\n"
+                        f"  {repo['branch']}\n"
+                        f"```"
+                    )
+                    if is_owner:
+                        text += (
+                            f"You can install the cog by clicking on {DOWNWARDS_ARROW}."
+                        )
+                    str_pages.append(text)
+
+        await construct_menu(
+            ctx, embed_pages or str_pages, cogs, repo_list, allow_install=is_owner
+        )

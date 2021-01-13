@@ -1,0 +1,55 @@
+name: style
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  black:
+    name: Style check (black and isort)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.8"
+        include:
+          - python-version: "3.8"
+            py-version: "py38"
+    env:
+      PYTHON: python${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@v1
+      - name: Cache pip requirements
+        uses: actions/cache@v1
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-${{ env.PYTHON }}-pip-${{ hashfiles('.ci/**/requirements/*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.PYTHON }}-pip-
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install requirements
+        run: |
+          python -m pip install -U pip setuptools wheel
+          python -m pip install --user -Ur .ci/requirements/style.txt
+      - name: Reformat with isort
+        run: |
+          DIRS=$( cat .ci/${{ matrix.py-version }}/black_file_list.txt )
+          echo python -m isort $DIRS
+          python -m isort $DIRS
+      - name: Reformat with Black
+        run: |
+          DIRS=$( cat .ci/${{ matrix.py-version }}/black_file_list.txt )
+          echo python -m black --target-version ${{ matrix.py-version }} $DIRS
+          python -m black --target-version ${{ matrix.py-version }} $DIRS
+      - name: Double check isort for incompatibity with Black
+        run: |
+          DIRS=$( cat .ci/${{ matrix.py-version }}/black_file_list.txt )
+          echo python -m isort --check $DIRS
+          python -m isort --check $DIRS
+      - name: Check for differences and show diff
+        run: |
+          git diff --exit-code
