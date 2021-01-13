@@ -91,8 +91,6 @@ class RedZMQInteractiveShell(ZMQInteractiveShell):
 class RedIPythonKernel(IPythonKernel):
     shell_class = RedZMQInteractiveShell
 
-    # incorrect type hint in tornado
-    # might get fixed by: https://github.com/tornadoweb/tornado/pull/2909
     @gen.coroutine
     def shutdown_request(
         self, stream: ZMQStream, ident: List[bytes], parent: Dict[str, Any]
