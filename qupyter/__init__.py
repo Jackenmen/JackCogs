@@ -13,15 +13,9 @@
 # limitations under the License.
 
 import json
-import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from redbot.core.bot import Red
-from redbot.core.errors import CogLoadError
-
-if sys.platform == "win32" and not TYPE_CHECKING:
-    raise CogLoadError("This cog does not support Windows.")
 
 from .depr_warnings import ignore_ipy_depr_warnings
 

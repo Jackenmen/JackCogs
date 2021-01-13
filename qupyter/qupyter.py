@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import shutil
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional
 
@@ -44,7 +45,7 @@ class Qupyter(commands.Cog):
             "discord": discord,
             "commands": commands,
         }
-        self.connection_file_symlink = cog_data_path(self) / "kernel.json"
+        self.connection_file = cog_data_path(self) / "kernel.json"
         self.app: Optional[RedIPKernelApp] = None
 
     async def initialize(self) -> None:
@@ -70,13 +71,13 @@ class Qupyter(commands.Cog):
 
         self.app = app = embed_kernel(self.env, **kwargs)
 
-        self.connection_file_symlink.unlink(missing_ok=True)
+        self.connection_file.unlink(missing_ok=True)
         connection_file = Path(app.connection_dir) / app.connection_file
-        self.connection_file_symlink.symlink_to(connection_file)
+        shutil.copy(connection_file, self.connection_file)
 
     def stop_app(self) -> None:
         if self.app is not None:
-            self.connection_file_symlink.unlink(missing_ok=True)
+            self.connection_file.unlink(missing_ok=True)
             self.app.cleanup_connection_file()
             self.app.close()
             self.app = None

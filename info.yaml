@@ -161,9 +161,6 @@ cogs:
 
       WARNING: This cog is meant for development instances
       and should NOT ever be used in production environment.
-
-
-      NOTE: This cog currently DOES NOT work on Windows.
     end_user_data_statement: >-
       This cog does not persistently store data or metadata about users.
     class_docstring: Run IPython kernel within Red and connect to it with Jupyter Console.
@@ -175,11 +172,12 @@ cogs:
       and should NOT ever be used in production environment.
 
 
-      This cog makes a symlink to kernel app's connection file in data path.
+      This cog copies a kernel app's connection file to data path.
     requirements:
       - ipykernel~=5.4
       - ipyparallel
       - jedi<0.16.0  # IPython 7.18.1 uses deprecated things
+      - tornado>=6.0
     tags:
       - dev
       - development
