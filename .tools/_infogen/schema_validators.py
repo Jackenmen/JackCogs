@@ -78,4 +78,4 @@ class PythonVersion(ScalarValidator):
 
 
 def RedVersion() -> Regex:
-    return Regex(VersionInfo._VERSION_STR_PATTERN)
+    return Regex(VersionInfo._VERSION_STR_PATTERN.pattern)
