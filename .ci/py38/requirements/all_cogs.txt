@@ -2,7 +2,7 @@ Red-DiscordBot
 cachetools~=4.1
 emoji~=0.6.0
 gidgethub~=4.1
-ipykernel~=5.3
+ipykernel~=5.4
 ipyparallel
 jedi<0.16.0
 pillow~=7.2

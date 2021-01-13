@@ -9,7 +9,7 @@
     ],
     "required_cogs": {},
     "requirements": [
-        "ipykernel~=5.3",
+        "ipykernel~=5.4",
         "ipyparallel",
         "jedi<0.16.0"
     ],

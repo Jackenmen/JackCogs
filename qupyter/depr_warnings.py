@@ -34,31 +34,3 @@ def ignore_ipy_depr_warnings() -> None:
     warnings.filterwarnings(
         "ignore", category=DeprecationWarning, module="ipykernel", lineno=14
     )
-
-    # the warnings below are resolved by:
-    # https://github.com/ipython/ipykernel/pull/547
-    # once next version of ipykernel gets released, these can be removed:
-
-    # usage of pyzmq's deprecated IOLoop by ipykernel
-    warnings.filterwarnings(
-        "ignore", category=DeprecationWarning, module="ipykernel", lineno=66
-    )
-    # usage of traitilets's deprecated *_changed observing API by ipykernel
-    warnings.filterwarnings(
-        "ignore",
-        category=DeprecationWarning,
-        message="RedIPythonKernel._user_ns_changed is deprecated in traitlets 4.1",
-    )
-    # the below warnings are about ipykernel its own deprecated modules
-    # - ipykernel.datapub
-    warnings.filterwarnings(
-        "ignore", category=DeprecationWarning, module="ipykernel", lineno=5
-    )
-    # - ipykernel.serialize
-    warnings.filterwarnings(
-        "ignore", category=DeprecationWarning, module="ipykernel", lineno=7
-    )
-    # - ipykernel.pickleutil
-    warnings.filterwarnings(
-        "ignore", category=DeprecationWarning, module="ipykernel", lineno=8
-    )
