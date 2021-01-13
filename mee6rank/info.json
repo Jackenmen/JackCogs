@@ -9,7 +9,7 @@
     ],
     "required_cogs": {},
     "requirements": [
-        "pillow~=7.2"
+        "pillow~=8.1"
     ],
     "tags": [
         "api",
