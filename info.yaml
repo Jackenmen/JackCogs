@@ -30,8 +30,8 @@ cogs:
       This cog auto-uploads attachments to gist.github.com
       uploaded by users as configured by the guild administrators.
     requirements:
-      - cachetools~=4.1
-      - gidgethub~=4.1
+      - cachetools~=4.2
+      - gidgethub~=5.0
     tags:
       - autogist
       - github

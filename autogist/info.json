@@ -9,8 +9,8 @@
     ],
     "required_cogs": {},
     "requirements": [
-        "cachetools~=4.1",
-        "gidgethub~=4.1"
+        "cachetools~=4.2",
+        "gidgethub~=5.0"
     ],
     "tags": [
         "autogist",
