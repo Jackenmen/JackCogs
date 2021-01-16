@@ -154,16 +154,16 @@ class LinkWarner(commands.Cog):
 
     # Enabled/ignored state commands
     @linkwarner.command(name="state")
-    async def linkwarner_state(self, ctx: GuildContext, enabled: bool) -> None:
+    async def linkwarner_state(self, ctx: GuildContext, new_state: bool) -> None:
         """
         Set if LinkWarner should be enabled for this guild.
 
         If used without a setting, this will show the current state.
         """
         guild_data = await self.get_guild_data(ctx.guild)
-        await guild_data.set_enabled_state(enabled)
+        await guild_data.set_enabled_state(new_state)
 
-        if enabled:
+        if new_state:
             message = "Bot will now filter links in this server."
         else:
             message = "Bot will no longer filter links in this server."
@@ -171,13 +171,13 @@ class LinkWarner(commands.Cog):
 
     @linkwarner_channel.command(name="ignore")
     async def linkwarner_channel_ignore(
-        self, ctx: GuildContext, channel: discord.TextChannel, ignore: bool
+        self, ctx: GuildContext, channel: discord.TextChannel, new_state: bool
     ) -> None:
         """Set if LinkWarner should ignore links in provided channel."""
         channel_data = await self.get_channel_data(channel)
-        await channel_data.set_ignored_state(ignore)
+        await channel_data.set_ignored_state(new_state)
 
-        if ignore:
+        if new_state:
             message = f"Bot will now ignore links in {channel.mention} channel."
         else:
             message = f"Bot will now filter links in {channel.mention} channel."
