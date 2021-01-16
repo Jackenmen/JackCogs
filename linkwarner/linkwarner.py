@@ -39,13 +39,13 @@ class LinkWarner(commands.Cog):
         self.config.register_guild(
             enabled=False,
             excluded_roles=[],
-            domains_mode=DomainsMode.ALLOW_FROM_SCOPE_LIST,
+            domains_mode=DomainsMode.ALLOW_FROM_SCOPE_LIST.value,
             domains_list=[],
             warn_message="",
         )
         self.config.register_channel(
             ignored=False,
-            domains_mode=DomainsMode.INHERIT_MODE_AND_UNION_LISTS,
+            domains_mode=DomainsMode.INHERIT_MODE_AND_UNION_LISTS.value,
             domains_list=[],
             warn_message="",
         )
