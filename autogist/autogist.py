@@ -47,6 +47,7 @@ class AutoGist(commands.Cog):
         self.config.register_guild(
             blocklist_mode=False,
             file_extensions=[".txt", ".log"],
+            listen_to_humans=True,
             listen_to_bots=False,
             listen_to_self=False,
         )
@@ -273,6 +274,41 @@ class AutoGist(commands.Cog):
         else:
             msg = "AutoGist will listen to messages in these channels:\n"
         await ctx.send(f"{msg}{humanize_list(overriden)}")
+
+    @commands.guild_only()
+    @autogistset.command(name="listentohumans")
+    async def autogistset_listentohumans(
+        self, ctx: GuildContext, state: Optional[bool] = None
+    ) -> None:
+        """Make AutoGist listen to messages from humans in this server."""
+        guild_data = await self.get_guild_data(ctx.guild)
+        if state is None:
+            if guild_data.listen_to_humans:
+                msg = "AutoGist listens to messages from humans in this server."
+            else:
+                msg = "AutoGist doesn't listen to messages from humans in this server."
+            await ctx.send(msg)
+            return
+
+        if state is guild_data.listen_to_humans:
+            if state:
+                msg = "AutoGist already listens to messages from humans in this server."
+            else:
+                msg = (
+                    "AutoGist already doesn't listen to messages"
+                    " from humans in this server."
+                )
+            await ctx.send(msg)
+            return
+
+        await guild_data.edit_listen_to_humans(state)
+        if state:
+            msg = "AutoGist will now listen to messages from humans in this server."
+        else:
+            msg = (
+                "AutoGist will no longer listen to messages from humans in this server."
+            )
+        await ctx.send(msg)
 
     @commands.guild_only()
     @autogistset.command(name="listentobots")
