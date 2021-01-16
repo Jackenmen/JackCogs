@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import Dict
+from typing import Any, Dict, Literal
 
 import discord
 from redbot.core import commands, modlog
@@ -26,6 +26,8 @@ from redbot.core.utils.common_filters import URL_RE
 from .data_classes import ChannelData, DomainsMode, GuildData, GuildDomainsMode
 
 log = logging.getLogger("red.jackcogs.linkwarner")
+
+RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 
 class LinkWarner(commands.Cog):
@@ -62,6 +64,16 @@ class LinkWarner(commands.Cog):
             )
         except RuntimeError:
             pass
+
+    async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, Any]:
+        # this cog does not story any data
+        return {}
+
+    async def red_delete_data_for_user(
+        self, *, requester: RequestType, user_id: int
+    ) -> None:
+        # this cog does not story any data
+        pass
 
     async def get_guild_data(self, guild: discord.Guild) -> GuildData:
         try:
