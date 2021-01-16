@@ -60,6 +60,7 @@ else:
                 raise commands.BadArgument(
                     f"{inline(arg)} is not a valid domains list mode."
                 )
+            return ret
 
 
 class ScopeData(ABC):
