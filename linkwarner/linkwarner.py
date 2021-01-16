@@ -88,8 +88,15 @@ class LinkWarner(commands.Cog):
         """Show settings for the current guild."""
         guild_data = await self.get_guild_data(ctx.guild)
         enabled = "Yes" if guild_data.enabled else "No"
-        excluded_roles = humanize_list(
-            r.mention for r in ctx.guild.roles if r.id in guild_data.excluded_roles
+        excluded_roles = (
+            humanize_list(
+                [
+                    r.mention
+                    for r in ctx.guild.roles
+                    if r.id in guild_data.excluded_roles
+                ]
+            )
+            or "*None*"
         )
         domains_mode = (
             "Only allow domains from the domains list"
@@ -97,7 +104,7 @@ class LinkWarner(commands.Cog):
             else "Allow all domains except the domains from the domains list"
         )
         # purposefully not using humanize_list() here to avoid confusion
-        domains_list = ", ".join(guild_data.domains_list)
+        domains_list = ", ".join(guild_data.domains_list) or "*Empty*"
         await ctx.send(
             "**LinkWarner's Guild Settings**\n\n"
             ">>> "
@@ -136,7 +143,7 @@ class LinkWarner(commands.Cog):
                     " from the guild's and channel's domains list"
                 )
         # purposefully not using humanize_list() here to avoid confusion
-        domains_list = ", ".join(channel_data.scoped_domains_list)
+        domains_list = ", ".join(channel_data.scoped_domains_list) or "*Empty*"
         await ctx.send(
             f"**LinkWarner's Channel Settings for {channel.mention}**\n\n"
             ">>> "
