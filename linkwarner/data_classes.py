@@ -286,10 +286,10 @@ class GuildData(ScopeData):
 
     def _update_domains_list(self) -> None:
         if self.domains_list:
-            self.domains_filter = re.compile(
-                f"^({'|'.join(re.escape(domain) for domain in self.domains_list)})",
-                flags=re.I,
+            joined_domains = "|".join(
+                rf"{re.escape(domain)}(?:$|/)" for domain in self.domains_list
             )
+            self.domains_filter = re.compile(f"^({joined_domains})", flags=re.I)
         else:
             self.domains_filter = None
 
@@ -429,8 +429,11 @@ class ChannelData(ScopeData):
             self.domains_filter = self.guild_data.domains_filter
 
         if self.scoped_domains_list:
+            joined_domains = "|".join(
+                rf"{re.escape(domain)}(?:$|/)" for domain in self.domains_list
+            )
             self.domains_filter = re.compile(
-                f"^({'|'.join(re.escape(domain) for domain in self.domains_list)})",
+                f"^({joined_domains})",
                 flags=re.I,
             )
 
