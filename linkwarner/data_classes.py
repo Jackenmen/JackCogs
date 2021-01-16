@@ -162,6 +162,8 @@ class GuildData(ScopeData):
         Guild ID.
     enabled: `bool`
         Is LinkWarner enabled for this guild.
+    check_edits: `bool`
+        Whether LinkWarner should check the messages for links on edit.
     excluded_roles: `set` of `int`
         Role IDs that should be excluded from filtering in this guild.
     domains_mode: `DomainsMode`
@@ -181,6 +183,7 @@ class GuildData(ScopeData):
         "_config",
         "_config_group",
         "enabled",
+        "check_edits",
         "excluded_roles",
         "_channel_cache",
     )
@@ -191,6 +194,7 @@ class GuildData(ScopeData):
         guild_id: int,
         *,
         enabled: bool,
+        check_edits: bool,
         excluded_roles: Iterable[int],
         domains_mode: int,
         domains_list: Iterable[str],
@@ -203,6 +207,7 @@ class GuildData(ScopeData):
         self._config_group: Group
 
         self.enabled = enabled
+        self.check_edits = check_edits
         self.excluded_roles = set(excluded_roles)
         self.domains_mode = DomainsMode(domains_mode)
         self.scoped_domains_list = set(domains_list)
@@ -240,9 +245,9 @@ class GuildData(ScopeData):
 
         return data
 
-    async def set_enabled_state(self, state: bool) -> None:
-        self.enabled = state
-        await self.config_group.enabled.set(state)
+    async def set_enabled_state(self, new_state: bool) -> None:
+        self.enabled = new_state
+        await self.config_group.enabled.set(new_state)
 
         # update channel cache with new enabled state
         for channel_data in self._channel_cache.values():
@@ -262,6 +267,10 @@ class GuildData(ScopeData):
             role.id for role in member.roles
         )
         return bool(common_roles)
+
+    async def set_check_edits(self, new_state: bool) -> None:
+        self.check_edits = new_state
+        await self.config_group.check_edits.set(new_state)
 
     async def set_excluded_roles(self, excluded_roles: Iterable[int]) -> None:
         self.excluded_roles = set(excluded_roles)
@@ -389,10 +398,10 @@ class ChannelData(ScopeData):
         data = await guild_data._config.channel(channel).all()
         return cls(guild_data, channel.id, **data)
 
-    async def set_ignored_state(self, state: bool) -> None:
-        self.ignored = state
+    async def set_ignored_state(self, new_state: bool) -> None:
+        self.ignored = new_state
         self._update_enabled()
-        await self.config_group.ignored.set(state)
+        await self.config_group.ignored.set(new_state)
 
     def is_url_allowed(self, url: str) -> bool:
         """

@@ -38,6 +38,7 @@ class LinkWarner(commands.Cog):
         )
         self.config.register_guild(
             enabled=False,
+            check_edits=True,
             excluded_roles=[],
             domains_mode=DomainsMode.ALLOW_FROM_SCOPE_LIST.value,
             domains_list=[],
@@ -393,7 +394,9 @@ class LinkWarner(commands.Cog):
         await channel_data.set_warn_message("")
         await ctx.send("Link warning message unset.")
 
-    async def _should_ignore(self, message: discord.Message) -> bool:
+    async def _should_ignore(
+        self, message: discord.Message, *, edit: bool = False
+    ) -> bool:
         """
         Checks whether message should be ignored in the `on_message` listener.
 
@@ -427,12 +430,15 @@ class LinkWarner(commands.Cog):
         if channel_data.guild_data.has_excluded_roles(message.author):
             return True
 
+        if edit and not channel_data.guild_data.check_edits:
+            return True
+
         return False
 
     # listener
     @commands.Cog.listener()
-    async def on_message(self, message: discord.Message) -> None:
-        if await self._should_ignore(message):
+    async def on_message(self, message: discord.Message, *, edit: bool = False) -> None:
+        if await self._should_ignore(message, edit=edit):
             return
 
         guild = message.guild
@@ -480,3 +486,9 @@ class LinkWarner(commands.Cog):
                 channel=message.channel,
             )
             return
+
+    @commands.Cog.listener()
+    async def on_message_edit(
+        self, _before: discord.Message, after: discord.Message
+    ) -> None:
+        await self.on_message(after, edit=True)
