@@ -83,7 +83,7 @@ class LinkWarner(commands.Cog):
     async def linkwarner(self, ctx: GuildContext) -> None:
         """Settings for LinkWarner cog."""
 
-    @linkwarner.command()
+    @linkwarner.command(name="showsettings")
     async def linkwarner_showsettings(self, ctx: GuildContext) -> None:
         """Show settings for the current guild."""
         guild_data = await self.get_guild_data(ctx.guild)
@@ -111,7 +111,7 @@ class LinkWarner(commands.Cog):
     async def linkwarner_channel(self, ctx: GuildContext) -> None:
         """Channel-specific settings for LinkWarner."""
 
-    @linkwarner_channel.command()
+    @linkwarner_channel.command(name="showsettings")
     async def linkwarner_channel_showsettings(
         self, ctx: GuildContext, channel: discord.TextChannel
     ) -> None:
