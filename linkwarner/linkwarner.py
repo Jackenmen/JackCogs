@@ -282,7 +282,12 @@ class LinkWarner(commands.Cog):
 
     @linkwarner_domains.command(name="add", require_var_positional=True)
     async def linkwarner_domains_add(self, ctx: GuildContext, *domains: str) -> None:
-        """Add domains to the domains list."""
+        """
+        Add domains to the domains list.
+
+        Example:
+        `[p]linkwarner domains add google.com youtube.com`
+        """
         guild_data = await self.get_guild_data(ctx.guild)
         await guild_data.add_domains(domains)
         await ctx.send("Domains list updated.")
@@ -291,7 +296,12 @@ class LinkWarner(commands.Cog):
     async def linkwarner_channel_domains_add(
         self, ctx: GuildContext, channel: discord.TextChannel, *domains: str
     ) -> None:
-        """Add domains to the domains list of the provided channel."""
+        """
+        Add domains to the domains list of the provided channel.
+
+        Example:
+        `[p]linkwarner channel domains add #channel youtube.com discord.com`
+        """
         channel_data = await self.get_channel_data(channel)
         await channel_data.add_domains(domains)
         await ctx.send("Domains list updated.")
@@ -300,7 +310,12 @@ class LinkWarner(commands.Cog):
         name="remove", aliases=["delete"], require_var_positional=True
     )
     async def linkwarner_domains_remove(self, ctx: GuildContext, *domains: str) -> None:
-        """Remove domains from the domains list."""
+        """
+        Remove domains from the domains list.
+
+        Example:
+        `[p]linkwarner domains remove youtube.com discord.com`
+        """
         guild_data = await self.get_guild_data(ctx.guild)
         await guild_data.remove_domains(domains)
         await ctx.send("Domains list updated.")
@@ -311,7 +326,12 @@ class LinkWarner(commands.Cog):
     async def linkwarner_channel_domains_remove(
         self, ctx: GuildContext, channel: discord.TextChannel, *domains: str
     ) -> None:
-        """Remove domains from the domains list of the provided channel."""
+        """
+        Remove domains from the domains list of the provided channel.
+
+        Example:
+        `[p]linkwarner channel domains remove #channel youtube.com discord.com`
+        """
         channel_data = await self.get_channel_data(channel)
         await channel_data.remove_domains(domains)
         await ctx.send("Domains list updated.")
