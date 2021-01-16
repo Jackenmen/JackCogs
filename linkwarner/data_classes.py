@@ -115,6 +115,7 @@ class ScopeData(ABC):
 
     async def set_domains_mode(self, new_mode: DomainsMode) -> None:
         self.domains_mode = new_mode
+        self._update_domains_list()
         await self.config_group.domains_mode.set(new_mode.value)
 
     async def add_domains(self, to_add: Iterable[str]) -> None:
