@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import parso
@@ -56,6 +57,7 @@ def update_class_docstrings(ctx: InfoGenMainCommand) -> Literal[True]:
             if class_node is not None:
                 break
 
+            new_path = None
             for import_node in tree.iter_imports():
                 if import_node.is_star_import():
                     # we're ignoring star imports
@@ -74,16 +76,26 @@ def update_class_docstrings(ctx: InfoGenMainCommand) -> Literal[True]:
                     raise RuntimeError(
                         "Attempted relative import beyond top-level package."
                     )
-                path = ROOT_PATH / pkg_name
+                new_path = ROOT_PATH / pkg_name
                 for part in import_path[:-1]:
-                    path /= part.value
-                path = path.with_suffix(".py")
+                    new_path /= part.value
+                assert isinstance(new_path, Path)
+                new_path = new_path.with_suffix(".py")
                 if not path.is_file():
                     raise RuntimeError(
                         f"Path `{path}` isn't a valid file. Finding cog's class failed."
                     )
                 break
+            if new_path is None or path == new_path:
+                print(
+                    "\033[93m\033[1mWARNING:\033[0m "
+                    f"Class for `{pkg_name}` cog package could not be found."
+                )
+                break
+            path = new_path
 
+        if class_node is None:
+            continue
         doc_node = class_node.get_doc_node()
         new_docstring = cog_info.get("class_docstring") or cog_info["short"]
         replacements = {
