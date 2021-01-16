@@ -370,7 +370,7 @@ class ChannelData(ScopeData):
         try:
             return self._config_group
         except AttributeError:
-            config_group = self.guild_data._config.guild_from_id(self.id)
+            config_group = self.guild_data._config.channel_from_id(self.id)
             self._config_group = config_group
             return config_group
 
