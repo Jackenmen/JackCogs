@@ -23,7 +23,6 @@ Also I suggest to join [Red - Cog Support server](https://discord.gg/GET4DVk) an
 * **autogist** - Auto-upload files with configured extension sent by users to gist.github.com.
 * **banmessage** - Send message on ban in a chosen channel. Supports images!
 * **categoryhelp** - Command for getting help for category that ignores case-sensitivity.
-* **cogboard** - Search for cogs in approved repos on CogBoard.
 * **emojiinfo** - Get information about emojis and see how to use them in your code.
 * **linkwarner** - Remove messages containing links and warn users for it.
 * **mee6rank** - Get detailed information about your Mee6 rank.

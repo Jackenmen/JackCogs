@@ -16,12 +16,20 @@ import json
 from pathlib import Path
 
 from redbot.core.bot import Red
-
-from .cogboard import CogBoard
+from redbot.core.errors import CogLoadError
 
 with open(Path(__file__).parent / "info.json") as fp:
     __red_end_user_data_statement__ = json.load(fp)["end_user_data_statement"]
 
 
 def setup(bot: Red) -> None:
-    bot.add_cog(CogBoard(bot))
+    raise CogLoadError(
+        "CogBoard cog has been removed from JackCogs repo on 16.01.2021"
+        " and is no longer supported.\n"
+        "A better alternative - the Index cog using Red-Index backend"
+        " - can be found in the x26-Cogs repository:\n"
+        "https://github.com/Twentysix26/x26-Cogs\n\n"
+        "If you have any questions,"
+        " ask on Cog Support server in #support_othercogs channel.\n"
+        "https://discord.gg/GET4DVk"
+    )

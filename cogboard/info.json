@@ -1,7 +1,7 @@
 {
     "name": "CogBoard",
-    "short": "Search for cogs in approved repos on CogBoard.",
-    "description": "Search for cogs in approved repos on CogBoard.",
+    "short": "CogBoard cog has been removed from JackCogs repo on 16.01.2021 and is no longer supported.",
+    "description": "CogBoard cog has been removed from JackCogs repo on 16.01.2021 and is no longer supported.",
     "end_user_data_statement": "This cog does not persistently store data or metadata about users.",
     "install_msg": "Thanks for installing CogBoard. If anything doesn't work, you can report it on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.",
     "author": [
@@ -15,7 +15,7 @@
         "utility"
     ],
     "min_bot_version": "3.3.10",
-    "hidden": false,
+    "hidden": true,
     "disabled": false,
     "type": "COG"
 }
