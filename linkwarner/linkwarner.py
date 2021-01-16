@@ -435,6 +435,8 @@ class LinkWarner(commands.Cog):
         if await self.bot.is_automod_immune(message):
             return True
 
+        assert isinstance(message.channel, discord.TextChannel), "mypy"
+        assert isinstance(message.author, discord.Member), "mypy"
         channel_data = await self.get_channel_data(message.channel)
         if not channel_data.enabled:
             return True
@@ -455,10 +457,12 @@ class LinkWarner(commands.Cog):
 
         guild = message.guild
         channel = message.channel
+        assert guild is not None, "mypy"
         assert isinstance(channel, discord.TextChannel), "mypy"
 
         channel_data = await self.get_channel_data(channel)
 
+        assert guild.me is not None, "mypy"
         bot_perms = channel.permissions_for(guild.me)
         for match in URL_RE.finditer(message.content):
             if channel_data.is_url_allowed(match.group(2)):
@@ -495,7 +499,7 @@ class LinkWarner(commands.Cog):
                 user=message.author,
                 moderator=guild.me,
                 reason=f"Warned for posting a link - {match.group(0)}",
-                channel=message.channel,
+                channel=channel,
             )
             return
 
