@@ -30,6 +30,7 @@ class GuildData:
         "_config_group",
         "blocklist_mode",
         "file_extensions",
+        "listen_to_humans",
         "listen_to_bots",
         "listen_to_self",
         "_channel_cache",
@@ -43,6 +44,7 @@ class GuildData:
         *,
         blocklist_mode: bool,
         file_extensions: Sequence[str],
+        listen_to_humans: bool,
         listen_to_bots: bool,
         listen_to_self: bool,
     ) -> None:
@@ -52,6 +54,7 @@ class GuildData:
         self._config_group: Group
         self.blocklist_mode: bool = blocklist_mode
         self.file_extensions: Tuple[str, ...] = tuple(file_extensions)
+        self.listen_to_humans: bool = listen_to_humans
         self.listen_to_bots: bool = listen_to_bots
         self.listen_to_self: bool = listen_to_self
         # state tri-bool
@@ -106,14 +109,18 @@ class GuildData:
     def is_permitted(self, user: discord.abc.User) -> bool:
         is_self = user.id == self.bot.user.id
         return (
-            not user.bot
-            or (self.listen_to_self and is_self)
+            (self.listen_to_humans and not user.bot)
             or (self.listen_to_bots and user.bot and not is_self)
+            or (self.listen_to_self and is_self)
         )
 
     async def edit_blocklist_mode(self, state: bool) -> None:
         self.blocklist_mode = state
         await self.config_group.blocklist_mode.set(state)
+
+    async def edit_listen_to_humans(self, state: bool) -> None:
+        self.listen_to_humans = state
+        await self.config_group.listen_to_humans.set(state)
 
     async def edit_listen_to_bots(self, state: bool) -> None:
         self.listen_to_bots = state
