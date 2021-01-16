@@ -87,6 +87,20 @@ cogs:
       - emojiinfo
       - tools
       - utility
+  linkwarner:
+    name: LinkWarner
+    short: >-
+      Remove messages containing links and warn users for it.
+    description: >-
+      {short}
+      Comes with settings for excluding roles and including/excluding url domains!
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
+    tags:
+      - linkwarner
+      - moderation
+      - tools
+      - utility
   mee6rank:
     name: Mee6Rank
     short: Get detailed information about your Mee6 rank.
