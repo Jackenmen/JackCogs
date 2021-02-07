@@ -78,6 +78,8 @@ This project bundles screenshot done by reddit user [CastleintheMist](https://ww
 
 This project bundles Steam, Playstation and Xbox logos from [Ionicons icon set](https://ionicons.com/) which is released under the MIT License.
 
+This project bundles Nintendo Switch logo from [Remix Icon icon set](https://remixicon.com/) which is released under the Apache License 2.0.
+
 All brand icons are trademarks of their respective owners. The use of these trademarks does not indicate endorsement of the trademark holder by me, nor vice versa.
 
 This project vendors cachetools stubs by judej from judej/typeshed repository on GitHub (https://github.com/judej/typeshed/tree/cachetools-stubs) which are distributed under the Apache License.

@@ -48,7 +48,9 @@ RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 SUPPORTED_PLATFORMS = """Supported platforms:
 - Steam - use steamID64, customURL or full URL to profile
 - PlayStation 4 - use PSN ID
-- Xbox One - use Xbox Gamertag"""
+- Xbox One - use Xbox Gamertag
+- Epic Games - use Epic Games display name
+- Nintendo Switch - use Nintendo Network ID"""
 
 RLSTATS_DOCS = f"""
 Show Rocket League stats in {{mode}} playlists for you or given player.
