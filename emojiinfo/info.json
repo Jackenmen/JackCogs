@@ -9,7 +9,7 @@
     ],
     "required_cogs": {},
     "requirements": [
-        "emoji~=0.6.0"
+        "emoji~=1.2"
     ],
     "tags": [
         "dev",

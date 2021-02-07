@@ -16,8 +16,8 @@ import re
 import unicodedata
 from typing import Generator, Pattern, Tuple
 
-# mypy v0.790 was released with outdated typeshed...
-from emoji import EMOJI_UNICODE  # type: ignore[attr-defined]
+# typeshed for emoji lib needs to be updated for versions 1.0+
+from emoji import EMOJI_UNICODE_ENGLISH  # type: ignore[attr-defined]
 
 from .variations import EMOJIS_WITH_VARIATIONS
 
@@ -53,7 +53,7 @@ def get_char_repr(char: str) -> str:
 
 def _generate_emoji_regex() -> Pattern[str]:
     # multi-char emojis need to take precedence
-    emojis = sorted(EMOJI_UNICODE.values(), key=len, reverse=True)
+    emojis = sorted(EMOJI_UNICODE_ENGLISH.values(), key=len, reverse=True)
     custom_emojis_pattern = r"(<a?:\w{2,32}:\d{18,22}>)"
     unicode_emojis_pattern = "|".join(re.escape(emoji) for emoji in emojis)
     return re.compile(f"{custom_emojis_pattern}|{unicode_emojis_pattern}")
