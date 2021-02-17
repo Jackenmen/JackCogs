@@ -7,4 +7,4 @@ ipyparallel
 jedi<0.16.0
 pillow~=8.1
 rlapi==0.4.1a1
-tornado>=6.0
+tornado>=6.1
