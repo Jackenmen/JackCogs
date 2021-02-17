@@ -22,7 +22,7 @@ from .checks import (
     check_key_order,
     check_package_end_user_data_statements,
 )
-from .cli import Options
+from .cli import Options, WriteBack
 from .file_generators import generate_repo_info_file, process_cogs
 from .results import Results
 from .schema import load_info_yaml
@@ -93,5 +93,8 @@ class InfoGenMainCommand:
         self.vprint("\n---\n")
 
         self.results.finish_and_print_results()
+
+        if self.options.write_back is not WriteBack.YES:
+            self.success &= not self.results.files_changed
 
         return self.success

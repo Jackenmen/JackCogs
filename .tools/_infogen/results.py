@@ -87,6 +87,10 @@ class Results:
         self._files: Dict[Path, FileInfo] = {}
         self._options = options
 
+    @property
+    def files_changed(self) -> bool:
+        return any(file_info.changed for file_info in self._files.values())
+
     def get_file(self, path: Path) -> str:
         if (file_info := self._files.get(path)) is None:
             self._files[path] = file_info = FileInfo.from_path(path)
