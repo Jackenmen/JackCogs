@@ -479,7 +479,7 @@ class LinkWarner(commands.Cog):
                     guild.id,
                 )
             except discord.NotFound:
-                pass # Would've been deleted previously
+                pass  # Would've been deleted previously
             msg = channel_data.format_warn_message(message)
             if msg is not None:
                 try:
