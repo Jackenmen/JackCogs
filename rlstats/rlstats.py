@@ -48,7 +48,9 @@ RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 SUPPORTED_PLATFORMS = """Supported platforms:
 - Steam - use steamID64, customURL or full URL to profile
 - PlayStation 4 - use PSN ID
-- Xbox One - use Xbox Gamertag"""
+- Xbox One - use Xbox Gamertag
+- Epic Games - use Epic Games display name
+- Nintendo Switch - use Nintendo Network ID"""
 
 RLSTATS_DOCS = f"""
 Show Rocket League stats in {{mode}} playlists for you or given player.
@@ -68,7 +70,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         # competitive
         rlapi.PlaylistKey.solo_duel: (0, 0),
         rlapi.PlaylistKey.doubles: (960, 0),
-        rlapi.PlaylistKey.solo_standard: (0, 383),
+        rlapi.PlaylistKey.tournaments: (0, 383),
         rlapi.PlaylistKey.standard: (960, 383),
         # extra modes
         rlapi.PlaylistKey.hoops: (0, 0),
@@ -80,7 +82,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         "username": CoordsInfo(Point(960, 71), "RobotoCondensedBold90"),
         "platform": CoordsInfo(Point(976, 83), None),
         "playlist_name": CoordsInfo(Point(243, 197), "RobotoRegular74"),
-        "rank_image": CoordsInfo(Point(153, 248), None),
+        "rank_image": CoordsInfo(Point(242, 337), None),
         "rank_text": CoordsInfo(Point(242, 453), "RobotoLight45"),
         "matches_played": CoordsInfo(Point(822, 160), "RobotoBold45"),
         "win_streak_text": CoordsInfo(Point(492, 216), "RobotoLight45"),
@@ -106,6 +108,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         4: "#95d9d7",
         5: "#c1afda",
         6: "#d9caf0",
+        7: "#ffffff",
     }
 
     def __init__(self, bot: Red) -> None:
@@ -396,7 +399,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         playlists = (
             rlapi.PlaylistKey.solo_duel,
             rlapi.PlaylistKey.doubles,
-            rlapi.PlaylistKey.solo_standard,
+            rlapi.PlaylistKey.tournaments,
             rlapi.PlaylistKey.standard,
         )
         await self._rlstats_logic(ctx, self.competitive_template, playlists, player_id)

@@ -184,7 +184,7 @@ class RLStatsImage(RLStatsImageMixin):
 
     def _draw_season_rewards(self) -> None:
         self._draw_season_reward_lvl()
-        if self.player.season_rewards.level != 7:
+        if self.player.season_rewards.level != 8:
             self._draw_season_reward_bars()
             self._draw_season_reward_wins()
 
@@ -299,6 +299,7 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
             rank_image = im.convert("RGBA")
             rank_image.thumbnail(self.template.rank_size, Image.ANTIALIAS)
             coords, _ = self.get_coords("rank_image")
+            coords -= (rank_image.width // 2, rank_image.height // 2)
             self.alpha_composite(rank_image, coords.to_tuple())
 
     def _draw_rank_name(self) -> None:

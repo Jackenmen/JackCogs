@@ -227,7 +227,7 @@ cogs:
       if the bot owner decides to customize them.
     requirements:
       - pillow~=8.1
-      - rlapi==0.4.1a1
+      - rlapi==0.5.0a1
     tags:
       - api
       - gaming
