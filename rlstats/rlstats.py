@@ -80,7 +80,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         "username": CoordsInfo(Point(960, 71), "RobotoCondensedBold90"),
         "platform": CoordsInfo(Point(976, 83), None),
         "playlist_name": CoordsInfo(Point(243, 197), "RobotoRegular74"),
-        "rank_image": CoordsInfo(Point(153, 248), None),
+        "rank_image": CoordsInfo(Point(242, 337), None),
         "rank_text": CoordsInfo(Point(242, 453), "RobotoLight45"),
         "matches_played": CoordsInfo(Point(822, 160), "RobotoBold45"),
         "win_streak_text": CoordsInfo(Point(492, 216), "RobotoLight45"),
