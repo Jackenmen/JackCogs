@@ -184,7 +184,7 @@ class RLStatsImage(RLStatsImageMixin):
 
     def _draw_season_rewards(self) -> None:
         self._draw_season_reward_lvl()
-        if self.player.season_rewards.level != 7:
+        if self.player.season_rewards.level != 8:
             self._draw_season_reward_bars()
             self._draw_season_reward_wins()
 

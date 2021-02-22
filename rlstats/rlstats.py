@@ -106,6 +106,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         4: "#95d9d7",
         5: "#c1afda",
         6: "#d9caf0",
+        7: "#ffffff",
     }
 
     def __init__(self, bot: Red) -> None:
