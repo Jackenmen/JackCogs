@@ -35,10 +35,9 @@ def get_env() -> Dict[str, str]:
         # a wonderful idea to call them almost the same >.<
         if sys.platform == "win32":
             binfolder = f"{sys.prefix}{os.path.sep}Scripts"
-            env["PATH"] = f"{binfolder}{os.pathsep}{env['PATH']}"
         else:
             binfolder = f"{sys.prefix}{os.path.sep}bin"
-            env["PATH"] = f"{binfolder}{os.pathsep}{env['PATH']}"
+        env["PATH"] = f"{binfolder}{os.pathsep}{env['PATH']}"
     return env
 
 

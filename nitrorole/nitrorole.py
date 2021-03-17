@@ -283,7 +283,7 @@ class NitroRole(commands.Cog):
             await a.save(fp)
 
         for file in self.message_images.glob(f"{ctx.guild.id}.*"):
-            if not file == filename:
+            if file != filename:
                 file.unlink()
 
         guild_data = await self.get_guild_data(guild)

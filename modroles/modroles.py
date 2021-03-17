@@ -198,14 +198,14 @@ class ModRoles(commands.Cog):
         """List assignable roles."""
         assignable_roles = set(await self.config.guild(ctx.guild).assignable_roles())
         valid_roles = tuple(r for r in ctx.guild.roles if r.id in assignable_roles)
-        valid_roles_ids = set(r.id for r in valid_roles)
+        valid_roles_ids = {r.id for r in valid_roles}
 
         if assignable_roles != valid_roles_ids:
             await self.config.guild(ctx.guild).assignable_roles.set(
                 list(valid_roles_ids)
             )
 
-        fmt_assignable_roles = "\n".join([f"+ {r.name}" for r in valid_roles])
+        fmt_assignable_roles = "\n".join(f"+ {r.name}" for r in valid_roles)
 
         await ctx.send(
             box(f"Available assignable roles:\n{fmt_assignable_roles}", "diff")

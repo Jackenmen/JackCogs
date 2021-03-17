@@ -517,10 +517,7 @@ class AutoGist(commands.Cog):
             return True
 
         filename = attachment.filename.lower()
-        if not filename.endswith(guild_data.file_extensions):
-            return True
-
-        return False
+        return not filename.endswith(guild_data.file_extensions)
 
     async def _request(
         self,

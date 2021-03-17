@@ -60,10 +60,7 @@ class RLStatsImageTemplate:
     ) -> CoordsInfo:
         """Gets coords for given element in chosen playlist"""
         coords_info = self.coords[coords_name]
-        if playlist_key is None:
-            offset = (0, 0)
-        else:
-            offset = self.offsets[playlist_key]
+        offset = (0, 0) if playlist_key is None else self.offsets[playlist_key]
         return CoordsInfo(coords_info.point + offset, coords_info.font_name)
 
     def generate_image(
@@ -212,7 +209,7 @@ class RLStatsImage(RLStatsImageMixin):
                 self.template.images["season_rewards_bars_red"]
             ).convert("RGBA")
         coords, _ = self.template.get_coords("season_rewards_bars")
-        for win in range(0, 10):
+        for win in range(10):
             coords += (83, 0)
             if rewards.wins > win:
                 self.alpha_composite(reward_bars_win_image, coords.to_tuple())
@@ -321,10 +318,7 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
         )
 
     def _draw_win_streak(self) -> None:
-        if self.playlist.win_streak < 0:
-            text = "Losing Streak:"
-        else:
-            text = "Win Streak:"
+        text = "Losing Streak:" if self.playlist.win_streak < 0 else "Win Streak:"
         text_coords, text_font_name = self.get_coords("win_streak_text")
         amount_coords, amount_font_name = self.get_coords("win_streak_amount")
         # win_streak_text has font name defined
@@ -360,10 +354,7 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
         coords, font_name = self.get_coords("gain")
         assert isinstance(font_name, str), "mypy"  # gain has font name defined
         font = self.fonts[font_name]
-        if gain == 0:
-            text = "N/A"
-        else:
-            text = str(round(gain, 3))
+        text = "N/A" if gain == 0 else str(round(gain, 3))
         self._draw.text(xy=coords, text=text, font=font, fill="white")
 
     def _draw_estimates(self) -> None:
@@ -386,10 +377,7 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
             font = self.fonts[font_name]
             # Points
             points = getattr(self.playlist.tier_estimates, attr_name)
-            if points is None:
-                text = "N/A"
-            else:
-                text = f"{points:+d}"
+            text = "N/A" if points is None else f"{points:+d}"
             # tier_down/tier_up image
             if tier_image_path is not None:
                 with Image.open(tier_image_path) as im:

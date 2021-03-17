@@ -60,6 +60,11 @@ def process_cogs(ctx: InfoGenMainCommand) -> bool:
     global_min_bot_version = shared_fields.get("min_bot_version")
     global_min_python_version = shared_fields.get("min_python_version")
     cogs = ctx.cogs
+    replacables: Tuple[Literal["short", "description", "install_msg"], ...] = (
+        "short",
+        "description",
+        "install_msg",
+    )
     for pkg_name, cog_info in cogs.items():
         all_requirements.update(cog_info["requirements"])
         min_bot_version = cog_info.get("min_bot_version", global_min_bot_version)
@@ -77,9 +82,11 @@ def process_cogs(ctx: InfoGenMainCommand) -> bool:
         maybe_python_version = cog_info.get(
             "min_python_version", global_min_python_version
         )
-        if maybe_python_version is not None:
-            if min_python_version < maybe_python_version:
-                min_python_version = maybe_python_version[:2]
+        if (
+            maybe_python_version is not None
+            and min_python_version < maybe_python_version
+        ):
+            min_python_version = maybe_python_version[:2]
         for python_version, reqs in requirements.items():
             if python_version >= min_python_version:
                 reqs.update(cog_info["requirements"])
@@ -98,8 +105,8 @@ def process_cogs(ctx: InfoGenMainCommand) -> bool:
             value = cog_info.get(key)
             if value is None:
                 value = shared_fields.get(key)
-                if value is None:
-                    continue
+            if value is None:
+                continue
             _output[key] = value
         output = cast(CogInfoDict, _output)
         replacements = {
@@ -111,11 +118,6 @@ def process_cogs(ctx: InfoGenMainCommand) -> bool:
         if maybe_bundled_data.is_dir():
             new_msg = f"{output['install_msg']}\n\nThis cog comes with bundled data."
             output["install_msg"] = new_msg
-        replacables: Tuple[Literal["short", "description", "install_msg"], ...] = (
-            "short",
-            "description",
-            "install_msg",
-        )
         for to_replace in replacables:
             output[to_replace] = safe_format_alt(
                 output[to_replace], {"shared_fields": shared_fields_namespace}

@@ -103,13 +103,15 @@ SCHEMA = Map(
 KEYS_TO_SKIP_IN_COG_INFO = {"class_docstring"}
 
 #: Order the keys in `cogs` section of info.yaml should be in.
-COG_KEYS_ORDER = list(getattr(key, "key", key) for key in COG_KEYS)
+COG_KEYS_ORDER = [getattr(key, "key", key) for key in COG_KEYS]
 
 #: Order the keys in `repo` section of info.yaml should be in.
 REPO_KEYS_ORDER = list(REPO_KEYS.keys())
 
 #: Order the keys in `shared_fields` section of info.yaml should be in.
-SHARED_FIELDS_KEYS_ORDER = list(getattr(key, "key", key) for key in SHARED_FIELDS_KEYS)
+SHARED_FIELDS_KEYS_ORDER = [
+    getattr(key, "key", key) for key in SHARED_FIELDS_KEYS
+]
 
 
 def load_info_yaml() -> InfoYAMLDict:

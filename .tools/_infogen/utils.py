@@ -68,8 +68,7 @@ def scan_recursively(
         if element.type in containers:
             # `containers` contains only types with children
             assert isinstance(element, parso.tree.BaseNode), "mypy"
-            for e in scan_recursively(element.children, name, containers):
-                yield e
+            yield from scan_recursively(element.children, name, containers)
 
 
 # `FormatPlaceholder`, `FormatDict` and `safe_format_alt` taken from

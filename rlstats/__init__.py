@@ -26,7 +26,7 @@ except ModuleNotFoundError as e:
             "You need `pillow` pip package to run this cog."
             " Downloader *should* have handled this for you."
         )
-    if e.name == "rlapi":
+    elif e.name == "rlapi":
         raise CogLoadError(
             "You need `rlapi` pip package to run this cog."
             " Downloader *should* have handled this for you."

@@ -215,7 +215,7 @@ class BanMessage(commands.Cog):
             await a.save(fp)
 
         for file in self.message_images.glob(f"{ctx.guild.id}.*"):
-            if not file == filename:
+            if file != filename:
                 file.unlink()
 
         channel_id = await self.config.guild(guild).channel()

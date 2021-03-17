@@ -300,10 +300,7 @@ class VoiceTools(commands.Cog):
         vip_member_list = await self.config.guild(ctx.guild).vip_member_list()
         vip_role_list = await self.config.guild(ctx.guild).vip_role_list()
         for vip in vips:
-            if isinstance(vip, discord.Role):
-                vip_list = vip_role_list
-            else:
-                vip_list = vip_member_list
+            vip_list = vip_role_list if isinstance(vip, discord.Role) else vip_member_list
             if vip.id not in vip_list:
                 vip_list.append(vip.id)
             else:
@@ -322,10 +319,7 @@ class VoiceTools(commands.Cog):
         vip_member_list = await self.config.guild(ctx.guild).vip_member_list()
         vip_role_list = await self.config.guild(ctx.guild).vip_role_list()
         for vip in vips:
-            if isinstance(vip, discord.Role):
-                vip_list = vip_role_list
-            else:
-                vip_list = vip_member_list
+            vip_list = vip_role_list if isinstance(vip, discord.Role) else vip_member_list
             try:
                 vip_list.remove(vip.id)
             except ValueError:
@@ -352,9 +346,10 @@ class VoiceTools(commands.Cog):
     ) -> None:
         if await self.cog_disabled_in_guild(member.guild):
             return
-        if await self.config.guild(member.guild).vip_enabled():
-            if await self._vip_check(member, before, after):
-                return
+        if await self.config.guild(
+            member.guild
+        ).vip_enabled() and await self._vip_check(member, before, after):
+            return
         if await self.config.guild(member.guild).forcelimit_enabled():
             await self._forcelimit_check(member, before, after)
 

@@ -444,10 +444,7 @@ class LinkWarner(commands.Cog):
         if channel_data.guild_data.has_excluded_roles(message.author):
             return True
 
-        if edit and not channel_data.guild_data.check_edits:
-            return True
-
-        return False
+        return edit and not channel_data.guild_data.check_edits
 
     # listener
     @commands.Cog.listener()

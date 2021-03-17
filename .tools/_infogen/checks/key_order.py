@@ -73,7 +73,7 @@ def _check_cog_info_key_order(ctx: InfoGenMainCommand) -> bool:
     success = True
     for pkg_name, cog_info in ctx.cogs.items():
         # strictyaml breaks ordering of keys for optionals with default values
-        original_keys = list((k for k, v in cog_info.items() if v))
+        original_keys = [k for k, v in cog_info.items() if v]
         sorted_keys = sorted(
             (k for k, v in cog_info.items() if v), key=COG_KEYS_ORDER.index
         )

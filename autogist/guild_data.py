@@ -89,14 +89,10 @@ class GuildData:
 
     async def is_enabled_for_channel(self, channel: discord.TextChannel) -> bool:
         channel_state = await self.get_channel_state(channel)
-        if self.blocklist_mode:
-            if channel_state is False:
-                return False
-        else:
-            if channel_state is not True:
-                return False
-
-        return True
+        return bool(
+            (not self.blocklist_mode or channel_state is not False)
+            and (self.blocklist_mode or channel_state is True)
+        )
 
     async def is_overridden(self, channel: discord.TextChannel) -> bool:
         channel_state = await self.get_channel_state(channel)

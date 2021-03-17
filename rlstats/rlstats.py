@@ -347,11 +347,9 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
     ) -> rlapi.Player:
         players_len = len(players)
         if players_len > 1:
-            description = ""
-            for idx, player in enumerate(players, 1):
-                description += "\n{}. {} account with username: {}".format(
+            description = "".join("\n{}. {} account with username: {}".format(
                     idx, player.platform, player.user_name
-                )
+                ) for idx, player in enumerate(players, 1))
             msg = await ctx.send(
                 embed=discord.Embed(
                     title="There are multiple accounts with provided name:",
