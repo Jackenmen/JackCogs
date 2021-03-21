@@ -13,9 +13,9 @@
 # limitations under the License.
 
 import re
-import unicodedata
 from typing import Generator, Pattern, Tuple
 
+import unicodedata2 as unicodedata
 # typeshed for emoji lib needs to be updated for versions 1.0+
 from emoji import EMOJI_UNICODE_ENGLISH  # type: ignore[attr-defined]
 
