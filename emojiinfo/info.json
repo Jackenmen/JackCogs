@@ -9,7 +9,8 @@
     ],
     "required_cogs": {},
     "requirements": [
-        "emoji~=1.2"
+        "emoji~=1.2",
+        "unicodedata2>=13.0.0.post2"
     ],
     "tags": [
         "dev",
