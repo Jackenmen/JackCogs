@@ -178,6 +178,6 @@ def iter_files_to_format() -> Generator[Path, None, None]:
     gitignore = get_gitignore()
 
     include = _re_compile_maybe_verbose(black_config.get("ignore", r"\.pyi?$"))
-    exclude = _re_compile_maybe_verbose(black_config["exclude"])
+    exclude = _re_compile_maybe_verbose(black_config["force_exclude"])
 
     yield from iter_files(ROOT_PATH.iterdir(), include, exclude, gitignore)
