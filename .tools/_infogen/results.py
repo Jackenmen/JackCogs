@@ -101,6 +101,8 @@ class Results:
         if (file_info := self._files.get(path)) is None:
             self._files[path] = file_info = FileInfo.from_path(path, must_exist=False)
 
+        if dst_contents and not dst_contents.endswith("\n"):
+            dst_contents += "\n"
         file_info.dst_contents = dst_contents
 
     def iter_changed_files(self) -> Generator[FileInfo, None, None]:
