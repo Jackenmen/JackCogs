@@ -31,7 +31,7 @@ class FileInfo:
     @classmethod
     def from_path(cls, path: Path, *, must_exist: bool = True) -> FileInfo:
         try:
-            with path.open("r", encoding="utf-8") as fp:
+            with path.open("r", encoding="utf-8", newline="") as fp:
                 return cls(path, fp.read())
         except FileNotFoundError:
             if must_exist:
@@ -65,7 +65,7 @@ class FileInfo:
         # make sure that the parent folder exists
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
-        with self.path.open("w", encoding="utf-8") as fp:
+        with self.path.open("w", encoding="utf-8", newline="\n") as fp:
             fp.write(self._dst_contents)
 
     def diff(self) -> str:

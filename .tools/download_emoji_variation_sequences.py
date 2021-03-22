@@ -49,5 +49,5 @@ inner_code = textwrap.indent(
 )
 code = f"EMOJIS_WITH_VARIATIONS = {{\n{inner_code},\n}}\n"
 
-with VARIATIONS_FILE.open("w") as fp:
+with VARIATIONS_FILE.open("w", encoding="utf-8", newline="\n") as fp:
     fp.write(code)
