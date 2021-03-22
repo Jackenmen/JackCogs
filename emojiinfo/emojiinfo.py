@@ -42,7 +42,7 @@ class EmojiInfo(commands.Cog):
     @commands.command(usage="<emoji>...")
     async def emojiinfo(self, ctx: commands.Context, *, raw_emojis: str) -> None:
         """
-        Get detailed informations about passed emojis.
+        Get detailed information about passed emojis.
 
         Non-emoji characters are ignored.
         """

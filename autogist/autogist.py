@@ -258,14 +258,14 @@ class AutoGist(commands.Cog):
     async def autogistset_listoverridden(self, ctx: GuildContext) -> None:
         """List guild channels that don't use the default setting."""
         guild_data = await self.get_guild_data(ctx.guild)
-        overriden = [
+        overridden = [
             channel.mention
             for channel in ctx.guild.text_channels
             if await guild_data.is_overridden(channel)
         ]
 
-        if not overriden:
-            await ctx.send("There are no channels with overriden setting.")
+        if not overridden:
+            await ctx.send("There are no channels with overridden setting.")
             return
 
         # Who cares about plural support, right? :P
@@ -273,7 +273,7 @@ class AutoGist(commands.Cog):
             msg = "AutoGist will not listen to messages in these channels:\n"
         else:
             msg = "AutoGist will listen to messages in these channels:\n"
-        await ctx.send(f"{msg}{humanize_list(overriden)}")
+        await ctx.send(f"{msg}{humanize_list(overridden)}")
 
     @commands.guild_only()
     @autogistset.command(name="listentohumans")

@@ -111,12 +111,12 @@ def process_cogs(ctx: InfoGenMainCommand) -> bool:
         if maybe_bundled_data.is_dir():
             new_msg = f"{output['install_msg']}\n\nThis cog comes with bundled data."
             output["install_msg"] = new_msg
-        replacables: Tuple[Literal["short", "description", "install_msg"], ...] = (
+        replaceables: Tuple[Literal["short", "description", "install_msg"], ...] = (
             "short",
             "description",
             "install_msg",
         )
-        for to_replace in replacables:
+        for to_replace in replaceables:
             output[to_replace] = safe_format_alt(
                 output[to_replace], {"shared_fields": shared_fields_namespace}
             )
