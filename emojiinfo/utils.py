@@ -13,9 +13,8 @@
 # limitations under the License.
 
 import re
+import unicodedata
 from typing import Generator, Pattern, Tuple
-
-import unicodedata2 as unicodedata
 
 # typeshed for emoji lib needs to be updated for versions 1.0+
 from emoji import EMOJI_UNICODE_ENGLISH  # type: ignore[attr-defined]
@@ -46,7 +45,11 @@ def get_emoji_repr(emoji: str) -> str:
 
 
 def get_char_repr(char: str) -> str:
-    char_repr = f"\\N{{{unicodedata.name(char)}}}"
+    try:
+        char_repr = f"\\N{{{unicodedata.name(char)}}}"
+    except ValueError:
+        # the character isn't available on current Python version
+        char_repr = char.encode("ascii", "backslashreplace").decode("utf-8")
     if char in EMOJIS_WITH_VARIATIONS:
         char_repr += "\\N{VARIATION SELECTOR-16}"
     return char_repr

@@ -71,7 +71,6 @@ cogs:
       This cog does not persistently store data or metadata about users.
     requirements:
       - emoji~=1.2
-      - unicodedata2>=13.0.0.post2
     tags:
       - dev
       - development
