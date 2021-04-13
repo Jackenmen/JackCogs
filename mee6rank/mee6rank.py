@@ -125,7 +125,9 @@ class Mee6Rank(commands.Cog):
             if (player := await self._maybe_get_player(ctx, member)) is None:
                 return
 
-            embed = discord.Embed(title=f"Mee6 rank for {player.member.name}")
+            embed = discord.Embed(
+                title=f"Mee6 rank for {player.member.name}", color=0x62D3F5
+            )
             embed.add_field(name="Level", value=str(player.level))
             embed.add_field(name="XP amount", value=str(player.total_xp))
             xp_needed = player.xp_until_next_level
