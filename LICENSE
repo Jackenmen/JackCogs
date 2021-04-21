@@ -196,7 +196,4 @@ Copy of this license can be found in LICENSE-MIT.txt file in folder rlstats/data
 This project bundles Nintendo Switch logo from Remix Icon icon set (https://remixicon.com/) which is released under the Apache License 2.0.
 Copy of this license can be found in LICENSE-Apache2.0.txt file in folder rlstats/data/images/platforms of this repository.
 
-This project vendors cachetools stubs by judej from judej/typeshed repository on GitHub (https://github.com/judej/typeshed/tree/cachetools-stubs) which are distributed under the Apache License.
-Copy of this license can be found in LICENSE.txt file in folder .stubs/cachetools/LICENSE.txt of this repository.
-
 All brand icons are trademarks of their respective owners. The use of these trademarks does not indicate endorsement of the trademark holder by me, nor vice versa.
