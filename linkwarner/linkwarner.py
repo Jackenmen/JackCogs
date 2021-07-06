@@ -23,6 +23,7 @@ from redbot.core.config import Config
 from redbot.core.utils.chat_formatting import humanize_list
 from redbot.core.utils.common_filters import URL_RE
 
+from .converters import DomainName
 from .data_classes import ChannelData, DomainsMode, GuildData, GuildDomainsMode
 
 log = logging.getLogger("red.jackcogs.linkwarner")
@@ -294,7 +295,9 @@ class LinkWarner(commands.Cog):
         await ctx.send(message)
 
     @linkwarner_domains.command(name="add", require_var_positional=True)
-    async def linkwarner_domains_add(self, ctx: GuildContext, *domains: str) -> None:
+    async def linkwarner_domains_add(
+        self, ctx: GuildContext, *domains: DomainName
+    ) -> None:
         """
         Add domains to the domains list.
 
@@ -307,7 +310,7 @@ class LinkWarner(commands.Cog):
 
     @linkwarner_channel_domains.command(name="add", require_var_positional=True)
     async def linkwarner_channel_domains_add(
-        self, ctx: GuildContext, channel: discord.TextChannel, *domains: str
+        self, ctx: GuildContext, channel: discord.TextChannel, *domains: DomainName
     ) -> None:
         """
         Add domains to the domains list of the provided channel.
@@ -322,7 +325,9 @@ class LinkWarner(commands.Cog):
     @linkwarner_domains.command(
         name="remove", aliases=["delete"], require_var_positional=True
     )
-    async def linkwarner_domains_remove(self, ctx: GuildContext, *domains: str) -> None:
+    async def linkwarner_domains_remove(
+        self, ctx: GuildContext, *domains: DomainName
+    ) -> None:
         """
         Remove domains from the domains list.
 
@@ -337,7 +342,7 @@ class LinkWarner(commands.Cog):
         name="remove", aliases=["delete"], require_var_positional=True
     )
     async def linkwarner_channel_domains_remove(
-        self, ctx: GuildContext, channel: discord.TextChannel, *domains: str
+        self, ctx: GuildContext, channel: discord.TextChannel, *domains: DomainName
     ) -> None:
         """
         Remove domains from the domains list of the provided channel.
