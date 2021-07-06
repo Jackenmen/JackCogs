@@ -128,6 +128,11 @@ class ScopeData(ABC):
         self._update_domains_list()
         await self.config_group.domains_list.set(list(self.scoped_domains_list))
 
+    async def clear_domains(self) -> None:
+        self.scoped_domains_list.clear()
+        self._update_domains_list()
+        await self.config_group.domains_list.set(list(self.scoped_domains_list))
+
     async def set_warn_message(self, warn_message: str) -> None:
         self.scoped_warn_message = warn_message
         self._update_warn_message()

@@ -349,6 +349,22 @@ class LinkWarner(commands.Cog):
         await channel_data.remove_domains(domains)
         await ctx.send("Domains list updated.")
 
+    @linkwarner_domains.command(name="clear")
+    async def linkwarner_domains_clear(self, ctx: GuildContext) -> None:
+        """Clear domains from the domains list."""
+        guild_data = await self.get_guild_data(ctx.guild)
+        await guild_data.clear_domains()
+        await ctx.send("Domains list cleared.")
+
+    @linkwarner_channel_domains.command(name="clear")
+    async def linkwarner_channel_domains_clear(
+        self, ctx: GuildContext, channel: discord.TextChannel
+    ) -> None:
+        """Clear domains from the domains list of the provided channel."""
+        channel_data = await self.get_channel_data(channel)
+        await channel_data.clear_domains()
+        await ctx.send("Domains list cleared.")
+
     # Warning message commands
     @linkwarner.command(name="setmessage")
     async def linkwarner_setmessage(self, ctx: GuildContext, *, message: str) -> None:
