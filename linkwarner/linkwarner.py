@@ -301,6 +301,10 @@ class LinkWarner(commands.Cog):
         """
         Add domains to the domains list.
 
+        Note: The cog is using exact matching for domain names
+        which means that domain names like youtube.com and www.youtube.com
+        are treated as 2 different domains.
+
         Example:
         `[p]linkwarner domains add google.com youtube.com`
         """
@@ -314,6 +318,10 @@ class LinkWarner(commands.Cog):
     ) -> None:
         """
         Add domains to the domains list of the provided channel.
+
+        Note: The cog is using exact matching for domain names
+        which means that domain names like youtube.com and www.youtube.com
+        are treated as 2 different domains.
 
         Example:
         `[p]linkwarner channel domains add #channel youtube.com discord.com`
