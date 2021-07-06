@@ -16,8 +16,7 @@ import re
 import unicodedata
 from typing import Generator, Pattern, Tuple
 
-# typeshed for emoji lib needs to be updated for versions 1.0+
-from emoji import EMOJI_UNICODE_ENGLISH  # type: ignore[attr-defined]
+from emoji import EMOJI_UNICODE_ENGLISH
 
 from .variations import EMOJIS_WITH_VARIATIONS
 
