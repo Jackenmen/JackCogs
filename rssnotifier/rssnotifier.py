@@ -15,7 +15,7 @@
 import contextlib
 import itertools
 from io import BytesIO
-from typing import Any, Dict, Literal
+from typing import Any, Dict, List, Literal
 
 import discord
 from redbot.core import commands
@@ -339,13 +339,13 @@ class RSSNotifier(commands.Cog):
 
         feed_name = feed_data["name"]
         ping_single_users = await self.config.guild(guild).ping_single_users()
+        feed_scope = self.config.custom(FEED, channel.id, feed_name)
         if ping_single_users:
-            config_data = await self.config.custom(FEED, channel.id, feed_name).all()
+            config_data = await feed_scope.all()
             role_mentions = config_data["role_mentions"]
             user_mentions = config_data["user_mentions"]
         else:
-            scope = self.config.custom(FEED, channel.id, feed_name).role_mentions
-            role_mentions = await scope()
+            role_mentions = await feed_scope.role_mentions()
             user_mentions = []
 
         if not (user_mentions or role_mentions):
@@ -356,14 +356,28 @@ class RSSNotifier(commands.Cog):
             )
             return
 
+        collected_role_mentions = []
+        for role_id in role_mentions:
+            role = guild.get_role(role_id)
+            if role is not None:
+                collected_role_mentions.append(role_id)
+        collected_user_mentions: List[int] = []
         allowed_mentions = discord.AllowedMentions(roles=True)
         for page in pagify(
             " ".join(
                 itertools.chain(
-                    map("<@&{}>".format, role_mentions),
+                    map("<@&{}>".format, collected_role_mentions),
                     map("<@{}>".format, user_mentions),
                 )
             ),
             delims=[" "],
         ):
-            await channel.send(page, allowed_mentions=allowed_mentions)
+            msg = await channel.send(page, allowed_mentions=allowed_mentions)
+            collected_user_mentions.extend(u.id for u in msg.mentions)
+
+        if len(collected_user_mentions) != len(user_mentions):
+            # this will change the order of the mentions but it's not an issue IMO
+            await self.config.feed_scope.user_mentions.set(collected_user_mentions)
+
+        if len(collected_role_mentions) != len(role_mentions):
+            await self.config.feed_scope.role_mentions.set(collected_role_mentions)
