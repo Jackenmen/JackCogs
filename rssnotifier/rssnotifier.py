@@ -377,7 +377,7 @@ class RSSNotifier(commands.Cog):
 
         if len(collected_user_mentions) != len(user_mentions):
             # this will change the order of the mentions but it's not an issue IMO
-            await self.config.feed_scope.user_mentions.set(collected_user_mentions)
+            await feed_scope.user_mentions.set(collected_user_mentions)
 
         if len(collected_role_mentions) != len(role_mentions):
-            await self.config.feed_scope.role_mentions.set(collected_role_mentions)
+            await feed_scope.role_mentions.set(collected_role_mentions)
