@@ -15,10 +15,14 @@
 import asyncio
 import asyncio.subprocess as asp
 import contextlib
+import os
 from typing import Any, Dict, List, Literal
 
 from redbot.core import commands
 from redbot.core.bot import Red
+from redbot.core.commands import NoParseOptional as Optional
+from redbot.core.config import Config
+from redbot.core.utils.chat_formatting import inline
 
 from .errors import ProcessTerminatedEarly
 from .utils import get_env, send_pages, wait_for_result
@@ -29,10 +33,19 @@ RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 class Shell(commands.Cog):
     """Run shell commands on bot's system from Discord."""
 
+    replacement_shell: Optional[str]
+
     def __init__(self, bot: Red) -> None:
         self.bot = bot
+        self.config = Config.get_conf(self, 176070082584248320, force_registration=True)
+        self.config.register_global(replacement_shell=None)
         self.active_processes: List[asp.Process] = []
         self._killing_lock = asyncio.Lock()
+
+    async def initialize(self) -> None:
+        self.replacement_shell = (
+            await self.config.replacement_shell() if os.name == "posix" else None
+        )
 
     async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, Any]:
         # this cog does not story any data
@@ -70,9 +83,23 @@ class Shell(commands.Cog):
     ) -> None:
         async with ctx.typing():
             async with self._killing_lock:
-                p = await asp.create_subprocess_shell(
-                    command, stdout=asp.PIPE, stderr=asp.STDOUT, env=get_env()
-                )
+                try:
+                    p = await asp.create_subprocess_shell(
+                        command,
+                        stdout=asp.PIPE,
+                        stderr=asp.STDOUT,
+                        env=get_env(),
+                        executable=self.replacement_shell,
+                    )
+                except (FileNotFoundError, NotADirectoryError, PermissionError):
+                    command_1 = inline(f"{ctx.clean_prefix}shellset shell")
+                    command_2 = inline(f"{ctx.clean_prefix}shellset shell reset")
+                    await ctx.send(
+                        "It appears the shell you have set does not exist."
+                        f" Try to set another one with {command_1} or reset it to"
+                        f" default with {command_2}."
+                    )
+                    return
                 self.active_processes.append(p)
 
             try:
@@ -105,3 +132,33 @@ class Shell(commands.Cog):
                     p.kill()
                 self.active_processes.pop()
         await ctx.send("Killed all active shell processes.")
+
+    if os.name == "posix":
+
+        @commands.is_owner()
+        @commands.group()
+        async def shellset(self, ctx: commands.Context) -> None:
+            """Manage settings of the Shell cog."""
+
+        @shellset.group(name="shell", invoke_without_command=True)
+        async def shellset_shell(
+            self, ctx: commands.Context, replacement_shell: str
+        ) -> None:
+            """
+            Set a replacement shell for the default ``/bin/sh``.
+
+            This needs to be a full path to the replacement shell.
+            The input is not validated.
+
+            Only works on POSIX systems.
+            """
+            await self.config.replacement_shell.set(replacement_shell)
+            self.replacement_shell = replacement_shell
+            await ctx.send("This shell will now be used instead of the default.")
+
+        @shellset_shell.command(name="reset")
+        async def shellset_shell_reset(self, ctx: commands.Context) -> None:
+            """Reset the replacement shell back to the default."""
+            await self.config.replacement_shell.clear()
+            self.replacement_shell = None
+            await ctx.send("The default shell will now be used.")

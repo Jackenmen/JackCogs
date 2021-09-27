@@ -25,4 +25,5 @@ with open(Path(__file__).parent / "info.json") as fp:
 
 async def setup(bot: Red) -> None:
     cog = Shell(bot)
+    await cog.initialize()
     bot.add_cog(cog)
