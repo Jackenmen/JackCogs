@@ -78,35 +78,41 @@ class Shell(commands.Cog):
         *,
         send_message_on_success: bool = True,
     ) -> None:
-        async with ctx.typing():
-            async with self._killing_lock:
-                p = await asp.create_subprocess_shell(
-                    command,
-                    stdout=asp.PIPE,
-                    stderr=asp.STDOUT,
-                    env=get_env(),
-                    executable=self.replacement_shell,
-                )
-                self.active_processes.append(p)
+        try:
+            async with ctx.typing():
+                async with self._killing_lock:
+                    p = await asp.create_subprocess_shell(
+                        command,
+                        stdout=asp.PIPE,
+                        stderr=asp.STDOUT,
+                        env=get_env(),
+                        executable=self.replacement_shell,
+                    )
+                    self.active_processes.append(p)
 
-            try:
-                output = await wait_for_result(p)
-            except ProcessTerminatedEarly as e:
-                output = e.partial_output
-                prefix = (
-                    "**Command was terminated early and this is a partial output.**\n"
-                )
+                try:
+                    output = await wait_for_result(p)
+                except ProcessTerminatedEarly as e:
+                    output = e.partial_output
+                    prefix = (
+                        "**Command was terminated early and this is a partial output.**\n"
+                    )
+                else:
+                    prefix = ""
+
+                async with self._killing_lock:
+                    with contextlib.suppress(ValueError):
+                        self.active_processes.remove(p)
+
+            if not send_message_on_success and p.returncode == 0:
+                await ctx.tick()
             else:
-                prefix = ""
-
-            async with self._killing_lock:
-                with contextlib.suppress(ValueError):
-                    self.active_processes.remove(p)
-
-        if not send_message_on_success and p.returncode == 0:
-            await ctx.tick()
-        else:
-            await send_pages(ctx, command=command, output=output, prefix=prefix)
+                await send_pages(ctx, command=command, output=output, prefix=prefix)
+        except FileNotFoundError:
+            await ctx.send(
+                "It appears the shell you have set does not exist. Try to set another one "
+                "with `{prefix}shellset shell`.".format(prefix=ctx.prefix)
+            )
 
     @commands.is_owner()
     @commands.command()
