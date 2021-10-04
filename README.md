@@ -29,6 +29,7 @@ Also I suggest to join [Red - Cog Support server](https://discord.gg/GET4DVk) an
 * **membercount** - Get count of all members + humans and bots separately.
 * **modroles** - Allow moderators without manage roles permission to assign configured roles to users.
 * **nitrorole** - Welcome new nitro boosters and/or give them a special role!
+* **patchtyping** - Cog that addresses an issue with Discord making a breaking change when disabling typing notifications.
 * **qupyter** - Run IPython kernel within Red and connect to it with Jupyter Console. This is a development tool.
 * **rlstats** - Get your Rocket League stats with a single command! Needs access to Rocket League API which is currently in closed beta.
 * **rssnotifier** - Get role and/or user mentions about feed updates. This cog requires RSS cog from aikaterna-cogs repo to work.

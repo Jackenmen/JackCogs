@@ -154,6 +154,18 @@ cogs:
       - nitro
       - nitrorole
       - welcome
+  patchtyping:
+    name: PatchTyping
+    short: >-
+      Cog that addresses an issue with Discord making a breaking change
+      when disabling typing notifications.
+    description: '{short}'
+    end_user_data_statement: >-
+      This cog does not persistently store data or metadata about users.
+    tags:
+      - patch
+      - patchtyping
+    max_bot_version: 3.5.0
   qupyter:
     name: Qupyter
     short: >-
