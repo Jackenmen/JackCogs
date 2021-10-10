@@ -169,6 +169,8 @@ class GuildData(ScopeData):
         Is LinkWarner enabled for this guild.
     check_edits: `bool`
         Whether LinkWarner should check the messages for links on edit.
+    use_dms: `bool`
+        Whether LinkWarner should send the warning messages in DMs.
     excluded_roles: `set` of `int`
         Role IDs that should be excluded from filtering in this guild.
     domains_mode: `DomainsMode`
@@ -189,6 +191,7 @@ class GuildData(ScopeData):
         "_config_group",
         "enabled",
         "check_edits",
+        "use_dms",
         "excluded_roles",
         "_channel_cache",
     )
@@ -200,6 +203,7 @@ class GuildData(ScopeData):
         *,
         enabled: bool,
         check_edits: bool,
+        use_dms: bool,
         excluded_roles: Iterable[int],
         domains_mode: int,
         domains_list: Iterable[str],
@@ -213,6 +217,7 @@ class GuildData(ScopeData):
 
         self.enabled = enabled
         self.check_edits = check_edits
+        self.use_dms = use_dms
         self.excluded_roles = set(excluded_roles)
         self.domains_mode = DomainsMode(domains_mode)
         self.scoped_domains_list = set(domains_list)
@@ -276,6 +281,10 @@ class GuildData(ScopeData):
     async def set_check_edits(self, new_state: bool) -> None:
         self.check_edits = new_state
         await self.config_group.check_edits.set(new_state)
+
+    async def set_use_dms(self, new_state: bool) -> None:
+        self.use_dms = new_state
+        await self.config_group.use_dms.set(new_state)
 
     async def set_excluded_roles(self, excluded_roles: Iterable[int]) -> None:
         self.excluded_roles = set(excluded_roles)
