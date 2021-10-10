@@ -21,7 +21,9 @@ from enum import Enum
 
 __all__ = ("parser",)
 
-_terminal_width = shutil.get_terminal_size().columns - 2
+# get_terminal_size can report 0, 0 if run from pseudo-terminal
+# (https://bugs.python.org/issue42174)
+_terminal_width = (shutil.get_terminal_size().columns or 80) - 2
 _description = (
     textwrap.fill(
         "Script to automatically generate info.json files"
