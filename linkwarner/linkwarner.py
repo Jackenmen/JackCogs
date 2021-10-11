@@ -42,6 +42,7 @@ class LinkWarner(commands.Cog):
         self.config.register_guild(
             enabled=False,
             check_edits=True,
+            use_dms=False,
             excluded_roles=[],
             domains_mode=DomainsMode.ALLOW_FROM_SCOPE_LIST.value,
             domains_list=[],
@@ -102,6 +103,7 @@ class LinkWarner(commands.Cog):
         """Show settings for the current guild."""
         guild_data = await self.get_guild_data(ctx.guild)
         enabled = "Yes" if guild_data.enabled else "No"
+        use_dms = "Yes" if guild_data.use_dms else "No"
         excluded_roles = (
             humanize_list(
                 [
@@ -123,6 +125,7 @@ class LinkWarner(commands.Cog):
             "**LinkWarner's Guild Settings**\n\n"
             ">>> "
             f"**Enabled:** {enabled}\n"
+            f"**Send warning message in DMs:** {use_dms}\n"
             f"**Excluded roles:** {excluded_roles}\n"
             f"**Domains list mode:** {domains_mode}\n"
             f"**Domains list:** {domains_list}"
@@ -195,6 +198,29 @@ class LinkWarner(commands.Cog):
             message = f"Bot will now ignore links in {channel.mention} channel."
         else:
             message = f"Bot will now filter links in {channel.mention} channel."
+        await ctx.send(message)
+
+    # Command for Use DMs setting
+    @linkwarner.command(name="usedms")
+    async def linkwarner_usedms(self, ctx: GuildContext, new_state: bool) -> None:
+        """
+        Set if LinkWarner should use DMs for warning messages.
+
+        Note: This is NOT recommended as the user might block the bot or all DMs
+        from the server and the warning might not get sent to the offender at all.
+        This also means that the bot is more likely to get ratelimited for repeatedly
+        trying to DM the user when they spam links.
+        """
+        guild_data = await self.get_guild_data(ctx.guild)
+        await guild_data.set_use_dms(new_state)
+
+        if new_state:
+            message = "Bot will now send the warning message in DMs."
+        else:
+            message = (
+                "Bot will now send the warning message in the channel"
+                " where the link was sent in."
+            )
         await ctx.send(message)
 
     # Excluded roles commands
@@ -486,19 +512,19 @@ class LinkWarner(commands.Cog):
 
         guild = message.guild
         channel = message.channel
+        author = message.author
         assert guild is not None, "mypy"
         assert isinstance(channel, discord.TextChannel), "mypy"
 
         channel_data = await self.get_channel_data(channel)
 
         assert guild.me is not None, "mypy"
-        bot_perms = channel.permissions_for(guild.me)
         for match in URL_RE.finditer(message.content):
             if channel_data.is_url_allowed(match.group(2)):
                 continue
 
             try:
-                if not bot_perms.manage_messages:
+                if not channel.permissions_for(guild.me).manage_messages:
                     raise RuntimeError
                 await message.delete()
             except (discord.Forbidden, RuntimeError):
@@ -512,23 +538,33 @@ class LinkWarner(commands.Cog):
                 pass
             msg = channel_data.format_warn_message(message)
             if msg is not None:
-                try:
-                    if not bot_perms.send_messages:
-                        raise RuntimeError
-                    await channel.send(msg)
-                except (discord.Forbidden, RuntimeError):
-                    log.error(
-                        "Bot can't send messages in channel with ID %s (guild ID: %s)",
-                        channel.id,
-                        guild.id,
-                    )
+                if channel_data.guild_data.use_dms:
+                    try:
+                        await author.send(msg)
+                    except discord.Forbidden:
+                        log.info(
+                            "Bot couldn't send a message to the user with ID %s",
+                            author.id,
+                        )
+                else:
+                    try:
+                        if not channel.permissions_for(guild.me).send_messages:
+                            raise RuntimeError
+                        await channel.send(msg)
+                    except (discord.Forbidden, RuntimeError):
+                        log.error(
+                            "Bot can't send messages in channel with ID %s"
+                            " (guild ID: %s)",
+                            channel.id,
+                            guild.id,
+                        )
 
             await modlog.create_case(
                 bot=self.bot,
                 guild=guild,
                 created_at=message.created_at,
                 action_type="linkwarn",
-                user=message.author,
+                user=author,
                 moderator=guild.me,
                 reason=f"Warned for posting a link - {match.group(0)}",
                 channel=channel,
