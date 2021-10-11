@@ -20,7 +20,7 @@ from redbot.core import commands, modlog
 from redbot.core.bot import Red
 from redbot.core.commands import GuildContext
 from redbot.core.config import Config
-from redbot.core.utils.chat_formatting import humanize_list
+from redbot.core.utils.chat_formatting import humanize_list, inline
 from redbot.core.utils.common_filters import URL_RE
 
 from .converters import DomainName
@@ -43,6 +43,7 @@ class LinkWarner(commands.Cog):
             enabled=False,
             check_edits=True,
             use_dms=False,
+            delete_delay=None,
             excluded_roles=[],
             domains_mode=DomainsMode.ALLOW_FROM_SCOPE_LIST.value,
             domains_list=[],
@@ -104,6 +105,8 @@ class LinkWarner(commands.Cog):
         guild_data = await self.get_guild_data(ctx.guild)
         enabled = "Yes" if guild_data.enabled else "No"
         use_dms = "Yes" if guild_data.use_dms else "No"
+        delete_delay = guild_data.delete_delay
+        auto_deletion = f"After {delete_delay} seconds" if delete_delay else "Disabled"
         excluded_roles = (
             humanize_list(
                 [
@@ -126,6 +129,7 @@ class LinkWarner(commands.Cog):
             ">>> "
             f"**Enabled:** {enabled}\n"
             f"**Send warning message in DMs:** {use_dms}\n"
+            f"**Auto-deletion of warning messages:** {auto_deletion}\n"
             f"**Excluded roles:** {excluded_roles}\n"
             f"**Domains list mode:** {domains_mode}\n"
             f"**Domains list:** {domains_list}"
@@ -210,6 +214,9 @@ class LinkWarner(commands.Cog):
         from the server and the warning might not get sent to the offender at all.
         This also means that the bot is more likely to get ratelimited for repeatedly
         trying to DM the user when they spam links.
+
+        If you're trying to minimize spam that the warning messages cause,
+        you should consider enabling delete delay instead.
         """
         guild_data = await self.get_guild_data(ctx.guild)
         await guild_data.set_use_dms(new_state)
@@ -222,6 +229,44 @@ class LinkWarner(commands.Cog):
                 " where the link was sent in."
             )
         await ctx.send(message)
+
+    # Delete delay commands
+    @linkwarner.group(name="deletedelay", invoke_without_command=True)
+    async def linkwarner_deletedelay(self, ctx: GuildContext, new_value: int) -> None:
+        """
+        Set the delete delay (in seconds) for the warning message.
+
+        Use `[p]linkwarner deletedelay disable` to disable auto-deletion.
+
+        Note: This does not work when the warning messages are sent through DMs.
+        """
+        if new_value < 1:
+            command = inline(f"{ctx.clean_prefix}linkwarner deletedelay disable")
+            await ctx.send(
+                "The delete delay cannot be lower than 1 second."
+                f" If you want to disable auto-deletion, use {command}."
+            )
+            return
+        if new_value > 300:
+            await ctx.send(
+                "The delete delay cannot be higher than 5 minutes (300 seconds)."
+            )
+            return
+
+        guild_data = await self.get_guild_data(ctx.guild)
+        await guild_data.set_delete_delay(new_value)
+        plural = "s" if new_value > 1 else ""
+        await ctx.send(
+            "Bot will now auto-delete the warning message"
+            f" after {new_value} second{plural}."
+        )
+
+    @linkwarner_deletedelay.command(name="disable")
+    async def linkwarner_deletedelay_disable(self, ctx: GuildContext) -> None:
+        """Disable auto-deletion of the warning messages."""
+        guild_data = await self.get_guild_data(ctx.guild)
+        await guild_data.set_delete_delay(None)
+        await ctx.send("Bot will no longer delete the warning messages automatically.")
 
     # Excluded roles commands
     @linkwarner.group(name="excludedroles")
@@ -517,6 +562,7 @@ class LinkWarner(commands.Cog):
         assert isinstance(channel, discord.TextChannel), "mypy"
 
         channel_data = await self.get_channel_data(channel)
+        guild_data = channel_data.guild_data
 
         assert guild.me is not None, "mypy"
         for match in URL_RE.finditer(message.content):
@@ -538,7 +584,7 @@ class LinkWarner(commands.Cog):
                 pass
             msg = channel_data.format_warn_message(message)
             if msg is not None:
-                if channel_data.guild_data.use_dms:
+                if guild_data.use_dms:
                     try:
                         await author.send(msg)
                     except discord.Forbidden:
@@ -550,7 +596,7 @@ class LinkWarner(commands.Cog):
                     try:
                         if not channel.permissions_for(guild.me).send_messages:
                             raise RuntimeError
-                        await channel.send(msg)
+                        await channel.send(msg, delete_after=guild_data.delete_delay)
                     except (discord.Forbidden, RuntimeError):
                         log.error(
                             "Bot can't send messages in channel with ID %s"

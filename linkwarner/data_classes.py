@@ -171,6 +171,9 @@ class GuildData(ScopeData):
         Whether LinkWarner should check the messages for links on edit.
     use_dms: `bool`
         Whether LinkWarner should send the warning messages in DMs.
+    delete_delay: `Optional[int]`
+        The amount of seconds to wait before auto-deleting warning messages.
+        `None` if the warning messages should not be auto-deleted.
     excluded_roles: `set` of `int`
         Role IDs that should be excluded from filtering in this guild.
     domains_mode: `DomainsMode`
@@ -192,6 +195,7 @@ class GuildData(ScopeData):
         "enabled",
         "check_edits",
         "use_dms",
+        "delete_delay",
         "excluded_roles",
         "_channel_cache",
     )
@@ -204,6 +208,7 @@ class GuildData(ScopeData):
         enabled: bool,
         check_edits: bool,
         use_dms: bool,
+        delete_delay: Optional[int],
         excluded_roles: Iterable[int],
         domains_mode: int,
         domains_list: Iterable[str],
@@ -218,6 +223,7 @@ class GuildData(ScopeData):
         self.enabled = enabled
         self.check_edits = check_edits
         self.use_dms = use_dms
+        self.delete_delay = delete_delay
         self.excluded_roles = set(excluded_roles)
         self.domains_mode = DomainsMode(domains_mode)
         self.scoped_domains_list = set(domains_list)
@@ -285,6 +291,10 @@ class GuildData(ScopeData):
     async def set_use_dms(self, new_state: bool) -> None:
         self.use_dms = new_state
         await self.config_group.use_dms.set(new_state)
+
+    async def set_delete_delay(self, new_value: Optional[int]) -> None:
+        self.delete_delay = new_value
+        await self.config_group.delete_delay.set(new_value)
 
     async def set_excluded_roles(self, excluded_roles: Iterable[int]) -> None:
         self.excluded_roles = set(excluded_roles)
