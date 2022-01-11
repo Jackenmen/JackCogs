@@ -90,7 +90,7 @@ async def send_pages(
     total_pages = len(output_parts)
     pages = [
         f"{prefix}Page {idx}/{total_pages} of output of shell command:\n"
-        f"{command_box}\n{box(part)}"
+        f"{command_box}\n{box(part, lang='ansi')}"
         for idx, part in enumerate(output_parts, 1)
     ]
     await menu(
