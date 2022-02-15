@@ -38,7 +38,10 @@ class Shell(commands.Cog):
     def __init__(self, bot: Red) -> None:
         self.bot = bot
         self.config = Config.get_conf(self, 176070082584248320, force_registration=True)
-        self.config.register_global(replacement_shell=None)
+        self.config.register_global(
+            replacement_shell=None,
+            env_modifications={"TERM": "xterm-16color"},
+        )
         self.active_processes: List[asp.Process] = []
         self._killing_lock = asyncio.Lock()
 
@@ -74,6 +77,16 @@ class Shell(commands.Cog):
         """
         await self._shell_command(ctx, command, send_message_on_success=False)
 
+    async def _get_env(self) -> None:
+        env = get_env()
+        env_modifications = await self.config.env_modifications()
+        for variable_name, value in env_modifications.items():
+            if value is None:
+                env.pop(variable_name, None)
+            else:
+                env[variable_name] = value
+        return env
+
     async def _shell_command(
         self,
         ctx: commands.Context,
@@ -89,7 +102,7 @@ class Shell(commands.Cog):
                         command,
                         stdout=asp.PIPE,
                         stderr=asp.STDOUT,
-                        env=get_env(),
+                        env=await self._get_env(),
                         executable=self.replacement_shell,
                     )
                 except (FileNotFoundError, NotADirectoryError, PermissionError):
@@ -134,12 +147,133 @@ class Shell(commands.Cog):
                 self.active_processes.pop()
         await ctx.send("Killed all active shell processes.")
 
-    if os.name == "posix":
+    @commands.is_owner()
+    @commands.group()
+    async def shellset(self, ctx: commands.Context) -> None:
+        """Manage settings of the Shell cog."""
 
-        @commands.is_owner()
-        @commands.group()
-        async def shellset(self, ctx: commands.Context) -> None:
-            """Manage settings of the Shell cog."""
+    @shellset.group(name="env")
+    async def shellset_env(self, ctx: commands.Context) -> None:
+        """Manage environment variables all shell processes start with."""
+
+    @shellset_env.command(name="list")
+    async def shellset_env_list(
+        self, ctx: commands.Context, variable_name: str, *, value: str
+    ) -> None:
+        """List preferences about environment variables set for all shell processes."""
+        env_modifications = await self.config.env_modifications()
+        custom_vars = []
+        ensure_unset = []
+        for variable_name, value in env_modifications.items():
+            if value is None:
+                ensure_unset.append(variable_name)
+            else:
+                custom_vars.append((variable_name, value))
+
+        output = [
+            "Cog ensures that these environment variables are not set:",
+            ", ".join(ensure_unset),
+            "These environment variables are set with custom values"
+            " for all shell processes:",
+        ]
+
+        for variable_name, value in custom_vars:
+            output.append(f"- {inline(variable_name)}: {inline(value)}")
+
+        await ctx.send("\n".join(output))
+
+    @shellset_env.command(name="add")
+    async def shellset_env_add(
+        self, ctx: commands.Context, variable_name: str, *, value: str
+    ) -> None:
+        """Add environment variable to be set for all shell processes."""
+        async with self.config.env_modifications() as env_modifications:
+            if (
+                variable_name in env_modifications
+                and env_modifications[variable_name] is not None
+            ):
+                command = inline(f"{ctx.clean_prefix}shellset env update")
+                await ctx.send(
+                    f"An environment variable {inline(variable_name)} already exists."
+                    f" If you want to update its value, use {command} instead."
+                )
+                return
+            env_modifications[variable_name] = value
+        await ctx.send(
+            f"The environment variable {inline(variable_name)} has been added."
+        )
+
+    @shellset_env.command(name="update")
+    async def shellset_env_update(
+        self, ctx: commands.Context, variable_name: str, *, value: str
+    ) -> None:
+        """Update value of an added environment variable."""
+        async with self.config.env_modifications() as env_modifications:
+            env_modifications[variable_name] = value
+        await ctx.send(
+            f"The environment variable {inline(variable_name)} has been updated."
+        )
+
+    @shellset_env.command(name="remove")
+    async def shellset_env_remove(
+        self, ctx: commands.Context, variable_name: str
+    ) -> None:
+        """Remove environment variable to be set for all shell processes."""
+        async with self.config.env_modifications() as env_modifications:
+            try:
+                value = env_modifications[variable_name]
+            except KeyError:
+                await ctx.send(
+                    f"An environment variable {inline(variable_name)} does not exist."
+                )
+                return
+            if value is None:
+                command = inline(f"{ctx.clean_prefix}shellset env ignoreunset")
+                await ctx.send(
+                    "The cog is set to ensure that the environment variable is not set."
+                    " To no longer ensure that the environment variable is not set,"
+                    f" use {command}."
+                )
+                return
+            del env_modifications[variable_name]
+        await ctx.send(
+            f"The environment variable {inline(variable_name)} has been removed."
+        )
+
+    @shellset_env.group(name="ensureunset")
+    async def shellset_env_ensureunset(
+        self, ctx: commands.Context, variable_name: str
+    ) -> None:
+        """Ensure that the environment variable is not set."""
+        async with self.config.env_modifications() as env_modifications:
+            env_modifications[variable_name] = None
+        await ctx.send(
+            "The cog will now ensure that the environment variable"
+            f" {inline(variable_name)} is not set."
+        )
+
+    @shellset_env.group(name="ignoreunset")
+    async def shellset_env_ignoreunset(
+        self, ctx: commands.Context, variable_name: str
+    ) -> None:
+        """Ignore whether the environment variable is not set."""
+        async with self.config.env_modifications() as env_modifications:
+            if (
+                variable_name not in env_modifications
+                or env_modifications[variable_name] is not None
+            ):
+                await ctx.send(
+                    "The cog wasn't set to ensure that the environment variable"
+                    " is not set. No changes have been made."
+                )
+                return
+            del env_modifications[variable_name]
+        await ctx.send(
+            "The cog will no longer ensure that the environment variable"
+            f" {inline(variable_name)} is not set."
+        )
+
+    if os.name == "posix":
 
         @shellset.group(name="shell", invoke_without_command=True)
         async def shellset_shell(
