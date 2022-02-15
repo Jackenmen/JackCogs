@@ -25,7 +25,7 @@ from redbot.core.config import Config
 from redbot.core.utils.chat_formatting import inline
 
 from .errors import ProcessTerminatedEarly
-from .utils import get_env, send_pages, wait_for_result
+from .utils import get_env, send_pages, strip_code_block, wait_for_result
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -81,6 +81,7 @@ class Shell(commands.Cog):
         *,
         send_message_on_success: bool = True,
     ) -> None:
+        command = strip_code_block(command)
         async with ctx.typing():
             async with self._killing_lock:
                 try:

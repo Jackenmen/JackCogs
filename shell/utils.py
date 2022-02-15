@@ -15,6 +15,7 @@
 import asyncio
 import asyncio.subprocess as asp
 import os
+import re
 import sys
 from typing import Dict
 
@@ -24,7 +25,9 @@ from redbot.core.utils.menus import DEFAULT_CONTROLS, close_menu, menu
 
 from .errors import ProcessTerminatedEarly
 
-__all__ = ("get_env", "send_pages", "wait_for_result")
+__all__ = ("get_env", "send_pages", "strip_code_block", "wait_for_result")
+
+START_CODE_BLOCK_RE = re.compile(r"^((```.*)(?=\s)|(```))")
 
 
 def get_env() -> Dict[str, str]:
@@ -98,3 +101,8 @@ async def send_pages(
         pages,
         DEFAULT_CONTROLS if len(pages) > 1 else {"\N{CROSS MARK}": close_menu},
     )
+
+
+def strip_code_block(command: str) -> str:
+    if command.startswith("```") and command.endswith("```"):
+        return START_CODE_BLOCK_RE.sub("", command)[:-3]
