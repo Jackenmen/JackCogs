@@ -106,3 +106,4 @@ async def send_pages(
 def strip_code_block(command: str) -> str:
     if command.startswith("```") and command.endswith("```"):
         return START_CODE_BLOCK_RE.sub("", command)[:-3]
+    return command
