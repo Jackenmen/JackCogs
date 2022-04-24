@@ -22,6 +22,8 @@ from typing import Dict
 from redbot.core import commands
 from redbot.core.utils.chat_formatting import box, pagify
 from redbot.core.utils.menus import DEFAULT_CONTROLS, close_menu, menu
+from stransi import Ansi, SetAttribute, SetClear, SetColor
+from stransi.instruction import Instruction
 
 from .errors import ProcessTerminatedEarly
 
@@ -86,7 +88,9 @@ async def wait_for_result(process: asp.Process) -> str:
 async def send_pages(
     ctx: commands.Context, *, command: str, output: str, prefix: str = ""
 ) -> None:
-    output_parts = list(pagify(output, shorten_by=len(prefix) + len(command) + 100))
+    output_parts = list(
+        pagify_with_ansi(output, shorten_by=len(prefix) + len(command) + 100)
+    )
     command_box = box(command)
     if not output_parts:
         output_parts = ["Command didn't return anything."]
@@ -101,6 +105,26 @@ async def send_pages(
         pages,
         DEFAULT_CONTROLS if len(pages) > 1 else {"\N{CROSS MARK}": close_menu},
     )
+
+
+def generate_supported_ansi_escape(instruction: Instruction) -> str:
+    "\x1b["
+    if isinstance(instruction, SetAttribute):
+        return f"\x1b[{instruction.attribute}m"
+
+
+def pagify_with_ansi(output: str, page_length: int) -> str:
+    parsed_output = Ansi(output)
+    current_page = []
+    current_length = 0
+    for instruction in parsed_output.instructions():
+        if isinstance(instruction, str):
+            text = instruction
+        else:
+            text = generate_supported_ansi_escape(instruction)
+
+        if not text:
+            continue
 
 
 def strip_code_block(command: str) -> str:
