@@ -49,3 +49,6 @@ d1fa8c28360b50f2c40e72b713c40ecc5c6112c3
 
 # style: ensure empty new line at the end and no trailing whitespace
 4d62eb9e1d5ba0f8c685292297afac5e22ca0cad
+
+# style: format with Black 22.3.0
+ff24014d809855aab35e8e6f900619d5897be9b9
