@@ -24,7 +24,7 @@ def natural_size(value: Union[float, int]) -> str:
     if value < _BASE:
         return str(value)
     for power, suffix in enumerate("KMGTPEZY", 2):
-        unit = _BASE ** power
+        unit = _BASE**power
         if value < unit:
             return f"{_BASE * value / unit:.2f}{suffix}"
     return f"{_BASE * value / unit:.2f}{suffix}"
