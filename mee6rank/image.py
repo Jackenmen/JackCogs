@@ -76,7 +76,7 @@ class Mee6RankImageMixin(MixinMeta):
         dest: Tuple[int, int] = (0, 0),
         source: Union[Tuple[int, int], Tuple[int, int, int, int]] = (0, 0),
     ) -> None:
-        image = getattr(im, "_result", im)
+        image = im._result if isinstance(im, Mee6RankImageMixin) else im
         self._result.alpha_composite(image, dest, source)
 
     def paste(
@@ -96,7 +96,7 @@ class Mee6RankImageMixin(MixinMeta):
         box: Optional[Union[Tuple[int, int], Tuple[int, int, int, int]]] = None,
         mask: Optional[Image.Image] = None,
     ) -> None:
-        image = getattr(im, "_result", im)
+        image = im._result if isinstance(im, Mee6RankImageMixin) else im
         self._result.paste(image, box, mask)
 
     def thumbnail(self, size: Tuple[int, int], resample: int = 3) -> None:
