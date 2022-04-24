@@ -3,7 +3,9 @@ default_language_version:
 exclude: ^.stubs/
 repos:
   - repo: https://github.com/psf/black
-    rev: '20.8b1'
+    # The `refs/tags/<tag>:refs/tags/<tag>` is needed for black's required-version to work:
+    # https://github.com/psf/black/issues/2493#issuecomment-1081987650
+    rev: 'refs/tags/22.3.0:refs/tags/22.3.0'
     hooks:
       - id: black
   - repo: https://github.com/Pierre-Sassoulas/black-disable-checker
@@ -11,11 +13,11 @@ repos:
     hooks:
       - id: black-disable-checker
   - repo: https://github.com/pycqa/isort
-    rev: '5.8.0'
+    rev: '5.10.1'
     hooks:
       - id: isort
-  - repo: https://gitlab.com/pycqa/flake8
-    rev: '3.9.0'
+  - repo: https://github.com/pycqa/flake8
+    rev: '4.0.1'
     hooks:
       - id: flake8
   - repo: local
@@ -30,10 +32,10 @@ repos:
         additional_dependencies:
           # a bit much since we only need VersionInfo but it's the least hacky solution
           - Red-DiscordBot
-          - pathspec~=0.8.1
-          - parso~=0.8.1
-          - strictyaml==1.4.4
-          - toml~=0.10.2
+          - pathspec~=0.9.0
+          - parso~=0.8.3
+          - strictyaml==1.6.1
+          - tomli>=2.0.1,<3
         verbose: true
         always_run: true
         pass_filenames: false
@@ -41,7 +43,7 @@ repos:
   # ideally, we should also run mypy here, but mypy isn't exactly file-based
   # which could cause some issues.
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.4.0
+    rev: v4.2.0
     hooks:
       # `.gitattributes` should technically already handle this
       # but autocrlf can result in local files keeping the CRLF
@@ -79,11 +81,11 @@ repos:
       - id: check-case-conflict
       - id: check-merge-conflict
   - repo: https://github.com/pre-commit/pygrep-hooks
-    rev: v1.8.0
+    rev: v1.9.0
     hooks:
       - id: python-check-blanket-noqa
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.0.0
+    rev: v2.1.0
     hooks:
       - id: codespell
         additional_dependencies: ['.[hard-encoding-detection]']

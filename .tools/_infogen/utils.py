@@ -22,7 +22,7 @@ from types import SimpleNamespace
 from typing import Any, Dict, Generator, Iterable, List, Literal, Pattern, Set, overload
 
 import parso
-import toml
+import tomli
 from parso.tree import NodeOrLeaf
 from pathspec import PathSpec
 
@@ -111,7 +111,8 @@ def _get_black_config() -> Dict[str, Any]:
 
     This function has been copied from Black (https://github.com/psf/black).
     """
-    pyproject_toml = toml.load(ROOT_PATH / "pyproject.toml")
+    with open(ROOT_PATH / "pyproject.toml", "rb") as fp:
+        pyproject_toml = tomli.load(fp)
     config = pyproject_toml.get("tool", {}).get("black", {})
     return {k.replace("--", "").replace("-", "_"): v for k, v in config.items()}
 

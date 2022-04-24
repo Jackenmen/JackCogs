@@ -1,5 +1,6 @@
 [tool.black]
 target-version = ['py38']
+required-version = '22.3.0'
 force-exclude = '''
 /(
     \.stubs
