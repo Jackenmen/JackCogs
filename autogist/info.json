@@ -9,7 +9,7 @@
     ],
     "required_cogs": {},
     "requirements": [
-        "cachetools~=4.2",
+        "cachetools~=5.0",
         "gidgethub~=5.0"
     ],
     "tags": [
