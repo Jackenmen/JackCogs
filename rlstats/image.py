@@ -169,9 +169,9 @@ class RLStatsImage(RLStatsImageMixin):
         username_coords, font_name = self.template.get_coords("username")
         assert isinstance(font_name, str), "mypy"  # username has font name defined
         font = self.template.fonts[font_name]
-        w, h = font.getsize(self.player.user_name)
+        w, h = font.getsize(self.player.player_id)
         coords = username_coords - (w / 2, h / 2)
-        self._draw.text(xy=coords, text=self.player.user_name, font=font, fill="white")
+        self._draw.text(xy=coords, text=self.player.player_id, font=font, fill="white")
         self._draw_platform(w)
 
     def _draw_platform(self, w: int) -> None:
@@ -376,7 +376,7 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
                 tier - 1 if tier > 0 else 0
             ),
             "tier_up": self.template.images["tier_image"].format(
-                tier + 1 if 0 < tier < self.playlist.tier_max else 0
+                tier + 1 if 0 < tier < self.playlist.TIER_MAX else 0
             ),
         }
         for attr_name, tier_image_path in attrs.items():

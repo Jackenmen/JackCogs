@@ -6,5 +6,5 @@ ipykernel~=5.4
 ipyparallel
 jedi<0.16.0
 pillow~=8.1
-rlapi==0.5.0a1
+rlapi==0.6.0a1
 tornado>=6.1

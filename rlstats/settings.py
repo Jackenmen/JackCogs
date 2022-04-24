@@ -34,19 +34,21 @@ class SettingsMixin(MixinMeta):
         """RLStats configuration options."""
 
     @rlset.command()
-    async def token(self, ctx: commands.Context) -> None:
-        """Instructions to set the Rocket League API tokens."""
+    async def credentials(self, ctx: commands.Context) -> None:
+        """Instructions to set the Rocket League API credentials."""
         command = inline(
-            f"{ctx.clean_prefix}"
-            "set api rocket_league user_token PUT_YOUR_USER_TOKEN_HERE"
+            f"{ctx.clean_prefix}set api rocket_league"
+            " client_id PUT_YOUR_CLIENT_ID_HERE"
+            " client_secret PUT_YOUR_CLIENT_SECRET_HERE"
         )
         message = (
             "**Rocket League API is currently in closed beta"
-            " and Psyonix doesn't give out keys easily.**\n"
+            " and Psyonix doesn't give out access to it easily.**\n"
             "To request API access, you should contact Psyonix by email"
             " `RLPublicAPI@psyonix.com` and hope for positive response.\n\n"
-            "When (and if) you get API access, copy your user token "
-            "from your account on Rocket League API website and use this command:\n"
+            "When (and if) you get API access, copy your Client ID and Secret "
+            "from your product's settings on Epic Games Developer Portal"
+            " and use this command:\n"
             f"{command}"
         )
         await ctx.maybe_send_embed(message)
