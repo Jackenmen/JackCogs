@@ -374,8 +374,8 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         if players_len > 1:
             description = ""
             for idx, player in enumerate(players, 1):
-                description += "\n{}. {} account with player ID: {}".format(
-                    idx, player.platform, player.player_id
+                description += "\n{}. {} account with username: {}".format(
+                    idx, player.platform, player.user_name
                 )
             msg = await ctx.send(
                 embed=discord.Embed(
@@ -520,7 +520,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 f"connected {str(player.platform)} account of {bold(str(discord_user))}"
             )
         else:
-            account_string = f"{str(player.platform)} account: {bold(player.player_id)}"
+            account_string = f"{str(player.platform)} account: {bold(player.user_name)}"
         await ctx.send(
             (
                 f"Rocket League Stats for {account_string}\n"
