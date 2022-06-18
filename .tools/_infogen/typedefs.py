@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Literal, Tuple, TypedDict
+from typing import Dict, List, Literal, Optional, Tuple, TypedDict
 
 __all__ = (
     "CogsDict",
@@ -54,7 +54,7 @@ class SharedFieldsDict(_CommonOptionalKeys, total=True):
 
 
 class _OptionalCogKeys(_CommonOptionalKeys, total=False):
-    class_docstring: str
+    class_docstring: Optional[str]
     install_msg: str
     author: List[str]
 

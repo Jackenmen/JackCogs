@@ -39,6 +39,17 @@ def update_class_docstrings(ctx: InfoGenMainCommand) -> Literal[True]:
       - star imports are ignored
     """
     for pkg_name, cog_info in ctx.cogs.items():
+        # class_docstring: null is different from not passing it at all
+        class_docstring = cog_info.get("class_docstring", ...)
+        if class_docstring is None:
+            continue
+        new_docstring = cog_info["short"] if class_docstring is ... else class_docstring
+        replacements = {
+            "repo_name": ctx.repo_info["name"],
+            "cog_name": cog_info["name"],
+        }
+        new_docstring = new_docstring.format_map(replacements)
+
         class_name = cog_info["name"]
         path = ROOT_PATH / pkg_name / "__init__.py"
         if not path.is_file():
@@ -97,12 +108,6 @@ def update_class_docstrings(ctx: InfoGenMainCommand) -> Literal[True]:
         if class_node is None:
             continue
         doc_node = class_node.get_doc_node()
-        new_docstring = cog_info.get("class_docstring") or cog_info["short"]
-        replacements = {
-            "repo_name": ctx.repo_info["name"],
-            "cog_name": cog_info["name"],
-        }
-        new_docstring = new_docstring.format_map(replacements)
         if doc_node is not None:
             doc_node.value = f'"""{new_docstring}"""'
         else:
