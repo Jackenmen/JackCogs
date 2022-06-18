@@ -33,6 +33,7 @@ Also I suggest to join [Red - Cog Support server](https://discord.gg/GET4DVk) an
 * **rlstats** - Get your Rocket League stats with a single command! Needs access to Rocket League API which is currently in closed beta.
 * **rssnotifier** - Get role and/or user mentions about feed updates. This cog requires RSS cog from aikaterna-cogs repo to work.
 * **shell** - Run shell commands on bot's system from Discord.
+* **tiv** - Text in Voice Channels (TiV) functionality "support" for Red < 3.5.
 * **voicetools** - Various tools to make voice channels better!
 
 # Installation
