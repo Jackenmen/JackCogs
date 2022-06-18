@@ -12,11 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import abc
 from types import SimpleNamespace
+from typing import Any, Type
 
 import discord
 
 from .delegate import delegate
+
+clear_abc_caches = getattr(abc.ABCMeta, "_abc_caches_clear")
 
 
 def last_message_id(self: discord.VoiceChannel) -> None:
@@ -35,6 +39,12 @@ def get_partial_message(
     )
     ret.channel = self  # type: ignore
     return ret
+
+
+def __subclasshook__(cls: Type[Any], C: Any) -> bool:
+    if C is discord.VoiceChannel:
+        return True
+    return NotImplemented
 
 
 DESCRIPTORS = [
@@ -59,7 +69,13 @@ def _tiv_load() -> None:
     for desc in DESCRIPTORS:
         setattr(discord.VoiceChannel, getattr(desc, "fget", desc).__name__, desc)
 
+    setattr(discord.abc.Messageable, "__subclasshook__", classmethod(__subclasshook__))
+    clear_abc_caches(discord.abc.Messageable)
+
 
 def _tiv_unload() -> None:
     for desc in DESCRIPTORS:
         delattr(discord.VoiceChannel, getattr(desc, "fget", desc).__name__)
+
+    delattr(discord.abc.Messageable, "__subclasshook__")
+    clear_abc_caches(discord.abc.Messageable)
