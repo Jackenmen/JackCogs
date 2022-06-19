@@ -16,10 +16,12 @@ import json
 from pathlib import Path
 
 import discord
+from discord.ext import commands as dpy_commands
+from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.errors import CogLoadError
 
-from .tiv import _tiv_load, _tiv_unload
+from .tiv import _tiv_load, _tiv_unload, clear_abc_caches
 
 with open(Path(__file__).parent / "info.json") as fp:
     __red_end_user_data_statement__ = json.load(fp)["end_user_data_statement"]
@@ -28,6 +30,29 @@ with open(Path(__file__).parent / "info.json") as fp:
 async def setup(bot: Red) -> None:
     if discord.version_info.major == 2:
         raise CogLoadError("Text in Voice Channels support is built into Red 3.5!")
+
+    detected_bug = False
+    for cls in (
+        discord.Member,
+        discord.User,
+        discord.DMChannel,
+        discord.TextChannel,
+        dpy_commands.Context,
+        commands.Context,
+    ):
+        if issubclass(discord.VoiceChannel, cls):
+            detected_bug = True
+            clear_abc_caches(cls)
+
+    if detected_bug:
+        raise CogLoadError(
+            "While loading this cog, a crash-inducing bug that an earlier version"
+            " of TiV accidentally introduces has been detected. TiV made an attempt at"
+            " autofixing it but it is recommended that you restart your bot"
+            " as soon as possible. Sorry about that!\n\n"
+            "Current version of TiV no longer introduces this issue and there are"
+            " no known crash-inducing bugs in it."
+        )
 
     _tiv_load()
 

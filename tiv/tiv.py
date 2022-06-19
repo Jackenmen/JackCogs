@@ -42,7 +42,7 @@ def get_partial_message(
 
 
 def __subclasshook__(cls: Type[Any], C: Any) -> bool:
-    if C is discord.VoiceChannel:
+    if cls is discord.abc.Messageable and C is discord.VoiceChannel:
         return True
     return NotImplemented
 
