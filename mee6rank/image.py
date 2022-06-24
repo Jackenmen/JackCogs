@@ -234,7 +234,7 @@ class Mee6RankImage(Mee6RankImageMixin):
         with Image.open(self.template.avatar_mask).convert("L") as avatar_mask:
             avatar_file = self.player.avatar
             avatar_file.seek(0)
-            avatar = Image.open(avatar_file)
+            avatar = Image.open(avatar_file).convert("RGBA")
             avatar_output = ImageOps.fit(avatar, avatar_mask.size, centering=(0.5, 0.5))
             avatar_output.putalpha(avatar_mask)
             self._result.alpha_composite(avatar_output, (40, 60))
