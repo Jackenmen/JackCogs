@@ -376,7 +376,7 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
                 tier - 1 if tier > 0 else 0
             ),
             "tier_up": self.template.images["tier_image"].format(
-                tier + 1 if 0 < tier < self.playlist.tier_max else 0
+                tier + 1 if 0 < tier < self.playlist.TIER_MAX else 0
             ),
         }
         for attr_name, tier_image_path in attrs.items():

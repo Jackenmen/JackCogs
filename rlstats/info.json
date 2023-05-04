@@ -3,14 +3,14 @@
     "short": "Get your Rocket League stats with a single command! Needs access to Rocket League API which is currently in closed beta.",
     "description": "Shows you Rocket League player statistics. The cog needs access to Rocket League API which is currently in closed beta.",
     "end_user_data_statement": "This cog stores data provided by users for the purpose of better user experience.\nIt does not store user data which was not provided through a command.\nUsers may remove their own data without making a data removal request.\nThis cog will remove data when a data removal request is made.",
-    "install_msg": "Thanks for installing RLStats. Before you'll be able to check any stats, you need to configure a Rocket League API user token using command `[p]rlset token`.\n\nThis cog may save background images in data path if the bot owner decides to customize them.\n\nThis cog comes with bundled data.",
+    "install_msg": "Thanks for installing RLStats. Before you'll be able to check any stats, you need to configure a Rocket League API client credentials using command `[p]rlset credentials`.\n\nThis cog may save background images in data path if the bot owner decides to customize them.\n\nThis cog comes with bundled data.",
     "author": [
         "Jakub Kuczys (https://github.com/Jackenmen)"
     ],
     "required_cogs": {},
     "requirements": [
         "pillow~=9.1",
-        "rlapi==0.5.0a1"
+        "rlapi==0.6.0a1"
     ],
     "tags": [
         "api",

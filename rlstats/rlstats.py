@@ -18,7 +18,18 @@ import functools
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
-from typing import Any, Callable, Dict, List, Literal, Mapping, Tuple, TypeVar, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Mapping,
+    Tuple,
+    TypedDict,
+    TypeVar,
+    cast,
+)
 
 import discord
 import rlapi
@@ -49,7 +60,7 @@ SUPPORTED_PLATFORMS = """Supported platforms:
 - Steam - use steamID64, customURL or full URL to profile
 - PlayStation 4 - use PSN ID
 - Xbox One - use Xbox Gamertag
-- Epic Games - use Epic Games display name
+- Epic Games - use Epic Account ID (https://epicgames.com/help/c74/c79/a3659)
 - Nintendo Switch - use Nintendo Network ID"""
 
 RLSTATS_DOCS = f"""
@@ -59,6 +70,11 @@ Show Rocket League stats in {{mode}} playlists for you or given player.
 If the user connected their game profile with `[p]rlconnect`,
 you can also use their Discord tag to show their stats.
 """
+
+
+class ClientCredentials(TypedDict):
+    client_id: str
+    client_secret: str
 
 
 class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
@@ -202,7 +218,8 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         )
 
     async def cog_load(self) -> None:
-        self.rlapi_client = rlapi.Client(await self._get_token())
+        client_credentials = await self._get_client_credentials()
+        self.rlapi_client = rlapi.Client(**client_credentials)
         tier_breakdown = self._convert_numbers_in_breakdown(
             await self.config.tier_breakdown()
         )
@@ -258,18 +275,25 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             new[int(k)] = v
         return new
 
-    async def _get_token(self, api_tokens: Optional[Mapping[str, str]] = None) -> str:
+    async def _get_client_credentials(
+        self, api_tokens: Optional[Mapping[str, str]] = None
+    ) -> ClientCredentials:
         if api_tokens is None:
             api_tokens = await self.bot.get_shared_api_tokens("rocket_league")
-        return api_tokens.get("user_token", "")
+        client_credentials: ClientCredentials = {
+            "client_id": api_tokens.get("client_id", ""),
+            "client_secret": api_tokens.get("client_secret", ""),
+        }
+        return client_credentials
 
-    async def _check_token(self, ctx: commands.Context) -> bool:
-        if not self.rlapi_client._token:
+    async def _check_client_credentials(self, ctx: commands.Context) -> bool:
+        if not (self.rlapi_client._client_id and self.rlapi_client._client_secret):
             if await self.bot.is_owner(ctx.author):
                 await ctx.send(
                     "This cog wasn't configured properly."
-                    " You need to set a token first, look at"
-                    f" {inline(f'{ctx.clean_prefix}rlset token')} for instructions."
+                    " You need to set a Client ID and Secret first, look at"
+                    f" {inline(f'{ctx.clean_prefix}rlset credentials')}"
+                    " for instructions."
                 )
             else:
                 await ctx.send("The bot owner didn't configure this cog properly.")
@@ -315,8 +339,9 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             log.error(str(e))
             if await self.bot.is_owner(ctx.author):
                 await ctx.send(
-                    f"Set token is invalid. Use {inline(f'{ctx.clean_prefix}rlset')}"
-                    " to change the token."
+                    "Set client credentials are invalid."
+                    f" Use {inline(f'{ctx.clean_prefix}rlset credentials')}"
+                    " to update them."
                 )
             else:
                 await ctx.send("The bot owner didn't configure this cog properly.")
@@ -429,7 +454,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         player_id: Optional[str],
     ) -> None:
         async with ctx.typing():
-            if not await self._check_token(ctx):
+            if not await self._check_client_credentials(ctx):
                 return
 
             player_ids: List[Tuple[str, Optional[rlapi.Platform]]] = []
@@ -506,7 +531,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
     async def rlconnect(self, ctx: commands.Context, *, player_id: str) -> None:
         """Connect game profile with your Discord account."""
         async with ctx.typing():
-            if not await self._check_token(ctx):
+            if not await self._check_client_credentials(ctx):
                 return
 
             players = await self._maybe_get_players(ctx, [(player_id, None)])
@@ -547,4 +572,5 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         if service_name != "rocket_league":
             return
 
-        self.rlapi_client.change_token(await self._get_token(api_tokens))
+        client_credentials = await self._get_client_credentials(api_tokens)
+        self.rlapi_client.update_client_credentials(**client_credentials)
