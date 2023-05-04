@@ -1,9 +1,9 @@
 {
     "name": "JackCogs",
-    "short": "Cogs for Red V3 by jack1142 (Jackenmen#6607).",
+    "short": "Cogs for Red V3 by Jakub Kuczys (https://github.com/Jackenmen).",
     "description": "Cogs requested by others and those that I wanted for Red myself.",
-    "install_msg": "Thanks for using JackCogs. If you have any issues, check for more information in my repo: https://github.com/jack1142/JackCogs",
+    "install_msg": "Thanks for using JackCogs. If you have any issues, check for more information in my repo: https://github.com/Jackenmen/JackCogs",
     "author": [
-        "jack1142 (Jackenmen#6607)"
+        "Jakub Kuczys (https://github.com/Jackenmen)"
     ]
 }

@@ -3,9 +3,9 @@
     "short": "Auto-upload files with configured extension sent by users to gist.github.com.",
     "description": "Auto-upload files with configured extension sent by users to gist.github.com.",
     "end_user_data_statement": "This cog auto-uploads attachments to gist.github.com uploaded by users as configured by the guild administrators.",
-    "install_msg": "Thanks for installing AutoGist. If anything doesn't work, you can report it on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.",
+    "install_msg": "Thanks for installing AutoGist. If anything doesn't work, you can report it on my issue tracker at <https://github.com/Jackenmen/JackCogs/issues>.",
     "author": [
-        "jack1142 (Jackenmen#6607)"
+        "Jakub Kuczys (https://github.com/Jackenmen)"
     ],
     "required_cogs": {},
     "requirements": [

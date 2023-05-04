@@ -3,9 +3,9 @@
     "short": "Get count of all members + humans and bots separately.",
     "description": "Get count of all members + humans and bots separately.",
     "end_user_data_statement": "This cog does not persistently store data or metadata about users.",
-    "install_msg": "Thanks for installing MemberCount. If anything doesn't work, you can report it on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.",
+    "install_msg": "Thanks for installing MemberCount. If anything doesn't work, you can report it on my issue tracker at <https://github.com/Jackenmen/JackCogs/issues>.",
     "author": [
-        "jack1142 (Jackenmen#6607)"
+        "Jakub Kuczys (https://github.com/Jackenmen)"
     ],
     "required_cogs": {},
     "requirements": [],

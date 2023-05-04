@@ -5,18 +5,18 @@ If you use any "unfinished" cog, message me on Discord to get info about breakin
 
 # JackCogs
 
-[![Sponsor on GitHub](https://img.shields.io/github/sponsors/jack1142?logo=github)](https://github.com/sponsors/jack1142)
-[![Build Status](https://travis-ci.com/jack1142/JackCogs.svg?branch=wip/cleaning-code-v3)](https://travis-ci.com/jack1142/JackCogs/branches)
-[![Code style: black](https://github.com/jack1142/JackCogs/workflows/black/badge.svg)](https://github.com/ambv/black)
+[![Sponsor on GitHub](https://img.shields.io/github/sponsors/Jackenmen?logo=github)](https://github.com/sponsors/Jackenmen)
+[![Build Status](https://travis-ci.com/Jackenmen/JackCogs.svg?branch=wip/cleaning-code-v3)](https://travis-ci.com/Jackenmen/JackCogs/branches)
+[![Code style: black](https://github.com/Jackenmen/JackCogs/workflows/black/badge.svg)](https://github.com/ambv/black)
 [![Red cogs](https://img.shields.io/badge/Red--DiscordBot-cogs-red.svg)](https://github.com/Cog-Creators/Red-DiscordBot/tree/V3/develop)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
-Cogs created by jack1142 (Jackenmen#6607 on Discord) for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot). Red-DiscordBot is a multipurpose bot for Discord developed by Twentysix26 and the Core Developer team. Feel free to create issues, if you want to see some function in one of my cogs. If you see a bug in one of my cogs, do that as well ;)
+Cogs created by Jakub Kuczys (also known as Jackenmen on GitHub and Discord) for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot). Red-DiscordBot is a multipurpose bot for Discord developed by Twentysix26 and the Core Developer team. Feel free to create issues, if you want to see some function in one of my cogs. If you see a bug in one of my cogs, do that as well ;)
 
 If you're developer, you can also send pull requests and I will happily merge your commits, if it doesn't conflict with anything developed before.
 
-Also I suggest to join [Red - Cog Support server](https://discord.gg/GET4DVk) and if you will ever need help with any of my cogs, just mention me (@Jackenmen#6607) on #support_othercogs channel.
+Also I suggest to join [Red - Cog Support server](https://discord.gg/GET4DVk) and if you will ever need help with any of my cogs, just mention me (@Jackenmen) on #support_othercogs channel.
 
 # Cogs in this repo
 
@@ -46,7 +46,7 @@ You need to have a working instance of Red V3 in order to install these cogs.
   `[p]load downloader`
 
 * Add the repo to your bot:<br>
-  `[p]repo add JackCogs https://github.com/jack1142/JackCogs`
+  `[p]repo add JackCogs https://github.com/Jackenmen/JackCogs`
 
 * Install the cogs you want:<br>
   `[p]cog install JackCogs <cog_name>`
@@ -85,4 +85,4 @@ All brand icons are trademarks of their respective owners. The use of these trad
 ---
 
 > Jakub Kuczys &nbsp;&middot;&nbsp;
-> GitHub [@jack1142](https://github.com/jack1142)
+> GitHub [@Jackenmen](https://github.com/Jackenmen)

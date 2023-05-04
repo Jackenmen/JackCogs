@@ -5,7 +5,7 @@
     "end_user_data_statement": "This cog does not persistently store end user data. This cog does store discord IDs as needed for operation.\nDiscord IDs of users may occasionally be logged to file as part of debug logging.",
     "install_msg": "Thanks for installing VoiceTools. Use `[p]voicetools` to configure the cog.",
     "author": [
-        "jack1142 (Jackenmen#6607)"
+        "Jakub Kuczys (https://github.com/Jackenmen)"
     ],
     "required_cogs": {},
     "requirements": [],

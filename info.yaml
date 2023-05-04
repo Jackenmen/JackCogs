@@ -2,20 +2,20 @@
 
 repo:
   name: JackCogs
-  short: Cogs for Red V3 by jack1142 (Jackenmen#6607).
+  short: Cogs for Red V3 by Jakub Kuczys (https://github.com/Jackenmen).
   description: Cogs requested by others and those that I wanted for Red myself.
   install_msg: >-
     Thanks for using {repo_name}. If you have any issues,
-    check for more information in my repo: https://github.com/jack1142/JackCogs
+    check for more information in my repo: https://github.com/Jackenmen/JackCogs
   author:
-    - jack1142 (Jackenmen#6607)
+    - Jakub Kuczys (https://github.com/Jackenmen)
 
 shared_fields:
   install_msg: >-
     Thanks for installing {cog_name}. If anything doesn't work, you can report it
-    on my issue tracker at <https://github.com/jack1142/JackCogs/issues>.
+    on my issue tracker at <https://github.com/Jackenmen/JackCogs/issues>.
   author:
-    - jack1142 (Jackenmen#6607)
+    - Jakub Kuczys (https://github.com/Jackenmen)
   min_bot_version: 3.5.0
   hidden: false
   disabled: false
