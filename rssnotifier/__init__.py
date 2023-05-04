@@ -29,5 +29,5 @@ async def setup(bot: Red) -> None:
         "This cog is currently unavailable,"
         " an update will be provided once the RSS cog supports Red 3.5."
     )
-    cog = RSSNotifier(bot)
+    cog = RSSNotifier(bot)  # type: ignore[unreachable]
     await bot.add_cog(cog)

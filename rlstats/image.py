@@ -169,6 +169,7 @@ class RLStatsImage(RLStatsImageMixin):
         username_coords, font_name = self.template.get_coords("username")
         assert isinstance(font_name, str), "mypy"  # username has font name defined
         font = self.template.fonts[font_name]
+        assert self.player.user_name is not None, "incorrect typing upstream"
         w, h = font.getsize(self.player.user_name)
         coords = username_coords - (w / 2, h / 2)
         self._draw.text(xy=coords, text=self.player.user_name, font=font, fill="white")

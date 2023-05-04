@@ -518,6 +518,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 f"connected {str(player.platform)} account of {bold(str(discord_user))}"
             )
         else:
+            assert player.user_name is not None, "incorrect typing upstream"
             account_string = f"{str(player.platform)} account: {bold(player.user_name)}"
         await ctx.send(
             (
