@@ -52,7 +52,7 @@ class Qupyter(commands.Cog):
         """Post-add cog initialization."""
         await self.start_app()
 
-    def cog_unload(self) -> None:
+    async def cog_unload(self) -> None:
         """Cog unload cleanup."""
         self.stop_app()
 

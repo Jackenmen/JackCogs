@@ -18,12 +18,19 @@ import re
 from abc import ABC, abstractmethod
 from enum import Enum
 from string import Template
-from typing import TYPE_CHECKING, Dict, Iterable, Optional, Pattern, Set
+from typing import TYPE_CHECKING, Dict, Iterable, Optional, Pattern, Set, Union
 
 import discord
 from redbot.core import commands
 from redbot.core.config import Config, Group
 from redbot.core.utils.chat_formatting import inline
+
+ConfigurableChannel = Union[
+    discord.TextChannel,
+    discord.VoiceChannel,
+    discord.StageChannel,
+    discord.ForumChannel,
+]
 
 
 class DomainsMode(Enum):
@@ -250,7 +257,7 @@ class GuildData(ScopeData):
         data = await config.guild(guild).all()
         return cls(config, guild.id, **data)
 
-    async def get_channel_data(self, channel: discord.TextChannel) -> ChannelData:
+    async def get_channel_data(self, channel: ConfigurableChannel) -> ChannelData:
         try:
             return self._channel_cache[channel.id]
         except KeyError:
@@ -417,7 +424,7 @@ class ChannelData(ScopeData):
 
     @classmethod
     async def from_channel(
-        cls, guild_data: GuildData, channel: discord.TextChannel
+        cls, guild_data: GuildData, channel: ConfigurableChannel
     ) -> ChannelData:
         data = await guild_data._config.channel(channel).all()
         return cls(guild_data, channel.id, **data)

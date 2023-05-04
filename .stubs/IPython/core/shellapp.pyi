@@ -17,8 +17,8 @@ This an incomplete stub of IPython library for use of cogs in this repo.
 Nobody have made a full stub for this library so only stuff used by this repo is typed.
 """
 
-from IPython.core.interactiveshell import InteractiveShellABC
+from IPython.core.interactiveshell import InteractiveShell
 from traitlets.config.configurable import Configurable
 
 class InteractiveShellApp(Configurable):
-    shell: InteractiveShellABC
+    shell: InteractiveShell

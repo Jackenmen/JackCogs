@@ -1,6 +1,4 @@
-git+https://github.com/jack1142/Red-DiscordBot@V3/typing_progress
+git+https://github.com/Jackenmen/Red-DiscordBot@V3/typing_progress
 mypy
-discord.py-stubs>=1.7.1
 types-cachetools
-types-chardet
-types-emoji
+types-emoji~=1.2

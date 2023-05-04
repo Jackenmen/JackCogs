@@ -12,19 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Callable, TypeVar, cast
 
 from redbot.core import commands
-
-from .typings import CheckDecorator
 
 if TYPE_CHECKING:
     from .rssnotifier import RSSNotifier
 else:
     RSSNotifier = ...
 
+_T = TypeVar("_T")
 
-def single_user_pings_enabled() -> CheckDecorator:
+
+def single_user_pings_enabled() -> Callable[[_T], _T]:
     async def predicate(ctx: commands.Context) -> bool:
         if ctx.guild is None:
             return False

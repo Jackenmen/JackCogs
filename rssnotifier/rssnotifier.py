@@ -15,7 +15,7 @@
 import contextlib
 import itertools
 from io import BytesIO
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List, Literal, Union
 
 import discord
 from redbot.core import commands
@@ -59,7 +59,7 @@ class RSSNotifier(commands.Cog):
                     # channel name header has't been added yet
                     channel = self.bot.get_channel(int(channel_id_str))
                     if channel is not None:
-                        assert isinstance(channel, discord.TextChannel)
+                        assert isinstance(channel, discord.abc.GuildChannel)
                         channel_name = (
                             f"#{channel} ({channel.id}) in {channel.guild} server"
                         )
@@ -97,7 +97,7 @@ class RSSNotifier(commands.Cog):
     async def rssnotifier(self, ctx: GuildContext) -> None:
         """RSSNotifier settings."""
 
-    @commands.admin_or_permissions(manage_channels=True)
+    @commands.admin_or_can_manage_channel()
     @rssnotifier.command(
         name="addroles", aliases=["addrole"], usage="<feed_name> <channel> <roles...>"
     )
@@ -105,7 +105,12 @@ class RSSNotifier(commands.Cog):
         self,
         ctx: GuildContext,
         feed_name: str,
-        channel: discord.TextChannel,
+        channel: Union[
+            discord.TextChannel,
+            discord.VoiceChannel,
+            discord.StageChannel,
+            discord.Thread,
+        ],
         *roles: discord.Role,
     ) -> None:
         """
@@ -128,7 +133,7 @@ class RSSNotifier(commands.Cog):
             f" for feed {inline(feed_name)} in {channel.mention}."
         )
 
-    @commands.admin_or_permissions(manage_channels=True)
+    @commands.admin_or_can_manage_channel()
     @rssnotifier.command(
         name="removeroles",
         aliases=["removerole"],
@@ -138,7 +143,12 @@ class RSSNotifier(commands.Cog):
         self,
         ctx: GuildContext,
         feed_name: str,
-        channel: discord.TextChannel,
+        channel: Union[
+            discord.TextChannel,
+            discord.VoiceChannel,
+            discord.StageChannel,
+            discord.Thread,
+        ],
         # support the int for the cases where the role no longer exists
         *roles: RawRoleObject,
     ) -> None:
@@ -162,21 +172,27 @@ class RSSNotifier(commands.Cog):
             f" for feed {inline(feed_name)} in {channel.mention}."
         )
 
-    @commands.admin_or_permissions(manage_channels=True)
+    @commands.admin_or_can_manage_channel()
     @rssnotifier.command(name="listroles")
     async def rssnotifier_listroles(
         self,
         ctx: GuildContext,
         feed_name: str,
-        channel: Optional[discord.TextChannel] = None,
+        channel: Optional[
+            Union[
+                discord.TextChannel,
+                discord.VoiceChannel,
+                discord.StageChannel,
+                discord.Thread,
+            ]
+        ] = None,
     ) -> None:
         """
         List role mentions list for the given feed name.
 
         Use `[p]rss list` for the list of available feeds.
         """
-        if channel is None:
-            channel = ctx.channel
+        channel = channel or ctx.channel
 
         role_ids = await self.config.custom(FEED, channel.id, feed_name).role_mentions()
         role_list = "\n".join(map("- <@&{}>".format, role_ids))
@@ -187,7 +203,7 @@ class RSSNotifier(commands.Cog):
         ):
             await ctx.send(page)
 
-    @commands.admin_or_permissions(manage_channels=True)
+    @commands.admin_or_can_manage_channel()
     @rssnotifier.command(name="usermentions")
     async def rssnotifier_usermentions(
         self, ctx: GuildContext, state: Optional[bool] = None
@@ -231,7 +247,14 @@ class RSSNotifier(commands.Cog):
         self,
         ctx: GuildContext,
         feed_name: str,
-        channel: Optional[discord.TextChannel] = None,
+        channel: Optional[
+            Union[
+                discord.TextChannel,
+                discord.VoiceChannel,
+                discord.StageChannel,
+                discord.Thread,
+            ]
+        ] = None,
     ) -> None:
         """
         Opt-in receiving notifications for the given feed name.
@@ -262,7 +285,14 @@ class RSSNotifier(commands.Cog):
         self,
         ctx: GuildContext,
         feed_name: str,
-        channel: Optional[discord.TextChannel] = None,
+        channel: Optional[
+            Union[
+                discord.TextChannel,
+                discord.VoiceChannel,
+                discord.StageChannel,
+                discord.Thread,
+            ]
+        ] = None,
     ) -> None:
         """
         Opt-out of receiving notifications for the given feed name.
@@ -285,13 +315,18 @@ class RSSNotifier(commands.Cog):
                 f" for feed {inline(feed_name)} in {channel.mention}."
             )
 
-    @commands.admin_or_permissions(manage_channels=True)
+    @commands.admin_or_can_manage_channel()
     @rssnotifier.command(name="adminoptout")
     async def rssnotifier_adminoptout(
         self,
         ctx: GuildContext,
         feed_name: str,
-        channel: discord.TextChannel,
+        channel: Union[
+            discord.TextChannel,
+            discord.VoiceChannel,
+            discord.StageChannel,
+            discord.Thread,
+        ],
         *user_ids: int,
     ) -> None:
         """
@@ -320,7 +355,12 @@ class RSSNotifier(commands.Cog):
     async def on_aikaternacogs_rss_feed_update(
         self,
         *,
-        channel: discord.TextChannel,
+        channel: Union[
+            discord.TextChannel,
+            discord.VoiceChannel,
+            discord.StageChannel,
+            discord.Thread,
+        ],
         feed_data: Dict[str, Any],
         force: bool,
         **_kwargs: Any,

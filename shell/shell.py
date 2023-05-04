@@ -42,7 +42,7 @@ class Shell(commands.Cog):
         self.active_processes: List[asp.Process] = []
         self._killing_lock = asyncio.Lock()
 
-    async def initialize(self) -> None:
+    async def cog_load(self) -> None:
         self.replacement_shell = (
             await self.config.replacement_shell() if os.name == "posix" else None
         )

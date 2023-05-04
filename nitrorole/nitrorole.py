@@ -15,7 +15,7 @@
 import asyncio
 import logging
 import random
-from typing import Any, Awaitable, Callable, Dict, Literal, cast
+from typing import Any, Awaitable, Callable, Dict, Literal, Union, cast
 
 import discord
 from redbot.core import commands
@@ -148,7 +148,11 @@ class NitroRole(commands.Cog):
 
     @nitrorole.command(name="channel")
     async def nitrorole_channel(
-        self, ctx: GuildContext, channel: Optional[discord.TextChannel] = None
+        self,
+        ctx: GuildContext,
+        channel: Optional[
+            Union[discord.TextChannel, discord.VoiceChannel, discord.StageChannel]
+        ] = None,
     ) -> None:
         """Set channel for new booster messages. Leave empty to disable."""
         guild_data = await self.get_guild_data(ctx.guild)
@@ -359,7 +363,7 @@ class NitroRole(commands.Cog):
         role = self.get_role_to_assign(member.guild, guild_data)
         if role is None:
             return
-        if role in member.roles:
+        if member.get_role(role.id) is not None:
             return
         try:
             await member.add_roles(role, reason="New nitro booster - role assigned.")
@@ -380,7 +384,7 @@ class NitroRole(commands.Cog):
         role = self.get_role_to_assign(member.guild, guild_data)
         if role is None:
             return
-        if role not in member.roles:
+        if member.get_role(role.id) is None:
             return
         try:
             await member.remove_roles(
@@ -402,7 +406,12 @@ class NitroRole(commands.Cog):
         if channel_id is None:
             return
         guild = member.guild
-        channel = cast(Optional[discord.TextChannel], guild.get_channel(channel_id))
+        channel = cast(
+            Optional[
+                Union[discord.TextChannel, discord.VoiceChannel, discord.StageChannel]
+            ],
+            guild.get_channel(channel_id),
+        )
         if channel is None:
             log.error(
                 "Channel with ID %s can't be found in guild with ID %s.",
@@ -416,7 +425,7 @@ class NitroRole(commands.Cog):
             return
 
         filename = next(self.message_images.glob(f"{guild.id}.*"), None)
-        file = None
+        file = discord.utils.MISSING
         if filename is not None:
             if channel.permissions_for(guild.me).attach_files:
                 file = discord.File(str(filename))

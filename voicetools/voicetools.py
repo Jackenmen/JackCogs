@@ -159,7 +159,7 @@ class VoiceTools(commands.Cog):
             embed.add_field(name="Voice channels", value=page[2])
             embed.set_footer(text="Page {num}/{total}".format(num=idx, total=len_pages))
             embed_pages.append(embed)
-        await menus.menu(ctx, embed_pages, menus.DEFAULT_CONTROLS)
+        await menus.menu(ctx, embed_pages)
 
     @forcelimit.command(name="ignore")
     async def forcelimit_ignore(
@@ -288,7 +288,7 @@ class VoiceTools(commands.Cog):
             embed.add_field(name="Roles", value=page[1])
             embed.set_footer(text="Page {num}/{total}".format(num=idx, total=len_pages))
             embed_pages.append(embed)
-        await menus.menu(ctx, embed_pages, menus.DEFAULT_CONTROLS)
+        await menus.menu(ctx, embed_pages)
 
     @vip.command(name="add")
     async def vip_add(self, ctx: GuildContext, *vips: MemberOrRole) -> None:

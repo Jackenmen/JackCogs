@@ -25,9 +25,15 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.commands import GuildContext, NoParseOptional as Optional
 from redbot.core.config import Config
+from redbot.core.utils import can_user_send_messages_in
 from redbot.core.utils.chat_formatting import humanize_list, inline
+from redbot.core.utils.views import SetApiView
 
-from .discord_utils import fetch_attachment_from_message, safe_raw_edit
+from .discord_utils import (
+    GuildMessageable,
+    fetch_attachment_from_message,
+    safe_raw_edit,
+)
 from .errors import HandledHTTPError
 from .guild_data import GuildData
 from .log import log
@@ -75,8 +81,8 @@ class AutoGist(commands.Cog):
             oauth_token=await self._get_token(),
         )
 
-    def cog_unload(self) -> None:
-        self._session.detach()
+    async def cog_unload(self) -> None:
+        await self._session.close()
 
     async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, BytesIO]:
         gists = await self.config.user_from_id(user_id).gists()
@@ -164,7 +170,6 @@ class AutoGist(commands.Cog):
     @autogistset.command(name="token")
     async def autogistset_token(self, ctx: commands.Context) -> None:
         """Instructions to set the GitHub API token."""
-        command = inline(f"{ctx.clean_prefix}set api github token PUT_YOUR_TOKEN_HERE")
         message = (
             "Begin by creating a new personal token on your GitHub Account here:\n"
             "<https://github.com/settings/tokens>\n"
@@ -173,10 +178,12 @@ class AutoGist(commands.Cog):
             "This cog requires gist permissions,"
             " so you will need to select `gist` scope for the token.\n\n"
             "When you generate the token, copy it"
-            " and use the following command in DMs with the bot:\n"
-            f"{command}"
+            " and click the button below to set your token."
         )
-        await ctx.send(message)
+        await ctx.send(
+            message,
+            view=SetApiView(default_service="github", default_keys={"token": ""}),
+        )
 
     @commands.guild_only()
     @autogistset.command(name="channeldefault")
@@ -228,7 +235,7 @@ class AutoGist(commands.Cog):
         name="allowchannels", aliases=["allowchannel"], usage="<channels...>"
     )
     async def autogistset_allowchannels(
-        self, ctx: GuildContext, *channels: discord.TextChannel
+        self, ctx: GuildContext, *channels: GuildMessageable
     ) -> None:
         """Allow the bot to listen to the given channels."""
         if not channels:
@@ -243,7 +250,7 @@ class AutoGist(commands.Cog):
         name="blockchannels", aliases=["blockchannel"], usage="<channels...>"
     )
     async def autogistset_blockchannels(
-        self, ctx: GuildContext, *channels: discord.TextChannel
+        self, ctx: GuildContext, *channels: GuildMessageable
     ) -> None:
         """Block the bot from listening to the given channels."""
         if not channels:
@@ -488,9 +495,9 @@ class AutoGist(commands.Cog):
         if self.gh.oauth_token is None:
             return True
 
-        if guild is None:
+        if guild is None or isinstance(channel, discord.PartialMessageable):
             return True
-        assert isinstance(channel, discord.abc.GuildChannel)
+        assert isinstance(channel, (discord.abc.GuildChannel, discord.Thread))
 
         if not await self.bot.allowed_by_whitelist_blacklist(message.author):
             return True
@@ -498,7 +505,7 @@ class AutoGist(commands.Cog):
         if await self.bot.cog_disabled_in_guild(self, guild):
             return True
 
-        if not channel.permissions_for(guild.me).send_messages:
+        if not can_user_send_messages_in(guild.me, channel):
             return True
 
         guild_data = await self.get_guild_data(guild)

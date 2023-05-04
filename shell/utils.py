@@ -21,7 +21,7 @@ from typing import Dict
 
 from redbot.core import commands
 from redbot.core.utils.chat_formatting import box, pagify
-from redbot.core.utils.menus import DEFAULT_CONTROLS, close_menu, menu
+from redbot.core.utils.menus import menu
 
 from .errors import ProcessTerminatedEarly
 
@@ -96,11 +96,7 @@ async def send_pages(
         f"{command_box}\n{box(part, lang='ansi')}"
         for idx, part in enumerate(output_parts, 1)
     ]
-    await menu(
-        ctx,
-        pages,
-        DEFAULT_CONTROLS if len(pages) > 1 else {"\N{CROSS MARK}": close_menu},
-    )
+    await menu(ctx, pages)
 
 
 def strip_code_block(command: str) -> str:

@@ -12,42 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple, Union
 
 import discord
 from redbot.core.bot import Red
+from redbot.core.utils import can_user_send_messages_in
 
 if TYPE_CHECKING:
-    import chardet
+    import charset_normalizer as chardet
 else:
     try:
         import cchardet as chardet
     except ModuleNotFoundError:
-        import chardet
+        import charset_normalizer as chardet
 
 from .log import log
 
-
-# DEP-WARN
-class RawMessage(discord.Message):
-    """
-    Raw message for doing API calls without fetching message first.
-
-    Credit: Vex#3110 on Discord / Vexs on GitHub
-    Modified for the usage in AutoGist cog.
-    """
-
-    def __init__(self, bot: Red, channel: discord.TextChannel, message_id: int) -> None:
-        # pylint: disable=super-init-not-called
-        self._state = bot._connection  # type: ignore[attr-defined]
-        self.id = message_id
-        self.channel = channel
-
-    def __repr__(self) -> str:
-        return f"<RawMessage id={self.id} channel={self.channel!r}>"
+GuildMessageable = Union[
+    discord.TextChannel, discord.VoiceChannel, discord.StageChannel, discord.Thread
+]
 
 
-def can_edit_in_channel(channel: discord.TextChannel) -> bool:
+def can_edit_in_channel(channel: GuildMessageable) -> bool:
     """
     Checks whether the bot has permissions to edit messages in the given channel.
 
@@ -58,11 +44,10 @@ def can_edit_in_channel(channel: discord.TextChannel) -> bool:
     bool
         `True` if bot can edit messages, `False` otherwise.
     """
-    channel_perms = channel.permissions_for(channel.guild.me)
-    if not channel_perms.read_message_history:
+    if not channel.permissions_for(channel.guild.me).read_message_history:
         log.debug("Bot can't read message history of channel with ID %s.", channel.id)
         return False
-    if not channel_perms.send_messages:
+    if not can_user_send_messages_in(channel.guild.me, channel):
         log.debug(
             "Bot can't send (and edit) messages in channel with ID %s.", channel.id
         )
@@ -84,12 +69,20 @@ async def safe_raw_edit(
         # that should not ever happen...
         log.warning("Channel with ID %s couldn't have been found.", channel_id)
         return
-    assert isinstance(channel, discord.TextChannel)
 
+    assert isinstance(
+        channel,
+        (
+            discord.TextChannel,
+            discord.VoiceChannel,
+            discord.StageChannel,
+            discord.Thread,
+        ),
+    ), "mypy"
     if not can_edit_in_channel(channel):
         return
 
-    bot_message = RawMessage(bot, channel, message_id)
+    bot_message = discord.PartialMessage(channel=channel, id=message_id)
 
     try:
         await bot_message.edit(
@@ -149,7 +142,7 @@ async def fetch_attachment_from_message(
         )
 
     encoding_data = chardet.detect(raw_data)
-    encoding = encoding_data["encoding"] or "utf-8"
+    encoding: str = encoding_data["encoding"] or "utf-8"  # type: ignore
 
     try:
         content = raw_data.decode(encoding)

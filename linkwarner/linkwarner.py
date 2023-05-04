@@ -13,18 +13,25 @@
 # limitations under the License.
 
 import logging
-from typing import Any, Dict, Literal
+from typing import Any, Dict, Literal, Union
 
 import discord
 from redbot.core import commands, modlog
 from redbot.core.bot import Red
 from redbot.core.commands import GuildContext
 from redbot.core.config import Config
+from redbot.core.utils import can_user_send_messages_in
 from redbot.core.utils.chat_formatting import humanize_list, inline
 from redbot.core.utils.common_filters import URL_RE
 
 from .converters import DomainName
-from .data_classes import ChannelData, DomainsMode, GuildData, GuildDomainsMode
+from .data_classes import (
+    ChannelData,
+    ConfigurableChannel,
+    DomainsMode,
+    GuildData,
+    GuildDomainsMode,
+)
 
 log = logging.getLogger("red.jackcogs.linkwarner")
 
@@ -57,7 +64,7 @@ class LinkWarner(commands.Cog):
         )
         self.guild_cache: Dict[int, GuildData] = {}
 
-    async def initialize(self) -> None:
+    async def cog_load(self) -> None:
         try:
             await modlog.register_casetype(
                 name="linkwarn",
@@ -89,8 +96,14 @@ class LinkWarner(commands.Cog):
 
         return data
 
-    async def get_channel_data(self, channel: discord.TextChannel) -> ChannelData:
+    async def get_channel_data(
+        self, channel: Union[ConfigurableChannel, discord.Thread]
+    ) -> ChannelData:
         guild_data = await self.get_guild_data(channel.guild)
+        if isinstance(channel, discord.Thread):
+            if channel.parent is None:
+                raise RuntimeError("The parent channel of the thread is unknown.")
+            channel = channel.parent
         return await guild_data.get_channel_data(channel)
 
     @commands.admin()
@@ -141,7 +154,7 @@ class LinkWarner(commands.Cog):
 
     @linkwarner_channel.command(name="showsettings")
     async def linkwarner_channel_showsettings(
-        self, ctx: GuildContext, channel: discord.TextChannel
+        self, ctx: GuildContext, channel: ConfigurableChannel
     ) -> None:
         """Show settings for the given channel."""
         channel_data = await self.get_channel_data(channel)
@@ -192,7 +205,7 @@ class LinkWarner(commands.Cog):
 
     @linkwarner_channel.command(name="ignore")
     async def linkwarner_channel_ignore(
-        self, ctx: GuildContext, channel: discord.TextChannel, new_state: bool
+        self, ctx: GuildContext, channel: ConfigurableChannel, new_state: bool
     ) -> None:
         """Set if LinkWarner should ignore links in provided channel."""
         channel_data = await self.get_channel_data(channel)
@@ -326,7 +339,7 @@ class LinkWarner(commands.Cog):
     async def linkwarner_channel_domains_setmode(
         self,
         ctx: GuildContext,
-        channel: discord.TextChannel,
+        channel: ConfigurableChannel,
         new_mode: DomainsMode,
     ) -> None:
         """
@@ -385,7 +398,7 @@ class LinkWarner(commands.Cog):
 
     @linkwarner_channel_domains.command(name="add", require_var_positional=True)
     async def linkwarner_channel_domains_add(
-        self, ctx: GuildContext, channel: discord.TextChannel, *domains: DomainName
+        self, ctx: GuildContext, channel: ConfigurableChannel, *domains: DomainName
     ) -> None:
         """
         Add domains to the domains list of the provided channel.
@@ -421,7 +434,7 @@ class LinkWarner(commands.Cog):
         name="remove", aliases=["delete"], require_var_positional=True
     )
     async def linkwarner_channel_domains_remove(
-        self, ctx: GuildContext, channel: discord.TextChannel, *domains: DomainName
+        self, ctx: GuildContext, channel: ConfigurableChannel, *domains: DomainName
     ) -> None:
         """
         Remove domains from the domains list of the provided channel.
@@ -442,7 +455,7 @@ class LinkWarner(commands.Cog):
 
     @linkwarner_channel_domains.command(name="clear")
     async def linkwarner_channel_domains_clear(
-        self, ctx: GuildContext, channel: discord.TextChannel
+        self, ctx: GuildContext, channel: ConfigurableChannel
     ) -> None:
         """Clear domains from the domains list of the provided channel."""
         channel_data = await self.get_channel_data(channel)
@@ -471,7 +484,7 @@ class LinkWarner(commands.Cog):
 
     @linkwarner_channel.command(name="setmessage")
     async def linkwarner_channel_setmessage(
-        self, ctx: GuildContext, channel: discord.TextChannel, *, message: str
+        self, ctx: GuildContext, channel: ConfigurableChannel, *, message: str
     ) -> None:
         """
         Set link warning message for provided channel.
@@ -499,7 +512,7 @@ class LinkWarner(commands.Cog):
 
     @linkwarner_channel.command(name="unsetmessage")
     async def linkwarner_channel_unsetmessage(
-        self, ctx: GuildContext, channel: discord.TextChannel
+        self, ctx: GuildContext, channel: ConfigurableChannel
     ) -> None:
         """Unset link warning message for provided channel."""
         channel_data = await self.get_channel_data(channel)
@@ -529,15 +542,23 @@ class LinkWarner(commands.Cog):
         if guild is None or message.author.bot:
             return True
 
+        if isinstance(message.channel, discord.PartialMessageable):
+            return True
+
         if await self.bot.cog_disabled_in_guild(self, guild):
             return True
 
         if await self.bot.is_automod_immune(message):
             return True
 
-        assert isinstance(message.channel, discord.TextChannel), "mypy"
+        assert not isinstance(
+            message.channel, (discord.DMChannel, discord.GroupChannel)
+        ), "mypy"
         assert isinstance(message.author, discord.Member), "mypy"
-        channel_data = await self.get_channel_data(message.channel)
+        try:
+            channel_data = await self.get_channel_data(message.channel)
+        except RuntimeError:
+            return True
         if not channel_data.enabled:
             return True
 
@@ -559,7 +580,10 @@ class LinkWarner(commands.Cog):
         channel = message.channel
         author = message.author
         assert guild is not None, "mypy"
-        assert isinstance(channel, discord.TextChannel), "mypy"
+        assert not isinstance(
+            channel,
+            (discord.DMChannel, discord.GroupChannel, discord.PartialMessageable),
+        ), "mypy"
 
         channel_data = await self.get_channel_data(channel)
         guild_data = channel_data.guild_data
@@ -594,9 +618,14 @@ class LinkWarner(commands.Cog):
                         )
                 else:
                     try:
-                        if not channel.permissions_for(guild.me).send_messages:
+                        if not can_user_send_messages_in(guild.me, channel):
                             raise RuntimeError
-                        await channel.send(msg, delete_after=guild_data.delete_delay)
+                        if guild_data.delete_delay is not None:
+                            await channel.send(
+                                msg, delete_after=guild_data.delete_delay
+                            )
+                        else:
+                            await channel.send(msg)
                     except (discord.Forbidden, RuntimeError):
                         log.error(
                             "Bot can't send messages in channel with ID %s"

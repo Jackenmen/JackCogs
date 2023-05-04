@@ -89,7 +89,11 @@ class BanMessage(commands.Cog):
 
     @banmessageset.command(name="channel")
     async def banmessageset_channel(
-        self, ctx: GuildContext, channel: Optional[discord.TextChannel] = None
+        self,
+        ctx: GuildContext,
+        channel: Optional[
+            Union[discord.TextChannel, discord.VoiceChannel, discord.StageChannel]
+        ] = None,
     ) -> None:
         """Set channel for ban messages. Leave empty to disable."""
         if channel is None:
@@ -255,7 +259,12 @@ class BanMessage(commands.Cog):
         channel_id = settings["channel"]
         if channel_id is None:
             return
-        channel = cast(Optional[discord.TextChannel], guild.get_channel(channel_id))
+        channel = cast(
+            Optional[
+                Union[discord.TextChannel, discord.VoiceChannel, discord.StageChannel]
+            ],
+            guild.get_channel(channel_id),
+        )
         if channel is None:
             log.error(
                 "Channel with ID %s can't be found in guild with ID %s.",
@@ -275,7 +284,7 @@ class BanMessage(commands.Cog):
             username=str(user), server=guild.name
         )
         filename = next(self.message_images.glob(f"{guild.id}.*"), None)
-        file = None
+        file = discord.utils.MISSING
         if filename is not None:
             if channel.permissions_for(guild.me).attach_files:
                 file = discord.File(str(filename))

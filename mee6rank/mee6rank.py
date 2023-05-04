@@ -91,10 +91,8 @@ class Mee6Rank(commands.Cog):
             avatar_mask=self.bundled_data_path / "avatar_mask.png",
         )
 
-    def cog_unload(self) -> None:
-        self._session.detach()
-
-    __del__ = cog_unload
+    async def cog_unload(self) -> None:
+        await self._session.close()
 
     async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, Any]:
         # this cog does not story any data
@@ -298,7 +296,7 @@ class Mee6Rank(commands.Cog):
             page += 1
 
         if get_avatar:
-            avatar = BytesIO(await member.avatar_url_as(format="png").read())
+            avatar = BytesIO(await member.display_avatar.with_format("png").read())
             avatar.name = f"{member.id}.png"
             return PlayerWithAvatar(
                 player_data, member, leaderboard["role_rewards"], avatar

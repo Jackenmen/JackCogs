@@ -20,7 +20,7 @@ from PIL import Image, ImageFile
 from redbot.core import commands
 from redbot.core.commands import NoParseOptional as Optional
 from redbot.core.config import Value
-from redbot.core.utils.chat_formatting import inline
+from redbot.core.utils.views import SetApiView
 from rlapi.ext.tier_breakdown.trackernetwork import get_tier_breakdown
 
 from .abc import MixinMeta
@@ -36,20 +36,21 @@ class SettingsMixin(MixinMeta):
     @rlset.command()
     async def token(self, ctx: commands.Context) -> None:
         """Instructions to set the Rocket League API tokens."""
-        command = inline(
-            f"{ctx.clean_prefix}"
-            "set api rocket_league user_token PUT_YOUR_USER_TOKEN_HERE"
-        )
         message = (
             "**Rocket League API is currently in closed beta"
             " and Psyonix doesn't give out keys easily.**\n"
             "To request API access, you should contact Psyonix by email"
             " `RLPublicAPI@psyonix.com` and hope for positive response.\n\n"
             "When (and if) you get API access, copy your user token "
-            "from your account on Rocket League API website and use this command:\n"
-            f"{command}"
+            "from your account on Rocket League API website and click the button"
+            " below to set your token."
         )
-        await ctx.maybe_send_embed(message)
+        await ctx.send(
+            message,
+            view=SetApiView(
+                default_service="rocket_league", default_keys={"user_token": ""}
+            ),
+        )
 
     @rlset.command(name="updatebreakdown")
     async def updatebreakdown(self, ctx: commands.Context) -> None:

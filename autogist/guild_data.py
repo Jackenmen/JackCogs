@@ -21,6 +21,8 @@ import discord
 from redbot.core.bot import Red
 from redbot.core.config import Config, Group
 
+from .discord_utils import GuildMessageable
+
 
 class GuildData:
     __slots__ = (
@@ -76,7 +78,7 @@ class GuildData:
         data = await config.guild(guild).all()
         return cls(bot, config, guild.id, **data)
 
-    async def get_channel_state(self, channel: discord.TextChannel) -> Optional[bool]:
+    async def get_channel_state(self, channel: GuildMessageable) -> Optional[bool]:
         try:
             return self._channel_cache[channel.id]
         except KeyError:
@@ -87,7 +89,7 @@ class GuildData:
 
         return state
 
-    async def is_enabled_for_channel(self, channel: discord.TextChannel) -> bool:
+    async def is_enabled_for_channel(self, channel: GuildMessageable) -> bool:
         channel_state = await self.get_channel_state(channel)
         if self.blocklist_mode:
             if channel_state is False:
@@ -98,7 +100,7 @@ class GuildData:
 
         return True
 
-    async def is_overridden(self, channel: discord.TextChannel) -> bool:
+    async def is_overridden(self, channel: GuildMessageable) -> bool:
         channel_state = await self.get_channel_state(channel)
         if channel_state is True:
             return not self.blocklist_mode
@@ -107,7 +109,7 @@ class GuildData:
         return False
 
     def is_permitted(self, user: discord.abc.User) -> bool:
-        is_self = user.id == self.bot.user.id
+        is_self = self.bot.user is not None and user.id == self.bot.user.id
         return (
             (self.listen_to_humans and not user.bot)
             or (self.listen_to_bots and user.bot and not is_self)
@@ -131,7 +133,7 @@ class GuildData:
         await self.config_group.listen_to_self.set(state)
 
     async def update_channel_states(
-        self, channels: Iterable[discord.TextChannel], state: bool
+        self, channels: Iterable[GuildMessageable], state: bool
     ) -> None:
         for channel in channels:
             self._channel_cache[channel.id] = state

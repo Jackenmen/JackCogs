@@ -124,7 +124,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         )
         self.config.register_user(player_id=None, platform=None)
 
-        self.rlapi_client: rlapi.Client  # assigned in initialize()
+        self.rlapi_client: rlapi.Client  # assigned in cog_load()
         self.bundled_data_path = bundled_data_path(self)
         self.cog_data_path = cog_data_path(self)
         self._prepare_templates()
@@ -201,7 +201,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             season_rewards_colors=self.SEASON_REWARDS_COLORS,
         )
 
-    async def initialize(self) -> None:
+    async def cog_load(self) -> None:
         self.rlapi_client = rlapi.Client(await self._get_token())
         tier_breakdown = self._convert_numbers_in_breakdown(
             await self.config.tier_breakdown()
@@ -213,10 +213,8 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         self.extramodes_template.bg_overlay = await self.config.extramodes_overlay()
         self.competitive_template.bg_overlay = await self.config.competitive_overlay()
 
-    def cog_unload(self) -> None:
+    async def cog_unload(self) -> None:
         self.rlapi_client.destroy()
-
-    __del__ = cog_unload
 
     async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, BytesIO]:
         try:

@@ -17,8 +17,9 @@ This an incomplete stub of IPython library for use of cogs in this repo.
 Nobody have made a full stub for this library so only stuff used by this repo is typed.
 """
 
+import abc
 from types import FrameType
-from typing import Any, Dict, Optional, Protocol
+from typing import Any, Dict, Optional
 
 from traitlets.config.configurable import SingletonConfigurable
 
@@ -28,7 +29,7 @@ from .payload import PayloadManager
 
 class ExecutionResult: ...
 
-class InteractiveShellABC(Protocol):
+class InteractiveShell(SingletonConfigurable):
     execution_count: int
     events: EventManager
     loop_runner: _AsyncIORunner
@@ -59,9 +60,3 @@ class InteractiveShellABC(Protocol):
         preprocessing_exc_tuple: Optional[Any] = None,
     ) -> bool: ...
     def user_expressions(self, expressions: Dict[str, str]) -> Dict[str, Any]: ...
-
-class InteractiveShell(InteractiveShellABC, SingletonConfigurable):
-    execution_count: int
-    events: EventManager
-    loop_runner: _AsyncIORunner
-    payload_manager: PayloadManager

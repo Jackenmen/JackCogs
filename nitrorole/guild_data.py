@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from string import Template
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import discord
 from redbot.core.config import Config, Group
@@ -95,7 +95,12 @@ class GuildData:
             self.role_id = role.id
             await self.config_group.role_id.set(role.id)
 
-    async def set_channel(self, channel: Optional[discord.TextChannel]) -> None:
+    async def set_channel(
+        self,
+        channel: Optional[
+            Union[discord.TextChannel, discord.VoiceChannel, discord.StageChannel]
+        ],
+    ) -> None:
         if channel is None:
             self.channel_id = None
             await self.config_group.channel_id.clear()

@@ -16,6 +16,7 @@ import json
 from pathlib import Path
 
 from redbot.core.bot import Red
+from redbot.core.errors import CogLoadError
 
 from .rssnotifier import RSSNotifier
 
@@ -24,5 +25,9 @@ with open(Path(__file__).parent / "info.json") as fp:
 
 
 async def setup(bot: Red) -> None:
+    raise CogLoadError(
+        "This cog is currently unavailable,"
+        " an update will be provided once the RSS cog supports Red 3.5."
+    )
     cog = RSSNotifier(bot)
-    bot.add_cog(cog)
+    await bot.add_cog(cog)

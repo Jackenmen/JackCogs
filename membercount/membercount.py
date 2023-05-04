@@ -51,7 +51,7 @@ class MemberCount(commands.Cog):
             member_count += 1
         if await ctx.embed_requested():
             embed = discord.Embed(
-                timestamp=datetime.utcnow(), color=await ctx.embed_color()
+                timestamp=datetime.now(), color=await ctx.embed_color()
             )
             embed.add_field(name="Members", value=str(member_count))
             embed.add_field(name="Humans", value=str(human_count))

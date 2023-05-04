@@ -90,7 +90,7 @@ class ModRoles(commands.Cog):
 
         NOTE: The role is case sensitive!
         """
-        if role in member.roles:
+        if member.get_role(role.id) is not None:
             await ctx.send(f'{member.display_name} already has "{role.name}" role.')
             return
         if not await self._assign_checks(ctx, member, role):
@@ -124,7 +124,7 @@ class ModRoles(commands.Cog):
 
         NOTE: The role is case sensitive!
         """
-        if role not in member.roles:
+        if member.get_role(role.id) is None:
             await ctx.send(f'{member.display_name} doesn\'t have "{role.name}" role.')
             return
         if not await self._assign_checks(ctx, member, role):
