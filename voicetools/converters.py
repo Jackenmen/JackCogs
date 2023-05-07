@@ -85,22 +85,24 @@ else:
 
 
 if TYPE_CHECKING:
-    MemberOrRoleOrVoiceChannel = Union[
-        discord.VoiceChannel, discord.Member, discord.Role
+    MemberOrRoleOrVocalChannel = Union[
+        discord.VoiceChannel, discord.StageChannel, discord.Member, discord.Role
     ]
 else:
 
-    class MemberOrRoleOrVoiceChannel:
+    class MemberOrRoleOrVocalChannel:
         @classmethod
         async def convert(
             cls, ctx: GuildContext, argument: str
-        ) -> Union[discord.VoiceChannel, discord.Member, discord.Role]:
+        ) -> Union[
+            discord.VoiceChannel, discord.StageChannel, discord.Member, discord.Role
+        ]:
             guild: discord.Guild = ctx.guild
             _id = _match_id(argument)
 
             if _id is not None:
                 channel: Optional[discord.abc.GuildChannel] = guild.get_channel(_id)
-                if isinstance(channel, discord.VoiceChannel):
+                if isinstance(channel, (discord.VoiceChannel, discord.StageChannel)):
                     return channel
 
                 member: Optional[discord.Member] = guild.get_member(_id)
@@ -114,8 +116,15 @@ else:
             f = filter(lambda r: not r.is_default(), guild.roles)
             # wrong inferred type: https://github.com/python/mypy/issues/8226
             objects: Iterator[
-                Union[discord.VoiceChannel, discord.Member, discord.Role]
-            ] = itertools.chain(guild.voice_channels, guild.members, f)
+                Union[
+                    discord.VoiceChannel,
+                    discord.StageChannel,
+                    discord.Member,
+                    discord.Role,
+                ]
+            ] = itertools.chain(
+                guild.voice_channels, guild.stage_channels, guild.members, f
+            )
 
             maybe_matches = []
             for obj in objects:

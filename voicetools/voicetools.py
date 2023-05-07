@@ -14,7 +14,7 @@
 
 import logging
 from itertools import zip_longest
-from typing import Any, Awaitable, Callable, Dict, Literal, Optional, cast
+from typing import Any, Awaitable, Callable, Dict, Literal, Optional, Union, cast
 
 import discord
 from redbot.core import commands
@@ -24,7 +24,7 @@ from redbot.core.config import Config
 from redbot.core.utils import AsyncIter, menus
 from redbot.core.utils.chat_formatting import pagify
 
-from .converters import MemberOrRole, MemberOrRoleOrVoiceChannel
+from .converters import MemberOrRole, MemberOrRoleOrVocalChannel
 
 log = logging.getLogger("red.jackcogs.voicetools")
 
@@ -163,7 +163,7 @@ class VoiceTools(commands.Cog):
 
     @forcelimit.command(name="ignore")
     async def forcelimit_ignore(
-        self, ctx: GuildContext, *ignores: MemberOrRoleOrVoiceChannel
+        self, ctx: GuildContext, *ignores: MemberOrRoleOrVocalChannel
     ) -> None:
         """
         Adds members, roles or voice channels to ignorelist of ForceLimit module.
@@ -196,7 +196,7 @@ class VoiceTools(commands.Cog):
 
     @forcelimit.command(name="unignore")
     async def forcelimit_unignore(
-        self, ctx: GuildContext, *ignores: MemberOrRoleOrVoiceChannel
+        self, ctx: GuildContext, *ignores: MemberOrRoleOrVocalChannel
     ) -> None:
         """
         Adds members, roles or voice channels to ignorelist of ForceLimit module
@@ -377,9 +377,11 @@ class VoiceTools(commands.Cog):
             if member_on_list or role_list:
                 vip_id = member.id if member_on_list else role_list[0]
                 vip_type = "member" if member_on_list else "role"
-                before_channel = cast(Optional[discord.VoiceChannel], before.channel)
+                before_channel = before.channel
                 if before_channel is not None and before_channel.user_limit != 0:
-                    await before_channel.edit(user_limit=before_channel.user_limit - 1)
+                    await before_channel.edit(
+                        user_limit=before_channel.user_limit - 1
+                    )  # type: ignore # incorrect overload in d.py
                     channel_id = before_channel.id
                     log.debug(
                         (
@@ -392,14 +394,16 @@ class VoiceTools(commands.Cog):
                     )
                     return True
 
-                after_channel = cast(Optional[discord.VoiceChannel], before.channel)
+                after_channel = after.channel
                 if after_channel is not None and after_channel.user_limit != 0:
-                    await after_channel.edit(user_limit=after_channel.user_limit + 1)
+                    await after_channel.edit(
+                        user_limit=after_channel.user_limit + 1
+                    )  # type: ignore # incorrect overload in d.py
                     channel_id = after_channel.id
                     log.debug(
                         (
                             "VIP with ID %s (%s)"
-                            " left voice channel with ID %s, raising user limit!"
+                            " joined voice channel with ID %s, raising user limit!"
                         ),
                         vip_id,
                         vip_type,
@@ -419,7 +423,7 @@ class VoiceTools(commands.Cog):
         ignore_member_list = await guild_conf.forcelimit_ignore_member_list()
         ignore_role_list = await guild_conf.forcelimit_ignore_role_list()
         ignore_vc_list = await guild_conf.forcelimit_ignore_vc_list()
-        channel = cast(Optional[discord.VoiceChannel], after.channel)
+        channel = after.channel
         if (
             channel is not None
             and channel.user_limit != 0
