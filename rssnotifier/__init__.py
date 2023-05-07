@@ -25,9 +25,5 @@ with open(Path(__file__).parent / "info.json") as fp:
 
 
 async def setup(bot: Red) -> None:
-    raise CogLoadError(
-        "This cog is currently unavailable,"
-        " an update will be provided once the RSS cog supports Red 3.5."
-    )
-    cog = RSSNotifier(bot)  # type: ignore[unreachable]
+    cog = RSSNotifier(bot)
     await bot.add_cog(cog)
