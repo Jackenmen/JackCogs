@@ -16,7 +16,6 @@ import json
 from pathlib import Path
 
 from redbot.core.bot import Red
-from redbot.core.errors import CogLoadError
 
 from .rssnotifier import RSSNotifier
 

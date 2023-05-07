@@ -14,7 +14,7 @@
 
 import logging
 from itertools import zip_longest
-from typing import Any, Awaitable, Callable, Dict, Literal, Optional, Union, cast
+from typing import Any, Awaitable, Callable, Dict, Literal, Optional
 
 import discord
 from redbot.core import commands
