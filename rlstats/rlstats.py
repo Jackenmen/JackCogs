@@ -42,7 +42,6 @@ from redbot.core.data_manager import bundled_data_path, cog_data_path
 from redbot.core.utils.chat_formatting import bold, inline
 from redbot.core.utils.menus import start_adding_reactions
 from redbot.core.utils.predicates import ReactionPredicate
-from rlapi.ext.tier_breakdown.trackernetwork import get_tier_breakdown
 
 from . import errors
 from .abc import CogAndABCMeta
@@ -223,9 +222,6 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         tier_breakdown = self._convert_numbers_in_breakdown(
             await self.config.tier_breakdown()
         )
-        if not tier_breakdown:
-            tier_breakdown = await get_tier_breakdown(self.rlapi_client)
-            await self.config.tier_breakdown.set(tier_breakdown)
         self.rlapi_client.tier_breakdown = tier_breakdown
         self.extramodes_template.bg_overlay = await self.config.extramodes_overlay()
         self.competitive_template.bg_overlay = await self.config.competitive_overlay()

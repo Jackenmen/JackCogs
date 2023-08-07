@@ -21,7 +21,6 @@ from redbot.core import commands
 from redbot.core.commands import NoParseOptional as Optional
 from redbot.core.config import Value
 from redbot.core.utils.views import SetApiView
-from rlapi.ext.tier_breakdown.trackernetwork import get_tier_breakdown
 
 from .abc import MixinMeta
 from .image import RLStatsImageTemplate
@@ -52,16 +51,6 @@ class SettingsMixin(MixinMeta):
                 default_keys={"client_id": "", "client_secret": ""},
             ),
         )
-
-    @rlset.command(name="updatebreakdown")
-    async def updatebreakdown(self, ctx: commands.Context) -> None:
-        """Update tier breakdown."""
-        await ctx.send("Updating tier breakdown...")
-        async with ctx.typing():
-            tier_breakdown = await get_tier_breakdown(self.rlapi_client)
-            await self.config.tier_breakdown.set(tier_breakdown)
-            self.rlapi_client.tier_breakdown = tier_breakdown
-        await ctx.send("Tier breakdown updated.")
 
     @rlset.group(name="image")
     async def rlset_bgimage(self, ctx: commands.Context) -> None:
