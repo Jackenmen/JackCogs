@@ -386,7 +386,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 await ctx.bot.wait_for("reaction_add", check=pred, timeout=25)
             except asyncio.TimeoutError:
                 raise errors.NoChoiceError(
-                    "User didn't choose profile he wants to check"
+                    "User didn't choose a profile to check."
                 )
             finally:
                 await msg.delete()
