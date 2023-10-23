@@ -24,4 +24,4 @@ class PlayerDataNotFound(RLStatsException):
 
 
 class NoChoiceError(RLStatsException):
-    """User didn't choose profile which he wants to check."""
+    """User didn't choose a profile to check."""
