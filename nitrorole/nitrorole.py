@@ -281,7 +281,7 @@ class NitroRole(commands.Cog):
             await ctx.send("The attachment has to be an image.")
             return
 
-        ext = a.url.rpartition(".")[2]
+        ext = a.filename.rpartition(".")[2]
         filename = self.message_images / f"{ctx.guild.id}.{ext}"
         with open(filename, "wb") as fp:
             await a.save(fp)
