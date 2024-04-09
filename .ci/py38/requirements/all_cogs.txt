@@ -1,5 +1,6 @@
 Red-DiscordBot
 cachetools~=5.0
+charset_normalizer~=3.1
 emoji~=1.2
 gidgethub~=5.0
 ipykernel~=5.4
