@@ -16,6 +16,7 @@ import asyncio
 import contextlib
 import functools
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from typing import (
@@ -42,6 +43,7 @@ from redbot.core.data_manager import bundled_data_path, cog_data_path
 from redbot.core.utils.chat_formatting import bold, inline
 from redbot.core.utils.menus import start_adding_reactions
 from redbot.core.utils.predicates import ReactionPredicate
+from rlapi.ext.tier_breakdown.rlstatsnet import get_tier_breakdown
 
 from . import errors
 from .abc import CogAndABCMeta
@@ -79,6 +81,7 @@ class ClientCredentials(TypedDict):
 class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
     """Get your Rocket League stats with a single command!"""
 
+    TIER_BREAKDOWN_EXPIRY_TIME = 3600.0 * 24
     RANK_SIZE = (179, 179)
     TIER_SIZE = (49, 49)
     OFFSETS = {
@@ -135,10 +138,15 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             self, identifier=6672039729, force_registration=True
         )
         self.config.register_global(
-            tier_breakdown={}, competitive_overlay=40, extramodes_overlay=70
+            tier_breakdown={},
+            breakdown_updated_at=0.0,
+            competitive_overlay=40,
+            extramodes_overlay=70,
         )
         self.config.register_user(player_id=None, platform=None)
 
+        self.breakdown_lock = asyncio.Lock()
+        self.breakdown_updated_at = 0.0
         self.rlapi_client: rlapi.Client  # assigned in cog_load()
         self.bundled_data_path = bundled_data_path(self)
         self.cog_data_path = cog_data_path(self)
@@ -223,6 +231,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             await self.config.tier_breakdown()
         )
         self.rlapi_client.tier_breakdown = tier_breakdown
+        self.breakdown_updated_at = await self.config.breakdown_updated_at()
         self.extramodes_template.bg_overlay = await self.config.extramodes_overlay()
         self.competitive_template.bg_overlay = await self.config.competitive_overlay()
 
@@ -295,6 +304,26 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 await ctx.send("The bot owner didn't configure this cog properly.")
             return False
         return True
+
+    async def _maybe_update_tier_breakdown(self) -> None:
+        async with self.breakdown_lock:
+            now = time.time()
+            if self.breakdown_updated_at + self.TIER_BREAKDOWN_EXPIRY_TIME > now:
+                return
+
+            try:
+                tier_breakdown = await get_tier_breakdown(self.rlapi_client)
+            except rlapi.HTTPException as e:
+                log.warning("Could not download tier breakdown.", exc_info=e)
+                return
+            except ValueError as e:
+                log.warning("Could not parse downloaded tier breakdown.", exc_info=e)
+                return
+
+            self.rlapi_client.tier_breakdown = tier_breakdown
+            self.breakdown_updated_at = now
+            await self.config.tier_breakdown.set(tier_breakdown)
+            await self.config.breakdown_updated_at.set(now)
 
     async def _get_player_data_by_user_id(
         self, user_id: int
@@ -450,6 +479,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         async with ctx.typing():
             if not await self._check_client_credentials(ctx):
                 return
+            await self._maybe_update_tier_breakdown()
 
             player_ids: List[Tuple[str, Optional[rlapi.Platform]]] = []
             discord_user = None

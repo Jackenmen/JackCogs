@@ -42,6 +42,8 @@ class MixinMeta(ABC):
         self._executor: ThreadPoolExecutor
         self.config: Config
 
+        self.breakdown_lock: asyncio.Lock
+        self.breakdown_updated_at: float
         self.rlapi_client: rlapi.Client
         self.cog_data_path: Path
         self.bundled_data_path: Path

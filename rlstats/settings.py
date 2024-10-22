@@ -12,18 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+import time
 from io import BytesIO
 from pathlib import Path
 from typing import cast
 
+import rlapi
 from PIL import Image, ImageFile
 from redbot.core import commands
 from redbot.core.commands import NoParseOptional as Optional
 from redbot.core.config import Value
 from redbot.core.utils.views import SetApiView
+from rlapi.ext.tier_breakdown.rlstatsnet import get_tier_breakdown
 
 from .abc import MixinMeta
 from .image import RLStatsImageTemplate
+
+log = logging.getLogger("red.jackcogs.rlstats")
 
 
 class SettingsMixin(MixinMeta):
@@ -51,6 +57,35 @@ class SettingsMixin(MixinMeta):
                 default_keys={"client_id": "", "client_secret": ""},
             ),
         )
+
+    @rlset.command(name="updatebreakdown")
+    async def updatebreakdown(self, ctx: commands.Context) -> None:
+        """Force update tier breakdown before its expiry."""
+        await ctx.send("Updating tier breakdown...")
+        async with ctx.typing():
+            msg = await self._force_update_breakdown()
+        await ctx.send(msg)
+
+    async def _force_update_breakdown(self) -> str:
+        async with self.breakdown_lock:
+            try:
+                tier_breakdown = await get_tier_breakdown(self.rlapi_client)
+            except rlapi.HTTPException as e:
+                msg = "Could not download tier breakdown."
+                log.warning(msg, exc_info=e)
+                return msg
+            except ValueError as e:
+                msg = "Could not parse downloaded tier breakdown."
+                log.warning(msg, exc_info=e)
+                return msg
+
+            now = time.time()
+            self.rlapi_client.tier_breakdown = tier_breakdown
+            self.breakdown_updated_at = now
+            await self.config.tier_breakdown.set(tier_breakdown)
+            await self.config.breakdown_updated_at.set(now)
+
+            return "Tier breakdown updated."
 
     @rlset.group(name="image")
     async def rlset_bgimage(self, ctx: commands.Context) -> None:
