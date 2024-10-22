@@ -315,15 +315,14 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 tier_breakdown = await get_tier_breakdown(self.rlapi_client)
             except rlapi.HTTPException as e:
                 log.warning("Could not download tier breakdown.", exc_info=e)
-                return
             except ValueError as e:
                 log.warning("Could not parse downloaded tier breakdown.", exc_info=e)
-                return
-
-            self.rlapi_client.tier_breakdown = tier_breakdown
-            self.breakdown_updated_at = now
-            await self.config.tier_breakdown.set(tier_breakdown)
-            await self.config.breakdown_updated_at.set(now)
+            else:
+                self.rlapi_client.tier_breakdown = tier_breakdown
+                await self.config.tier_breakdown.set(tier_breakdown)
+            finally:
+                self.breakdown_updated_at = now
+                await self.config.breakdown_updated_at.set(now)
 
     async def _get_player_data_by_user_id(
         self, user_id: int
