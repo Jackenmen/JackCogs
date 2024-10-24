@@ -14,6 +14,8 @@
 
 import asyncio
 import contextlib
+import dataclasses
+import enum
 import functools
 import logging
 import time
@@ -61,8 +63,9 @@ SUPPORTED_PLATFORMS = """Supported platforms:
 - Steam - use steamID64, customURL or full URL to profile
 - PlayStation 4 - use PSN ID
 - Xbox One - use Xbox Gamertag
-- Epic Games - use Epic Account ID (https://epicgames.com/help/c74/c79/a3659)
-- Nintendo Switch - use Nintendo Network ID"""
+- Epic Games - use Epic [Account ID](https://epicgames.com/help/c74/c79/a3659)\
+ or Display Name
+- Nintendo Switch - use Nintendo Nickname or your linked Epic account"""
 
 RLSTATS_DOCS = f"""
 Show Rocket League stats in {{mode}} playlists for you or given player.
@@ -76,6 +79,39 @@ you can also use their Discord tag to show their stats.
 class ClientCredentials(TypedDict):
     client_id: str
     client_secret: str
+
+
+class LookupMethod(enum.Enum):
+    id = "id"
+    name = "name"
+
+
+@dataclasses.dataclass(frozen=True)
+class LookupInfo:
+    player_id: str
+    platform: Optional[rlapi.Platform] = None
+    lookup_method: Optional[LookupMethod] = None
+
+    def __post_init__(self) -> None:
+        if self.platform is not None and self.lookup_method is not None:
+            return
+        if self.platform is not None:
+            raise TypeError("lookup_method cannot be None when platform is specified")
+        if self.lookup_method is not None:
+            raise TypeError("platform cannot be None when lookup_method is specified")
+
+    async def lookup(self, rlapi_client: rlapi.Client) -> List[rlapi.Player]:
+        if self.platform is None:
+            return await rlapi_client.find_player(self.player_id)
+
+        assert (
+            self.lookup_method is not None
+        ), "inconsistent state - should have been checked in __post_init__"
+        if self.lookup_method is LookupMethod.id:
+            return [await rlapi_client.get_player_by_id(self.platform, self.player_id)]
+        return [
+            await rlapi_client.get_player_by_name(self.platform, self.player_id),
+        ]
 
 
 class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
@@ -143,7 +179,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             competitive_overlay=40,
             extramodes_overlay=70,
         )
-        self.config.register_user(player_id=None, platform=None)
+        self.config.register_user(lookup_method=None, player_id=None, platform=None)
 
         self.breakdown_lock = asyncio.Lock()
         self.breakdown_updated_at = 0.0
@@ -240,13 +276,14 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
 
     async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, BytesIO]:
         try:
-            player_id, platform = await self._get_player_data_by_user_id(user_id)
+            lookup_info = await self._get_player_data_by_user_id(user_id)
         except errors.PlayerDataNotFound:
             return {}
         contents = (
             f"Rocket League game account for Discord user with ID {user_id}:\n"
-            f"- Platform: {platform}\n"
-            f"- Player ID: {player_id}\n"
+            f"- Platform: {lookup_info.platform}\n"
+            f"- Lookup method: {lookup_info.lookup_method}\n"
+            f"- Player ID: {lookup_info.player_id}\n"
         )
         return {"user_data.txt": BytesIO(contents.encode())}
 
@@ -324,29 +361,35 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 self.breakdown_updated_at = now
                 await self.config.breakdown_updated_at.set(now)
 
-    async def _get_player_data_by_user_id(
-        self, user_id: int
-    ) -> Tuple[str, rlapi.Platform]:
+    async def _get_player_data_by_user_id(self, user_id: int) -> LookupInfo:
         user_data = await self.config.user_from_id(user_id).all()
-        player_id, platform = user_data["player_id"], user_data["platform"]
-        if player_id is not None:
-            return (player_id, rlapi.Platform[platform])
-        raise errors.PlayerDataNotFound(
-            f"Couldn't find player data for discord user with ID {user_id}"
-        )
+        player_id, raw_platform = user_data["player_id"], user_data["platform"]
+        if player_id is None:
+            raise errors.PlayerDataNotFound(
+                f"Couldn't find player data for discord user with ID {user_id}"
+            )
 
-    async def _get_player_data_by_user(
-        self, user: discord.abc.User
-    ) -> Tuple[str, rlapi.Platform]:
+        platform = rlapi.Platform[raw_platform]
+        try:
+            lookup_method = LookupMethod(user_data["lookup_method"])
+        except ValueError:
+            if platform in (rlapi.Platform.steam, rlapi.Platform.epic):
+                lookup_method = LookupMethod.id
+            else:
+                lookup_method = LookupMethod.name
+
+        return LookupInfo(player_id, platform, lookup_method)
+
+    async def _get_player_data_by_user(self, user: discord.abc.User) -> LookupInfo:
         return await self._get_player_data_by_user_id(user.id)
 
     async def _get_players(
-        self, player_ids: List[Tuple[str, Optional[rlapi.Platform]]]
+        self, player_ids: List[LookupInfo]
     ) -> Tuple[rlapi.Player, ...]:
         players: List[rlapi.Player] = []
-        for player_id, platform in player_ids:
+        for lookup_info in player_ids:
             with contextlib.suppress(rlapi.PlayerNotFound):
-                players += await self.rlapi_client.get_player(player_id, platform)
+                players += await lookup_info.lookup(self.rlapi_client)
         if not players:
             raise rlapi.PlayerNotFound
         # using dict.fromkeys() to make duplicates go away
@@ -355,7 +398,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
     async def _maybe_get_players(
         self,
         ctx: commands.Context,
-        player_ids: List[Tuple[str, Optional[rlapi.Platform]]],
+        player_ids: List[LookupInfo],
     ) -> Optional[Tuple[rlapi.Player, ...]]:
         try:
             players = await self._get_players(player_ids)
@@ -391,7 +434,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
 
     async def _choose_player(
         self, ctx: commands.Context, players: Tuple[rlapi.Player, ...]
-    ) -> rlapi.Player:
+    ) -> int:
         players_len = len(players)
         if players_len > 1:
             description = ""
@@ -418,8 +461,8 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 await msg.delete()
 
             result = cast(int, pred.result)
-            return players[result]
-        return players[0]
+            return result
+        return 0
 
     def _generate_image(
         self,
@@ -480,11 +523,11 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 return
             await self._maybe_update_tier_breakdown()
 
-            player_ids: List[Tuple[str, Optional[rlapi.Platform]]] = []
+            lookups: List[LookupInfo] = []
             discord_user = None
             if player_id is None:
                 try:
-                    player_ids.append(await self._get_player_data_by_user(ctx.author))
+                    lookups.append(await self._get_player_data_by_user(ctx.author))
                     discord_user = ctx.author
                 except errors.PlayerDataNotFound:
                     await ctx.send(
@@ -505,25 +548,26 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                     pass
                 else:
                     try:
-                        player_ids.append(
+                        lookups.append(
                             await self._get_player_data_by_user(discord_user)
                         )
                     except errors.PlayerDataNotFound:
                         discord_user = None
-                player_ids.append((player_id, None))
+                lookups.append(LookupInfo(player_id))
 
-            players = await self._maybe_get_players(ctx, player_ids)
+            players = await self._maybe_get_players(ctx, lookups)
             if players is None:
                 return
 
             try:
-                player = await self._choose_player(ctx, players)
+                player_idx = await self._choose_player(ctx, players)
             except errors.NoChoiceError as e:
                 log.debug(e)
                 await ctx.send(
                     "You didn't select a profile that you would like to check."
                 )
                 return
+            player = players[player_idx]
 
             # TODO: This should probably be handled in rlapi module
             # be careful when touching this part,
@@ -536,7 +580,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             fp = await self._run_in_executor(
                 self._generate_image, template, playlists, player
             )
-        if discord_user is not None and player.player_id == player_ids[0][0]:
+        if discord_user is not None and player_idx == 0:
             account_string = (
                 f"connected {str(player.platform)} account of {bold(str(discord_user))}"
             )
@@ -548,7 +592,13 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 f"Rocket League Stats for {account_string}\n"
                 "*(arrows show amount of points for division down/up)*"
             ),
-            file=discord.File(fp, f"{player.player_id}_profile.png"),
+            file=discord.File(
+                fp,
+                f"{player.platform.value}"
+                "_"
+                f"{player.user_id or player.user_name}"
+                "_profile.png",
+            ),
         )
 
     @commands.command()
@@ -558,21 +608,28 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             if not await self._check_client_credentials(ctx):
                 return
 
-            players = await self._maybe_get_players(ctx, [(player_id, None)])
+            players = await self._maybe_get_players(ctx, [LookupInfo(player_id)])
             if players is None:
                 return
 
             try:
-                player = await self._choose_player(ctx, players)
+                player_idx = await self._choose_player(ctx, players)
             except errors.NoChoiceError as e:
                 log.debug(str(e))
                 await ctx.send(
                     "You didn't select a profile that you would like to connect."
                 )
                 return
+            player = players[player_idx]
 
-            await self.config.user(ctx.author).platform.set(player.platform.name)
-            await self.config.user(ctx.author).player_id.set(player.player_id)
+            scope = self.config.user(ctx.author)
+            await scope.platform.set(player.platform.name)
+            if player.user_id is not None:
+                await scope.lookup_method.set(LookupMethod.id.value)
+                await scope.player_id.set(str(player.user_id))
+            else:
+                await scope.lookup_method.set(LookupMethod.name.value)
+                await scope.player_id.set(player.user_name)
 
         await ctx.send(
             f"You successfully connected your {player.platform} account with Discord!"
