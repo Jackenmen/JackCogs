@@ -14,23 +14,30 @@
 
 import asyncio
 import contextlib
+import csv
 import dataclasses
 import enum
 import functools
+import hashlib
 import logging
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
+from pathlib import Path
 from typing import (
     Any,
     Callable,
     Dict,
+    Iterable,
     List,
     Literal,
     Mapping,
+    TextIO,
     Tuple,
     TypedDict,
     TypeVar,
+    Union,
     cast,
 )
 
@@ -57,6 +64,29 @@ log = logging.getLogger("red.jackcogs.rlstats")
 
 T = TypeVar("T")
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
+TRACKED_PLAYERS = "TRACKED_PLAYERS"
+DEFAULT_TRACKER_INTERVAL = 180.0
+PLAYLIST_HISTORY_V1_FIELDS = (
+    # tracker-specific fields
+    "updated_at",
+    # API fields
+    "tier",
+    "division",
+    "mu",
+    "skill",
+    "sigma",
+    "win_streak",
+    "matches_played",
+    "lifetime_matches_played",
+    "placement_matches_played",
+)
+REWARDS_HISTORY_V1_FIELDS = (
+    # tracker-specific fields
+    "updated_at",
+    # API fields
+    "level",
+    "wins",
+)
 
 
 SUPPORTED_PLATFORMS = """Supported platforms:
@@ -179,8 +209,12 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             breakdown_updated_at=0.0,
             competitive_overlay=40,
             extramodes_overlay=70,
+            tracker_interval=DEFAULT_TRACKER_INTERVAL,
         )
         self.config.register_user(lookup_method=None, player_id=None, platform=None)
+        # the key is `platform.name`
+        self.config.init_custom(TRACKED_PLAYERS, 1)
+        self.config.register_custom(TRACKED_PLAYERS, ids=[])
 
         self.breakdown_lock = asyncio.Lock()
         self.breakdown_updated_at = 0.0
@@ -188,6 +222,11 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         self.bundled_data_path = bundled_data_path(self)
         self.cog_data_path = cog_data_path(self)
         self._prepare_templates()
+
+        self.tracker_task: Optional[asyncio.Task] = None
+        self.tracker_interval = DEFAULT_TRACKER_INTERVAL
+        self.tracker_history_path = self.cog_data_path / "history/v1"
+        self.tracker_history_path.mkdir(parents=True, exist_ok=True)
 
     def _prepare_templates(self) -> None:
         self.fonts = {
@@ -271,9 +310,197 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         self.breakdown_updated_at = await self.config.breakdown_updated_at()
         self.extramodes_template.bg_overlay = await self.config.extramodes_overlay()
         self.competitive_template.bg_overlay = await self.config.competitive_overlay()
+        self.tracker_interval = await self.config.tracker_interval()
 
     async def cog_unload(self) -> None:
+        if self.tracker_task is not None:
+            self.tracker_task.cancel()
+            try:
+                await self.tracker_task
+            except asyncio.CancelledError:
+                pass
+
         self.rlapi_client.destroy()
+
+    async def start_tracker(self) -> None:
+        self.tracker_task = asyncio.create_task(self.tracker())
+
+    async def tracker(self) -> None:
+        while True:
+            try:
+                await self.update_tracked_players()
+            except Exception as e:
+                log.error(
+                    "An error occurred while updating tracked players.", exc_info=e
+                )
+            await asyncio.sleep(self.tracker_interval)
+
+    def _get_tracker_key(self, player: rlapi.Player) -> str:
+        platform = player.platform.value
+        if player.user_id is not None:
+            player_id = player.user_id
+            lookup_method = LookupMethod.id.value
+        else:
+            player_id = player.user_name
+            lookup_method = LookupMethod.name.value
+        hashed_id = hashlib.sha256(player_id.encode()).hexdigest()
+
+        return f"{platform}_{lookup_method}_{hashed_id}"
+
+    def _get_tracker_path(self, tracker_key: str, tracker_id: Union[str, int]) -> Path:
+        return self.tracker_history_path / f"{tracker_key}_{tracker_id}.csv"
+
+    def _get_last_lines(self, path: Path, *, n: int = 1) -> List[str]:
+        """Return n last lines ordered from the most recent to the least recent."""
+        lines: List[str] = []
+        try:
+            fp = path.open("rb")
+        except FileNotFoundError:
+            return lines
+
+        with fp:
+            try:
+                fp.seek(-2, os.SEEK_END)
+            except OSError:
+                return lines
+
+            start = fp.tell()
+            while start >= 0 and len(lines) < n:
+                fp.seek(start, os.SEEK_SET)
+
+                while fp.read(1) != b"\n":
+                    try:
+                        fp.seek(-2, os.SEEK_CUR)
+                    except OSError:
+                        fp.seek(0)
+                        lines.append(fp.readline().decode())
+                        return lines
+
+                start = fp.tell() - 2
+                lines.append(fp.readline().decode())
+
+        return lines
+
+    def _get_playlist_history_reader(self, lines: Iterable[str]) -> csv.DictReader:
+        return csv.DictReader(
+            lines, fieldnames=PLAYLIST_HISTORY_V1_FIELDS, quoting=csv.QUOTE_NONNUMERIC
+        )
+
+    def _get_playlist_history_writer(self, fp: TextIO) -> csv.DictWriter:
+        return csv.DictWriter(
+            fp, fieldnames=PLAYLIST_HISTORY_V1_FIELDS, quoting=csv.QUOTE_NONNUMERIC
+        )
+
+    def _get_rewards_history_reader(self, lines: Iterable[str]) -> csv.DictReader:
+        return csv.DictReader(
+            lines, fieldnames=REWARDS_HISTORY_V1_FIELDS, quoting=csv.QUOTE_NONNUMERIC
+        )
+
+    def _get_rewards_history_writer(self, fp: TextIO) -> csv.DictWriter:
+        return csv.DictWriter(
+            fp, fieldnames=REWARDS_HISTORY_V1_FIELDS, quoting=csv.QUOTE_NONNUMERIC
+        )
+
+    async def update_tracked_players(self) -> None:
+        tracked_players = await self.config.custom(TRACKED_PLAYERS).all()
+        for raw_platform, data in tracked_players.items():
+            ids = data["ids"]
+            if not ids:
+                continue
+
+            platform = rlapi.Platform[raw_platform]
+            async for player in self.rlapi_client.get_players(platform, ids=ids):
+                await self.update_player_trackers(player)
+
+    async def update_player_trackers(self, player: rlapi.Player) -> None:
+        updated_at = time.time()
+        tracker_key = self._get_tracker_key(player)
+        for playlist in player.playlists.values():
+            self.update_playlist_tracker(tracker_key, updated_at, playlist)
+            await asyncio.sleep(0)
+        self.update_rewards_tracker(tracker_key, updated_at, player.season_rewards)
+
+    def update_playlist_tracker(
+        self, tracker_key: str, updated_at: float, playlist: rlapi.Playlist
+    ) -> None:
+        if playlist.key == 0:
+            # no matches played field on Unranked playlist
+            return
+
+        tracker_path = self._get_tracker_path(tracker_key, int(playlist.key))
+        last_lines = self._get_last_lines(tracker_path)
+        if last_lines:
+            last_change = next(self._get_playlist_history_reader(last_lines))
+            last_lifetime_matches_played = last_change["lifetime_matches_played"]
+            if last_lifetime_matches_played == playlist.lifetime_matches_played:
+                return
+
+        with open(tracker_path, "a", encoding="utf-8") as fp:
+            writer = self._get_playlist_history_writer(fp)
+            row = {
+                "updated_at": updated_at,
+                "tier": playlist.tier,
+                "division": playlist.division,
+                "mu": playlist.mu,
+                "skill": playlist.skill,
+                "sigma": playlist.sigma,
+                "win_streak": playlist.win_streak,
+                "matches_played": playlist.matches_played,
+                "lifetime_matches_played": playlist.lifetime_matches_played,
+                "placement_matches_played": playlist.placement_matches_played,
+            }
+            writer.writerow(row)
+
+    def update_rewards_tracker(
+        self, tracker_key: str, updated_at: float, rewards: rlapi.SeasonRewards
+    ) -> None:
+        tracker_path = self._get_tracker_path(tracker_key, "season_rewards")
+        last_lines = self._get_last_lines(tracker_path)
+        if last_lines:
+            last_change = next(self._get_rewards_history_reader(last_lines))
+            if (
+                last_change["level"] == rewards.level
+                and last_change["wins"] == rewards.wins
+            ):
+                return
+
+        with open(tracker_path, "a", encoding="utf-8") as fp:
+            writer = self._get_rewards_history_writer(fp)
+            row = {
+                "updated_at": updated_at,
+                "level": rewards.level,
+                "wins": rewards.wins,
+            }
+            writer.writerow(row)
+
+    async def get_gains_for(
+        self, player: rlapi.Player, playlists: Tuple[rlapi.PlaylistKey, ...]
+    ) -> Dict[rlapi.PlaylistKey, int]:
+        tracker_key = self._get_tracker_key(player)
+        gains = {}
+        for playlist_key in playlists:
+            playlist = player.playlists[playlist_key]
+
+            tracker_path = self._get_tracker_path(tracker_key, int(playlist_key))
+            last_lines = self._get_last_lines(tracker_path, n=2)
+            if not last_lines:
+                await asyncio.sleep(0)
+                continue
+            last_changes = list(self._get_playlist_history_reader(last_lines))
+
+            last_lifetime_matches_played = int(
+                last_changes[0]["lifetime_matches_played"]
+            )
+            if (last_lifetime_matches_played + 1) == playlist.lifetime_matches_played:
+                gains[playlist_key] = playlist.skill - int(last_changes[0]["skill"])
+            elif (
+                last_lifetime_matches_played == playlist.lifetime_matches_played
+                and len(last_changes) >= 2
+            ):
+                gains[playlist_key] = playlist.skill - int(last_changes[1]["skill"])
+            await asyncio.sleep(0)
+
+        return gains
 
     async def red_get_data_for_user(self, *, user_id: int) -> Dict[str, BytesIO]:
         try:
@@ -469,9 +696,10 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         self,
         template: RLStatsImageTemplate,
         playlists: Tuple[rlapi.PlaylistKey, ...],
+        gains: Dict[rlapi.PlaylistKey, int],
         player: rlapi.Player,
     ) -> BytesIO:
-        result = template.generate_image(player, playlists)
+        result = template.generate_image(player, playlists, gains)
         fp = BytesIO()
         result.thumbnail((960, 540))
         result.save(fp, "PNG")
@@ -577,9 +805,11 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 if playlist_key not in player.playlists:
                     player.add_playlist({"playlist": playlist_key.value})
 
+            gains = await self.get_gains_for(player, playlists)
+
             # be extra careful when changing this (mypy won't type check this)
             fp = await self._run_in_executor(
-                self._generate_image, template, playlists, player
+                self._generate_image, template, playlists, gains, player
             )
         if discord_user is not None and player_idx == 0:
             account_string = (

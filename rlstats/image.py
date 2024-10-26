@@ -67,9 +67,12 @@ class RLStatsImageTemplate:
         return CoordsInfo(coords_info.point + offset, coords_info.font_name)
 
     def generate_image(
-        self, player: Player, playlists: Tuple[PlaylistKey, ...]
+        self,
+        player: Player,
+        playlists: Tuple[PlaylistKey, ...],
+        gains: Dict[PlaylistKey, int],
     ) -> RLStatsImage:
-        return RLStatsImage(self, player, playlists)
+        return RLStatsImage(self, player, playlists, gains)
 
 
 class MixinMeta(ABC):
@@ -133,10 +136,12 @@ class RLStatsImage(RLStatsImageMixin):
         template: RLStatsImageTemplate,
         player: Player,
         playlists: Sequence[PlaylistKey],
+        gains: Dict[PlaylistKey, int],
     ) -> None:
         self.template = template
         self.player = player
         self.playlists = playlists
+        self.gains = gains
         self._result = Image.open(self.template.bg_image).convert("RGBA")
         super().__init__()
         self._generate_image()
@@ -261,6 +266,7 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
     def __init__(self, img: RLStatsImage, playlist_key: PlaylistKey) -> None:
         self.template = img.template
         self.player = img.player
+        self.gain = img.gains.get(playlist_key, 0)
         self.fonts = self.template.fonts
         self._result = Image.new("RGBA", img.size)
         super().__init__()
@@ -355,16 +361,13 @@ class RLStatsImagePlaylist(RLStatsImageMixin):
         )
 
     def _draw_gain(self) -> None:
-        # TODO: rltracker rewrite needed to support this
-        gain = 0
-
         coords, font_name = self.get_coords("gain")
         assert isinstance(font_name, str), "mypy"  # gain has font name defined
         font = self.fonts[font_name]
-        if gain == 0:
+        if self.gain == 0:
             text = "N/A"
         else:
-            text = str(round(gain, 3))
+            text = str(self.gain)
         self._draw.text(xy=coords, text=text, font=font, fill="white")
 
     def _draw_estimates(self) -> None:
