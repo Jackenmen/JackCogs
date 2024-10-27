@@ -778,14 +778,157 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
 
         return changes
 
+    def _add_diff_field(
+        self,
+        embed: discord.Embed,
+        field_name: str,
+        before: Dict[str, Any],
+        after: Dict[str, Any],
+        key: str,
+        *,
+        value_mapper: Callable[[int], str] = str,
+        diff: Optional[int] = None,
+        inline: bool = True,
+        always_show: bool = False,
+    ) -> None:
+        before_val = int(before[key])
+        after_val = int(after[key])
+        if diff is None:
+            diff = after_val - before_val
+        if diff:
+            before_repr = value_mapper(before_val)
+            after_repr = value_mapper(after_val)
+            embed.add_field(
+                name=field_name,
+                value=f"{before_repr} -> **{after_repr}** ({diff:+d})",
+                inline=inline,
+            )
+        elif always_show:
+            after_repr = value_mapper(after_val)
+            embed.add_field(
+                name=field_name,
+                value=f"**{after_repr}**",
+                inline=inline,
+            )
+
+    def _add_after_field(
+        self,
+        embed: discord.Embed,
+        field_name: str,
+        before: Dict[str, Any],
+        after: Dict[str, Any],
+        key: str,
+        *,
+        value_mapper: Callable[[int], str] = str,
+        inline: bool = True,
+        always_show: bool = False,
+    ) -> None:
+        before_val = int(before[key])
+        after_val = int(after[key])
+        if before[key] != after[key]:
+            before_repr = value_mapper(before_val)
+            after_repr = value_mapper(after_val)
+            embed.add_field(
+                name=field_name,
+                value=f"**{after_repr}** (previously {before_repr})",
+                inline=inline,
+            )
+        elif always_show:
+            after_repr = value_mapper(after_val)
+            embed.add_field(
+                name=field_name,
+                value=f"**{after_repr}**",
+                inline=inline,
+            )
+
+    def _format_estimate(self, value: Optional[int]) -> str:
+        if value is None:
+            return "**N/A**"
+        return f"**{value:+d}**"
+
     async def notify_subscribed_channels(
         self,
         player: rlapi.Player,
         subscribed_guilds: Dict[str, Dict[str, Any]],
         changes: PlaylistChangeSet,
     ) -> None:
-        # TODO: implement on-change message
-        msg = f"{player.user_name} on {player.platform} changed!"
+        author_name = f"{player.user_name} on {player.platform} changed!"
+        embeds = []
+        for playlist_key, (before, after) in changes.items():
+            embed = discord.Embed(title=str(playlist_key))
+            embed.set_author(name=author_name)
+            self._add_diff_field(
+                embed,
+                "Rank",
+                before,
+                after,
+                "tier",
+                value_mapper=rlapi.RANKS.__getitem__,
+                always_show=True,
+            )
+            if not (
+                before["tier"] == after["tier"]
+                and after["tier"] in (0, len(rlapi.RANKS) - 1)
+            ):
+                diff = (
+                    int(after["tier"]) * len(rlapi.DIVISIONS) + int(after["division"])
+                ) - (
+                    int(before["tier"]) * len(rlapi.DIVISIONS) + int(before["division"])
+                )
+                self._add_diff_field(
+                    embed,
+                    "Division",
+                    before,
+                    after,
+                    "division",
+                    value_mapper=rlapi.DIVISIONS.__getitem__,
+                    diff=diff,
+                    always_show=True,
+                )
+            self._add_diff_field(embed, "Skill Rating", before, after, "skill")
+            self._add_after_field(
+                embed,
+                "Win Streak",
+                before,
+                after,
+                "win_streak",
+                value_mapper="{:+}".format,
+                inline=False,
+            )
+            tier_estimates = player.playlists[playlist_key].tier_estimates
+            if not (tier_estimates.div_down is None and tier_estimates.div_up is None):
+                embed.add_field(
+                    name="MMR estimate for division change",
+                    value=(
+                        f"{self._format_estimate(tier_estimates.div_down)}"
+                        " / "
+                        f"{self._format_estimate(tier_estimates.div_up)}"
+                    ),
+                    inline=False,
+                )
+            if not (
+                tier_estimates.tier_down is None and tier_estimates.tier_up is None
+            ):
+                embed.add_field(
+                    name="MMR estimate for rank change",
+                    value=(
+                        f"{self._format_estimate(tier_estimates.tier_down)}"
+                        " / "
+                        f"{self._format_estimate(tier_estimates.tier_up)}"
+                    ),
+                    inline=False,
+                )
+            self._add_after_field(
+                embed, "Matches played", before, after, "matches_played"
+            )
+            self._add_after_field(
+                embed,
+                "Lifetime matches played",
+                before,
+                after,
+                "lifetime_matches_played",
+            )
+            embeds.append(embed)
 
         for raw_guild_id, data in subscribed_guilds.items():
             guild_id = int(raw_guild_id)
@@ -814,7 +957,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                     if not can_user_send_messages_in(guild.me, channel):
                         raise RuntimeError
 
-                    await channel.send(msg)
+                    await channel.send(embeds=embeds)
                 except (discord.Forbidden, RuntimeError):
                     log.error(
                         "Bot can't send messages in channel with ID %s (guild ID: %s)",
