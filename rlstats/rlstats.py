@@ -94,7 +94,7 @@ REWARDS_HISTORY_V1_FIELDS = (
 
 SUPPORTED_PLATFORMS = """Supported platforms:
 - Steam - use steamID64, customURL or full URL to profile
-- PlayStation 4 - use PSN username (Online ID)\
+- PlayStation - use PSN username (Online ID)\
  or [Account ID](https://psn.flipscreen.games)
 - Xbox One - use Xbox Gamertag or [services ID (XUID)](https://www.cxkes.me/xbox/xuid)
 - Epic Games - use Epic [Account ID](https://epicgames.com/help/c74/c79/a3659)\
@@ -929,6 +929,12 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             if not await self._check_client_credentials(ctx):
                 return
 
+            lookup_info = await self._get_player_data_by_user(ctx.author)
+            if lookup_info.tracked and lookup_info.platform is not None:
+                await self._maybe_untrack_player(
+                    lookup_info.platform, lookup_info.player_id
+                )
+
             players = await self._maybe_get_players(ctx, [LookupInfo(player_id)])
             if players is None:
                 return
@@ -948,9 +954,12 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             if player.user_id is not None:
                 await scope.lookup_method.set(LookupMethod.id.value)
                 await scope.player_id.set(str(player.user_id))
+                if lookup_info.tracked:
+                    await self._track_player(player.platform, str(player.user_id))
             else:
                 await scope.lookup_method.set(LookupMethod.name.value)
                 await scope.player_id.set(player.user_name)
+                await scope.tracked.set(False)
 
         await ctx.send(
             f"You successfully connected your {player.platform} account with Discord!"
@@ -964,8 +973,183 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         Disconnect the game profile associated with
         your Discord account from RLStats cog.
         """
+        lookup_info = await self._get_player_data_by_user(ctx.author)
+        if lookup_info.tracked and lookup_info.platform is not None:
+            await self._maybe_untrack_player(
+                lookup_info.platform, lookup_info.player_id
+            )
         await self.config.user(ctx.author).clear()
         await ctx.send("Your game account was successfully disconnected from Discord!")
+
+    @commands.command()
+    async def rltrackme(self, ctx: commands.Context) -> None:
+        """
+        Enable live tracking of the game profile associated with your Discord account
+        through `[p]rlconnect`.
+
+        Tracking is only supported when connected with the following platforms:
+        - Steam
+        - Epic
+        - PlayStation - only when connected with a [PSN Account ID]\
+        (https://psn.flipscreen.games) or its connected Epic account
+        - Xbox One - only when connected with an [Xbox services ID (XUID)]\
+        (https://www.cxkes.me/xbox/xuid) or its connected Epic account
+        """
+        try:
+            lookup_info = await self._get_player_data_by_user(ctx.author)
+        except errors.PlayerDataNotFound:
+            await ctx.send(
+                "Your game account is not connected with Discord."
+                " If you want to live track your stats,"
+                " connect your account using command:"
+                f" {inline(f'{ctx.clean_prefix}rlconnect <player_id>')}"
+            )
+            return
+
+        players = await self._maybe_get_players(ctx, [lookup_info])
+        if not players:
+            await ctx.send(
+                "Could not find the account that you have connected with your Discord."
+                " Try reconnecting it using command:"
+                f" {inline(f'{ctx.clean_prefix}rlconnect <player_id>')}"
+            )
+            return
+
+        player = players[0]
+        if not await self._is_lookup_by_id_or_send_error(ctx, player):
+            return
+        user_id = player.user_id or ""
+
+        # ensure that we actually have the ID in user's config
+        user_scope = self.config.user(ctx.author)
+        await user_scope.lookup_method.set(LookupMethod.id.value)
+        await user_scope.player_id.set(user_id)
+
+        # set tracked flag to auto-enroll on `[p]rlconnect`
+        await user_scope.tracked.set(True)
+        await self._track_player(player.platform, user_id)
+
+        await ctx.send("Your game account is now tracked for changes automatically.")
+
+    @commands.admin_or_can_manage_channel()
+    @commands.group(name="rltracker")
+    async def rltracker(self, ctx: commands.GuildContext) -> None:
+        """RLStats live tracker server settings."""
+        # TODO: add unsubscribe command
+
+    @commands.admin_or_can_manage_channel()
+    @rltracker.command(name="subscribe")
+    async def subscribe(self, ctx: commands.GuildContext, *, player_id: str) -> None:
+        """Subscribe current channel to updates of the given game profile."""
+        lookups = []
+        try:
+            discord_user = await commands.MemberConverter().convert(ctx, player_id)
+        except commands.BadArgument:
+            pass
+        else:
+            try:
+                lookups.append(await self._get_player_data_by_user(discord_user))
+            except errors.PlayerDataNotFound:
+                pass
+        lookups.append(LookupInfo(player_id))
+
+        players = await self._maybe_get_players(ctx, lookups)
+        if players is None:
+            return
+
+        try:
+            player_idx = await self._choose_player(ctx, players)
+        except errors.NoChoiceError as e:
+            log.debug(e)
+            await ctx.send(
+                "You didn't select a profile that you would like to subscribe to."
+            )
+            return
+        player = players[player_idx]
+
+        if not await self._is_lookup_by_id_or_send_error(ctx, player):
+            return
+
+        max_subscriptions = await self.config.tracker_max_subscriptions()
+        sub_count_scope = self.config.channel(ctx.channel).subscription_count
+        async with sub_count_scope.get_lock():
+            subscription_count = await sub_count_scope()
+            subscription_count += 1
+            if subscription_count > max_subscriptions:
+                await ctx.send(
+                    "This channel is already at max number of subscriptions set"
+                    " by the bot owner."
+                )
+                return
+
+            scope = self.config.custom(
+                TRACKED_PLAYERS,
+                player.platform.name,
+                str(player.user_id),
+                str(ctx.guild.id),
+            )
+            async with scope.subscribed_channels() as subscribed_channels:
+                if ctx.channel.id not in subscribed_channels:
+                    subscribed_channels.append(ctx.channel.id)
+
+            await sub_count_scope.set(subscription_count)
+
+        await ctx.send(
+            "Subscribed the current channel to live tracker updates for"
+            f" {player.user_name} (Platform: {player.platform}; ID: {player.user_id})"
+        )
+
+    async def _is_lookup_by_id_or_send_error(
+        self, ctx: commands.Context, player: rlapi.Player
+    ) -> bool:
+        if player.user_id is not None:
+            return True
+        if player.platform == rlapi.Platform.switch:
+            await ctx.send(
+                "Tracking for Nintendo users is only supported"
+                " when connected through an Epic account."
+            )
+        elif player.platform == rlapi.Platform.ps4:
+            await ctx.send(
+                "Tracking for PlayStation users is only supported when connected with"
+                " a [PSN Account ID](https://psn.flipscreen.games)"
+                " or its connected Epic account."
+            )
+        elif player.platform == rlapi.Platform.xboxone:
+            await ctx.send(
+                "Tracking for Xbox One users is only supported when connected with"
+                " an [Xbox services ID (XUID)](https://www.cxkes.me/xbox/xuid)"
+                " or its connected Epic account."
+            )
+        else:
+            await ctx.send(
+                "Unexpected error: could not find User ID for your game account."
+                " Please report this to the bot's owner along with the platform and ID"
+                " of the game profile that you have connected to this Discord account."
+            )
+        return False
+
+    async def _track_player(self, platform: rlapi.Platform, player_id: str) -> None:
+        platform_scope = self.config.custom(TRACKED_PLAYERS, platform.name)
+        player_scope = self.config.custom(TRACKED_PLAYERS, platform.name, player_id)
+        async with player_scope.get_lock():
+            try:
+                await platform_scope.get_raw(player_id)
+            except KeyError:
+                await player_scope.set({})
+
+    async def _maybe_untrack_player(
+        self, platform: rlapi.Platform, player_id: str
+    ) -> None:
+        player_scope = self.config.custom(TRACKED_PLAYERS, platform.name, player_id)
+        async with player_scope.get_lock():
+            data = await player_scope.all()
+            if not data:
+                await player_scope.clear()
+
+    async def _untrack_player(self, platform: rlapi.Platform, player_id: str) -> None:
+        player_scope = self.config.custom(TRACKED_PLAYERS, platform.name, player_id)
+        await player_scope.clear()
 
     @commands.Cog.listener()
     async def on_red_api_tokens_update(
