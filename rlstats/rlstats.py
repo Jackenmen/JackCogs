@@ -210,6 +210,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             competitive_overlay=40,
             extramodes_overlay=70,
             tracker_interval=DEFAULT_TRACKER_INTERVAL,
+            tracker_max_subscriptions=5,
         )
         self.config.register_user(lookup_method=None, player_id=None, platform=None)
         # the key is `platform.name`
@@ -225,6 +226,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
 
         self.tracker_task: Optional[asyncio.Task] = None
         self.tracker_interval = DEFAULT_TRACKER_INTERVAL
+        self.tracker_subscriptions_enabled = True
         self.tracker_history_path = self.cog_data_path / "history/v1"
         self.tracker_history_path.mkdir(parents=True, exist_ok=True)
 
@@ -311,8 +313,19 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         self.extramodes_template.bg_overlay = await self.config.extramodes_overlay()
         self.competitive_template.bg_overlay = await self.config.competitive_overlay()
         self.tracker_interval = await self.config.tracker_interval()
+        self.tracker_subscriptions_enabled = (
+            await self.config.tracker_max_subscriptions() != 0
+        )
 
     async def cog_unload(self) -> None:
+        await self.stop_tracker()
+        self.rlapi_client.destroy()
+
+    async def start_tracker(self) -> None:
+        if self.tracker_task is None:
+            self.tracker_task = asyncio.create_task(self.live_tracker())
+
+    async def stop_tracker(self) -> None:
         if self.tracker_task is not None:
             self.tracker_task.cancel()
             try:
@@ -320,12 +333,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             except asyncio.CancelledError:
                 pass
 
-        self.rlapi_client.destroy()
-
-    async def start_tracker(self) -> None:
-        self.tracker_task = asyncio.create_task(self.tracker())
-
-    async def tracker(self) -> None:
+    async def live_tracker(self) -> None:
         while True:
             try:
                 await self.update_tracked_players()
@@ -415,10 +423,18 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
     async def update_player_trackers(self, player: rlapi.Player) -> None:
         updated_at = time.time()
         tracker_key = self._get_tracker_key(player)
+        cancelled_exc: Union[None, asyncio.CancelledError] = None
         for playlist in player.playlists.values():
             self.update_playlist_tracker(tracker_key, updated_at, playlist)
-            await asyncio.sleep(0)
+            try:
+                await asyncio.sleep(0)
+            except asyncio.CancelledError as exc:
+                if cancelled_exc is None:
+                    cancelled_exc = exc
+
         self.update_rewards_tracker(tracker_key, updated_at, player.season_rewards)
+        if cancelled_exc is not None:
+            raise cancelled_exc
 
     def update_playlist_tracker(
         self, tracker_key: str, updated_at: float, playlist: rlapi.Playlist

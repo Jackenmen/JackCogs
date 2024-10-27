@@ -51,6 +51,14 @@ class MixinMeta(ABC):
         self.extramodes_template: RLStatsImageTemplate
 
     @abstractmethod
+    async def start_tracker(self) -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    async def stop_tracker(self) -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
     async def _run_in_executor(
         self, func: Callable[..., T], *args: Any, **kwargs: Any
     ) -> T:

@@ -23,6 +23,7 @@ from PIL import Image, ImageFile
 from redbot.core import commands
 from redbot.core.commands import NoParseOptional as Optional
 from redbot.core.config import Value
+from redbot.core.utils.chat_formatting import inline
 from redbot.core.utils.views import SetApiView
 from rlapi.ext.tier_breakdown.rlstatsnet import get_tier_breakdown
 
@@ -56,6 +57,58 @@ class SettingsMixin(MixinMeta):
                 default_service="rocket_league",
                 default_keys={"client_id": "", "client_secret": ""},
             ),
+        )
+
+    @rlset.group(name="tracker")
+    async def tracker(self, ctx: commands.Context) -> None:
+        """RLStats live tracker configuration options."""
+
+    @tracker.command(name="interval")
+    async def interval(
+        self, ctx: commands.Context, value: commands.Range[int, 0, 300]
+    ) -> None:
+        """
+        Set live tracker's refresh interval in seconds.
+
+        Use `0` to disable the functionality.
+        """
+        interval = float(value)
+        if interval and interval < 15:
+            await ctx.send("Setting the interval below 15 seconds is not allowed.")
+            return
+
+        self.tracker_interval = interval
+        await self.config.tracker_interval.set(interval)
+        await self.stop_tracker()
+        if not interval:
+            await ctx.send("Live tracker has been disabled.")
+            return
+        await self.start_tracker()
+        await ctx.send(f"Live tracker will now refresh every {interval} seconds.")
+
+    @tracker.command(name="maxsubscriptions")
+    async def maxsubscriptions(
+        self, ctx: commands.Context, value: commands.Range[int, 0, None]
+    ) -> None:
+        """
+        Set live tracker's max number of subscriptions.
+
+        Use `0` to disable the subscriptions altogether.
+        """
+        self.tracker_subscriptions_enabled = value != 0
+        await self.config.tracker_max_subscriptions.set(value)
+        if not await self.config.tracker_interval():
+            await ctx.send(
+                f"Live tracker's max subscription count has been set to {value}"
+                " though the tracker is currently disabled."
+                " You can enable it by setting non-zero refresh interval with"
+                f" the command: {inline(f'{ctx.clean_prefix}rlset tracker interval')}"
+            )
+            return
+        await self.stop_tracker()
+        await self.start_tracker()
+        await ctx.send(
+            f"Live tracker's max subscription count has been set to {value}."
         )
 
     @rlset.command(name="updatebreakdown")
