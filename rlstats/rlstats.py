@@ -49,6 +49,7 @@ from redbot.core.bot import Red
 from redbot.core.commands import NoParseOptional as Optional
 from redbot.core.config import Config
 from redbot.core.data_manager import bundled_data_path, cog_data_path
+from redbot.core.utils import can_user_send_messages_in
 from redbot.core.utils.chat_formatting import bold, inline
 from redbot.core.utils.menus import start_adding_reactions
 from redbot.core.utils.predicates import ReactionPredicate
@@ -65,6 +66,8 @@ log = logging.getLogger("red.jackcogs.rlstats")
 T = TypeVar("T")
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 TRACKED_PLAYERS = "TRACKED_PLAYERS"
+PlaylistChange = Tuple[Dict[str, Any], Dict[str, Any]]
+PlaylistChangeSet = Dict[rlapi.PlaylistKey, PlaylistChange]
 DEFAULT_TRACKER_INTERVAL = 180.0
 PLAYLIST_HISTORY_V1_FIELDS = (
     # tracker-specific fields
@@ -122,6 +125,7 @@ class LookupInfo:
     player_id: str
     platform: Optional[rlapi.Platform] = None
     lookup_method: Optional[LookupMethod] = None
+    tracked: bool = False
 
     def __post_init__(self) -> None:
         if self.platform is not None and self.lookup_method is not None:
@@ -212,10 +216,18 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             tracker_interval=DEFAULT_TRACKER_INTERVAL,
             tracker_max_subscriptions=5,
         )
-        self.config.register_user(lookup_method=None, player_id=None, platform=None)
-        # the key is `platform.name`
-        self.config.init_custom(TRACKED_PLAYERS, 1)
-        self.config.register_custom(TRACKED_PLAYERS, ids=[])
+        self.config.register_user(
+            lookup_method=None,
+            player_id=None,
+            platform=None,
+            tracked=False,
+        )
+        self.config.register_channel(subscription_count=0)
+        # keyed by (platform.name, player_id, guild_id)
+        # no player ID in config vs player ID with no guilds
+        # are treated differently
+        self.config.init_custom(TRACKED_PLAYERS, 3)
+        self.config.register_custom(TRACKED_PLAYERS, subscribed_channels=[])
 
         self.breakdown_lock = asyncio.Lock()
         self.breakdown_updated_at = 0.0
@@ -412,20 +424,28 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
     async def update_tracked_players(self) -> None:
         tracked_players = await self.config.custom(TRACKED_PLAYERS).all()
         for raw_platform, data in tracked_players.items():
-            ids = data["ids"]
-            if not ids:
+            if not data:
                 continue
 
             platform = rlapi.Platform[raw_platform]
-            async for player in self.rlapi_client.get_players(platform, ids=ids):
-                await self.update_player_trackers(player)
+            async for player in self.rlapi_client.get_players(platform, ids=data):
+                changes = await self.update_player_trackers(player)
+                if self.tracker_subscriptions_enabled and changes:
+                    await self.notify_subscribed_channels(
+                        player, data[player.user_id], changes
+                    )
 
-    async def update_player_trackers(self, player: rlapi.Player) -> None:
+    async def update_player_trackers(self, player: rlapi.Player) -> PlaylistChangeSet:
         updated_at = time.time()
         tracker_key = self._get_tracker_key(player)
         cancelled_exc: Union[None, asyncio.CancelledError] = None
+
+        changes: PlaylistChangeSet = {}
         for playlist in player.playlists.values():
-            self.update_playlist_tracker(tracker_key, updated_at, playlist)
+            change = self.update_playlist_tracker(tracker_key, updated_at, playlist)
+            if change is not None and isinstance(playlist.key, rlapi.PlaylistKey):
+                changes[playlist.key] = change
+
             try:
                 await asyncio.sleep(0)
             except asyncio.CancelledError as exc:
@@ -436,12 +456,59 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         if cancelled_exc is not None:
             raise cancelled_exc
 
+        return changes
+
+    async def notify_subscribed_channels(
+        self,
+        player: rlapi.Player,
+        subscribed_guilds: Dict[str, Dict[str, Any]],
+        changes: PlaylistChangeSet,
+    ) -> None:
+        # TODO: implement on-change message
+        msg = f"{player.user_name} on {player.platform} changed!"
+
+        for raw_guild_id, data in subscribed_guilds.items():
+            guild_id = int(raw_guild_id)
+            guild = self.bot.get_guild(guild_id)
+            if guild is None:
+                continue
+            if await self.bot.cog_disabled_in_guild(self, guild):
+                return
+
+            for channel_id in data["subscribed_channels"]:
+                channel = channel = cast(
+                    Optional[
+                        Union[
+                            discord.TextChannel,
+                            discord.VoiceChannel,
+                            discord.StageChannel,
+                            discord.Thread,
+                        ]
+                    ],
+                    guild.get_channel_or_thread(channel_id),
+                )
+                if channel is None:
+                    continue
+
+                try:
+                    if not can_user_send_messages_in(guild.me, channel):
+                        raise RuntimeError
+
+                    await channel.send(msg)
+                except (discord.Forbidden, RuntimeError):
+                    log.error(
+                        "Bot can't send messages in channel with ID %s (guild ID: %s)",
+                        channel_id,
+                        guild.id,
+                    )
+                    continue
+
     def update_playlist_tracker(
         self, tracker_key: str, updated_at: float, playlist: rlapi.Playlist
-    ) -> None:
+    ) -> Optional[PlaylistChange]:
         if playlist.key == 0:
             # no matches played field on Unranked playlist
-            return
+            return None
 
         tracker_path = self._get_tracker_path(tracker_key, int(playlist.key))
         last_lines = self._get_last_lines(tracker_path)
@@ -449,23 +516,28 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             last_change = next(self._get_playlist_history_reader(last_lines))
             last_lifetime_matches_played = last_change["lifetime_matches_played"]
             if last_lifetime_matches_played == playlist.lifetime_matches_played:
-                return
+                return None
+
+        row = {
+            "updated_at": updated_at,
+            "tier": playlist.tier,
+            "division": playlist.division,
+            "mu": playlist.mu,
+            "skill": playlist.skill,
+            "sigma": playlist.sigma,
+            "win_streak": playlist.win_streak,
+            "matches_played": playlist.matches_played,
+            "lifetime_matches_played": playlist.lifetime_matches_played,
+            "placement_matches_played": playlist.placement_matches_played,
+        }
 
         with open(tracker_path, "a", encoding="utf-8") as fp:
             writer = self._get_playlist_history_writer(fp)
-            row = {
-                "updated_at": updated_at,
-                "tier": playlist.tier,
-                "division": playlist.division,
-                "mu": playlist.mu,
-                "skill": playlist.skill,
-                "sigma": playlist.sigma,
-                "win_streak": playlist.win_streak,
-                "matches_played": playlist.matches_played,
-                "lifetime_matches_played": playlist.lifetime_matches_played,
-                "placement_matches_played": playlist.placement_matches_played,
-            }
             writer.writerow(row)
+
+        if not last_lines:
+            return None
+        return (last_change, row)
 
     def update_rewards_tracker(
         self, tracker_key: str, updated_at: float, rewards: rlapi.SeasonRewards
@@ -622,7 +694,9 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             else:
                 lookup_method = LookupMethod.name
 
-        return LookupInfo(player_id, platform, lookup_method)
+        tracked = user_data["tracked"]
+
+        return LookupInfo(player_id, platform, lookup_method, tracked=tracked)
 
     async def _get_player_data_by_user(self, user: discord.abc.User) -> LookupInfo:
         return await self._get_player_data_by_user_id(user.id)
