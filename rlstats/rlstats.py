@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import asyncio
 import contextlib
 import csv
@@ -19,6 +21,7 @@ import dataclasses
 import enum
 import functools
 import hashlib
+import itertools
 import logging
 import os
 import time
@@ -65,6 +68,7 @@ log = logging.getLogger("red.jackcogs.rlstats")
 
 T = TypeVar("T")
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
+GUILD_SUBSCRIPTIONS = "GUILD_SUBSCRIPTIONS"
 TRACKED_PLAYERS = "TRACKED_PLAYERS"
 PlaylistChange = Tuple[Dict[str, Any], Dict[str, Any]]
 PlaylistChangeSet = Dict[rlapi.PlaylistKey, PlaylistChange]
@@ -118,6 +122,325 @@ class ClientCredentials(TypedDict):
 class LookupMethod(enum.Enum):
     id = "id"
     name = "name"
+
+
+class GuildSubscriptionDeleteQuestionView(discord.ui.View):
+    def __init__(
+        self,
+        *,
+        parent: GuildSubscriptionView,
+        author: discord.abc.User,
+        original_interaction: discord.Interaction,
+    ) -> None:
+        super().__init__()
+        self.parent = parent
+        self.author = author
+        self.original_interaction = original_interaction
+        self.delete_interaction: Optional[discord.Interaction] = None
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.author.id != interaction.user.id:
+            await interaction.response.send_message(
+                "You cannot interact with this.", ephemeral=True
+            )
+            return False
+        return True
+
+    async def on_timeout(self) -> None:
+        print("GuildSubscriptionDeleteQuestionView timeout")
+        await self.original_interaction.edit_original_response(
+            content=self.parent.message_content, view=self.parent
+        )
+
+    @discord.ui.button(label="Delete", style=discord.ButtonStyle.danger)
+    async def delete_button(
+        self,
+        interaction: discord.Interaction,
+        _: discord.ui.Button[GuildSubscriptionDeleteQuestionView],
+    ) -> None:
+        self.stop()
+        self.delete_interaction = interaction
+
+    @discord.ui.button(label="Cancel")
+    async def cancel_button(
+        self,
+        interaction: discord.Interaction,
+        _: discord.ui.Button[GuildSubscriptionDeleteQuestionView],
+    ) -> None:
+        self.stop()
+        await interaction.response.edit_message(
+            content=self.parent.message_content, view=self.parent
+        )
+
+
+class GuildSubscriptionView(discord.ui.View):
+    MAX_SELECT_OPTIONS = 25
+    PER_PAGE_COUNT = MAX_SELECT_OPTIONS
+    MAX_PAGE_COUNT = MAX_SELECT_OPTIONS
+
+    def __init__(
+        self,
+        ctx: commands.GuildContext,
+        cog: RLStats,
+        guild_data: Dict[str, Dict[str, Dict[str, Any]]],
+    ) -> None:
+        super().__init__()
+        self.ctx = ctx
+        self.message_content = (
+            "Select the channel and then the player that you want to unsubscribe."
+        )
+        self.message: Optional[discord.Message] = None
+        self.cog = cog
+        self.guild_data = guild_data
+        self.page_count = min(
+            len(guild_data) // self.PER_PAGE_COUNT + 1,
+            self.MAX_PAGE_COUNT,
+        )
+        self.current_page = 0
+        self.current_channel_id = ""
+        self.change_page(0)
+        if self.page_count < 2:
+            self.remove_item(self.page_select)
+
+    async def send(self) -> None:
+        await self.change_channel("")
+        self.message = await self.ctx.send(self.message_content, view=self)
+
+    async def on_timeout(self) -> None:
+        print("GuildSubscriptionView timeout")
+        if self.message is None:
+            return
+        await self.message.edit(content="This message's view has expired.", view=None)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.ctx.author.id != interaction.user.id:
+            await interaction.response.send_message(
+                "You cannot interact with this.", ephemeral=True
+            )
+            return False
+        return True
+
+    def change_page(self, page_idx: int) -> None:
+        self.current_page = page_idx
+        start = page_idx * self.PER_PAGE_COUNT
+        stop = start + self.PER_PAGE_COUNT
+        self.channel_select.options.clear()
+        for raw_channel_id, channel_data in itertools.islice(
+            self.guild_data.items(),
+            start,
+            stop,
+        ):
+            channel = self.ctx.guild.get_channel_or_thread(int(raw_channel_id))
+            if channel is None:
+                continue
+            if channel.type is discord.ChannelType.text:
+                description = "text channel"
+            elif channel.type is discord.ChannelType.voice:
+                description = "voice channel"
+            elif channel.type is discord.ChannelType.stage_voice:
+                description = "stage channel"
+            elif isinstance(channel, discord.Thread):
+                description = "thread"
+            else:
+                description = "unknown channel type"
+
+            player_count = sum(
+                1
+                for platform_data in channel_data.values()
+                for _ in platform_data["ids"]
+            )
+            description = f"{description} ({player_count} players)"
+            self.channel_select.options.append(
+                discord.SelectOption(
+                    label=channel.name,
+                    description=description,
+                    value=raw_channel_id,
+                    default=raw_channel_id == self.current_channel_id,
+                ),
+            )
+
+        for option_idx, option in enumerate(self.page_select.options):
+            option.default = option_idx == page_idx
+
+    def update_channel_select_default(self, channel_id: str) -> None:
+        self.current_channel_id = channel_id
+        for option in self.channel_select.options:
+            option.default = option.value == channel_id
+
+    async def change_channel(self, channel_id: str) -> None:
+        self.update_channel_select_default(channel_id)
+        self.player_select.placeholder = None
+        if not channel_id:
+            self.player_select.placeholder = "Select the channel first"
+            self.player_select.options.clear()
+            self.player_select.options.append(
+                discord.SelectOption(label=self.player_select.placeholder)
+            )
+            self.player_select.disabled = True
+            return
+        self.player_select.disabled = False
+        self.player_select.options.clear()
+        for raw_platform, platform_data in self.guild_data[channel_id].items():
+            platform = rlapi.Platform[raw_platform]
+            for player_id in platform_data["ids"]:
+                option = discord.SelectOption(
+                    label="Unknown player",
+                    description=f"Platform: {platform}; ID: {player_id}",
+                    value=f"{raw_platform}_{player_id}",
+                )
+                try:
+                    player = await self.cog.rlapi_client.get_player_by_id(
+                        platform, player_id
+                    )
+                except rlapi.PlayerNotFound:
+                    pass
+                else:
+                    option.label = player.user_name
+                self.player_select.options.append(option)
+
+    @discord.ui.select()
+    async def channel_select(
+        self,
+        interaction: discord.Interaction,
+        select: discord.ui.Select[GuildSubscriptionView],
+    ) -> None:
+        raw_channel_id = select.values[0]
+        self.player_select.placeholder = "Loading..."
+        self.player_select.disabled = True
+        self.update_channel_select_default(raw_channel_id)
+        await interaction.response.edit_message(view=self)
+        await self.change_channel(raw_channel_id)
+        await interaction.edit_original_response(view=self)
+
+    @discord.ui.select(disabled=True)
+    async def player_select(
+        self,
+        interaction: discord.Interaction,
+        select: discord.ui.Select[GuildSubscriptionView],
+    ) -> None:
+        channel_id = int(self.current_channel_id)
+        raw_platform, player_id = select.values[0].split("_", maxsplit=1)
+        for idx, option in enumerate(self.player_select.options):
+            if option.value == select.values[0]:
+                deleted_option = option
+                deleted_option_idx = idx
+                break
+        else:
+            await interaction.response.edit_message(
+                content=(
+                    "Unexpected error occurred"
+                    " and the selected player could not be deleted."
+                ),
+                view=None,
+            )
+            return
+
+        confirm_view = GuildSubscriptionDeleteQuestionView(
+            parent=self,
+            original_interaction=interaction,
+            author=self.ctx.author,
+        )
+        await interaction.response.edit_message(
+            content=(
+                "Are you sure that you want to unsubscribe to updates for"
+                f" {deleted_option.label} ({deleted_option.description})?"
+            ),
+            view=confirm_view,
+        )
+        await confirm_view.wait()
+        if not confirm_view.delete_interaction:
+            return
+
+        self.player_select.options.pop(deleted_option_idx)
+        if self.player_select.options:
+            channel_data = self.guild_data[self.current_channel_id]
+            ids = channel_data[raw_platform]["ids"]
+            while True:
+                try:
+                    ids.remove(player_id)
+                except ValueError:
+                    break
+        else:
+            del self.guild_data[self.current_channel_id]
+            await self.change_channel("")
+        self.change_page(self.current_page)
+
+        if self.guild_data:
+            await confirm_view.delete_interaction.response.edit_message(
+                content=self.message_content, view=self
+            )
+        else:
+            await confirm_view.delete_interaction.response.edit_message(
+                content=(
+                    "There are no more active profile update"
+                    " subscriptions in this server."
+                ),
+                view=None,
+            )
+
+        sub_count_scope = self.cog.config.channel_from_id(channel_id).subscription_count
+        async with sub_count_scope.get_lock():
+            subscription_count = await sub_count_scope()
+            subscription_count = max(0, subscription_count - 1)
+
+            scope = self.cog.config.custom(
+                TRACKED_PLAYERS,
+                raw_platform,
+                player_id,
+                str(self.ctx.guild.id),
+            )
+            async with scope.subscribed_channels() as subscribed_channels:
+                while True:
+                    try:
+                        subscribed_channels.remove(channel_id)
+                    except ValueError:
+                        break
+            if not subscribed_channels:
+                await scope.clear()
+
+            await sub_count_scope.set(subscription_count)
+
+            scope = self.cog.config.custom(
+                GUILD_SUBSCRIPTIONS,
+                str(self.ctx.guild.id),
+                str(channel_id),
+                raw_platform,
+            )
+            async with scope.ids() as ids:
+                while True:
+                    try:
+                        ids.remove(player_id)
+                    except ValueError:
+                        break
+            if not ids:
+                await scope.clear()
+                scope = self.cog.config.custom(
+                    GUILD_SUBSCRIPTIONS,
+                    str(self.ctx.guild.id),
+                    str(channel_id),
+                )
+                if not await scope.all():
+                    await scope.clear()
+                    scope = self.cog.config.custom(
+                        GUILD_SUBSCRIPTIONS,
+                        str(self.ctx.guild.id),
+                    )
+                    if not await scope.all():
+                        await scope.clear()
+
+        await confirm_view.delete_interaction.followup.send(
+            "Unsubscribed the channel from profile updates for"
+            f" {deleted_option.label} ({deleted_option.description})."
+        )
+
+    @discord.ui.select()
+    async def page_select(
+        self,
+        interaction: discord.Interaction,
+        select: discord.ui.Select[GuildSubscriptionView],
+    ) -> None:
+        self.change_page(int(select.values[0]))
+        await interaction.response.edit_message(view=self)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -228,6 +551,10 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
         # are treated differently
         self.config.init_custom(TRACKED_PLAYERS, 3)
         self.config.register_custom(TRACKED_PLAYERS, subscribed_channels=[])
+        # optimization strategy for lookup of subscriptions by guild/channel
+        # keyed by (guild_id, channel_id, platform.name)
+        self.config.init_custom(GUILD_SUBSCRIPTIONS, 3)
+        self.config.register_custom(GUILD_SUBSCRIPTIONS, ids=[])
 
         self.breakdown_lock = asyncio.Lock()
         self.breakdown_updated_at = 0.0
@@ -1035,7 +1362,6 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
     @commands.group(name="rltracker")
     async def rltracker(self, ctx: commands.GuildContext) -> None:
         """RLStats live tracker server settings."""
-        # TODO: add unsubscribe command
 
     @commands.admin_or_can_manage_channel()
     @rltracker.command(name="subscribe")
@@ -1082,10 +1408,11 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 )
                 return
 
+            player_id = str(player.user_id)
             scope = self.config.custom(
                 TRACKED_PLAYERS,
                 player.platform.name,
-                str(player.user_id),
+                player_id,
                 str(ctx.guild.id),
             )
             async with scope.subscribed_channels() as subscribed_channels:
@@ -1094,10 +1421,35 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
 
             await sub_count_scope.set(subscription_count)
 
+            async with self.config.custom(
+                GUILD_SUBSCRIPTIONS,
+                str(ctx.guild.id),
+                str(ctx.channel.id),
+                player.platform.name,
+            ).ids() as ids:
+                if player_id not in ids:
+                    ids.append(player_id)
+
         await ctx.send(
             "Subscribed the current channel to live tracker updates for"
             f" {player.user_name} (Platform: {player.platform}; ID: {player.user_id})"
         )
+
+    @commands.admin_or_can_manage_channel()
+    @rltracker.command(name="unsubscribe")
+    async def unsubscribe(self, ctx: commands.GuildContext) -> None:
+        """List and delete profile update subscriptions in the server."""
+        guild_data = await self.config.custom(
+            GUILD_SUBSCRIPTIONS, str(ctx.guild.id)
+        ).all()
+        if not guild_data:
+            await ctx.send(
+                "There are no active profile update subscriptions in this server."
+            )
+            return
+
+        view = GuildSubscriptionView(ctx, self, guild_data)
+        await view.send()
 
     async def _is_lookup_by_id_or_send_error(
         self, ctx: commands.Context, player: rlapi.Player
