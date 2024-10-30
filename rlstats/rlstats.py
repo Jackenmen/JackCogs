@@ -378,11 +378,39 @@ class GuildSubscriptionView(discord.ui.View):
                 view=None,
             )
 
-        sub_count_scope = self.cog.config.channel_from_id(channel_id).subscription_count
-        async with sub_count_scope.get_lock():
-            subscription_count = await sub_count_scope()
-            subscription_count = max(0, subscription_count - 1)
+        await self._unsubscribe(channel_id, raw_platform, player_id)
+        await confirm_view.delete_interaction.followup.send(
+            "Unsubscribed the channel from profile updates for"
+            f" {deleted_option.label} ({deleted_option.description})."
+        )
 
+    async def _unsubscribe(
+        self, channel_id: int, raw_platform: str, player_id: str
+    ) -> None:
+        raw_channel_id = str(channel_id)
+        async with self.cog.config.custom(
+            GUILD_SUBSCRIPTIONS,
+            str(self.ctx.guild.id),
+        ).all() as guild_data:
+            # remove player ID from guild subscriptions
+            try:
+                channel_data = guild_data[raw_channel_id]
+            except KeyError:
+                return
+            platform_data = channel_data.get(raw_platform, {"ids": []})
+            ids = platform_data["ids"]
+            while True:
+                try:
+                    ids.remove(player_id)
+                except ValueError:
+                    break
+            # cleanup empty structures
+            if not ids:
+                channel_data.pop(raw_platform, None)
+            if not channel_data:
+                del guild_data[raw_channel_id]
+
+            # remove channel ID from tracked players
             scope = self.cog.config.custom(
                 TRACKED_PLAYERS,
                 raw_platform,
@@ -395,43 +423,9 @@ class GuildSubscriptionView(discord.ui.View):
                         subscribed_channels.remove(channel_id)
                     except ValueError:
                         break
+            # cleanup empty structure
             if not subscribed_channels:
                 await scope.clear()
-
-            await sub_count_scope.set(subscription_count)
-
-            scope = self.cog.config.custom(
-                GUILD_SUBSCRIPTIONS,
-                str(self.ctx.guild.id),
-                str(channel_id),
-                raw_platform,
-            )
-            async with scope.ids() as ids:
-                while True:
-                    try:
-                        ids.remove(player_id)
-                    except ValueError:
-                        break
-            if not ids:
-                await scope.clear()
-                scope = self.cog.config.custom(
-                    GUILD_SUBSCRIPTIONS,
-                    str(self.ctx.guild.id),
-                    str(channel_id),
-                )
-                if not await scope.all():
-                    await scope.clear()
-                    scope = self.cog.config.custom(
-                        GUILD_SUBSCRIPTIONS,
-                        str(self.ctx.guild.id),
-                    )
-                    if not await scope.all():
-                        await scope.clear()
-
-        await confirm_view.delete_interaction.followup.send(
-            "Unsubscribed the channel from profile updates for"
-            f" {deleted_option.label} ({deleted_option.description})."
-        )
 
     @discord.ui.select()
     async def page_select(
@@ -545,7 +539,6 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             platform=None,
             tracked=False,
         )
-        self.config.register_channel(subscription_count=0)
         # keyed by (platform.name, player_id, guild_id)
         # no player ID in config vs player ID with no guilds
         # are treated differently
@@ -1397,11 +1390,18 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             return
 
         max_subscriptions = await self.config.tracker_max_subscriptions()
-        sub_count_scope = self.config.channel(ctx.channel).subscription_count
-        async with sub_count_scope.get_lock():
-            subscription_count = await sub_count_scope()
-            subscription_count += 1
-            if subscription_count > max_subscriptions:
+        async with self.config.custom(
+            GUILD_SUBSCRIPTIONS,
+            str(ctx.guild.id),
+            str(ctx.channel.id),
+        ).all() as channel_data:
+            # validate subscription count
+            subscription_count = sum(
+                1
+                for platform_data in channel_data.values()
+                for _ in platform_data["ids"]
+            )
+            if subscription_count >= max_subscriptions:
                 await ctx.send(
                     "This channel is already at max number of subscriptions set"
                     " by the bot owner."
@@ -1409,6 +1409,13 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
                 return
 
             player_id = str(player.user_id)
+            # add to guild subscriptions group
+            platform_data = channel_data.setdefault(player.platform.name, {"ids": []})
+            ids = platform_data["ids"]
+            if player_id not in ids:
+                ids.append(player_id)
+
+            # add to tracked players group
             scope = self.config.custom(
                 TRACKED_PLAYERS,
                 player.platform.name,
@@ -1418,17 +1425,6 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             async with scope.subscribed_channels() as subscribed_channels:
                 if ctx.channel.id not in subscribed_channels:
                     subscribed_channels.append(ctx.channel.id)
-
-            await sub_count_scope.set(subscription_count)
-
-            async with self.config.custom(
-                GUILD_SUBSCRIPTIONS,
-                str(ctx.guild.id),
-                str(ctx.channel.id),
-                player.platform.name,
-            ).ids() as ids:
-                if player_id not in ids:
-                    ids.append(player_id)
 
         await ctx.send(
             "Subscribed the current channel to live tracker updates for"
