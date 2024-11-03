@@ -190,7 +190,7 @@ class RLStatsImage(RLStatsImageMixin):
 
     def _draw_season_rewards(self) -> None:
         self._draw_season_reward_lvl()
-        if self.player.season_rewards.level != 8:
+        if self.player.season_rewards.next_level is not None:
             self._draw_season_reward_bars()
             self._draw_season_reward_wins()
 
@@ -247,7 +247,6 @@ class RLStatsImage(RLStatsImageMixin):
         # season_rewards_wins_max has font name defined
         assert isinstance(font_name, str), "mypy"
         font = self.template.fonts[font_name]
-        # TODO: rlapi package should define max
         w, h = font.getsize("10")
         coords -= (w, h / 2)
         self._draw.text(xy=coords, text="10", font=font, fill=fill)
