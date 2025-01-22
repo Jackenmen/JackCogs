@@ -317,7 +317,7 @@ class NitroRole(commands.Cog):
             return False
         return await func(self, guild)
 
-    @nitrorole.command(name="show", aliases=["showsettings", "setting"])
+    @nitrorole.command(name="settings", aliases=["show", "showsettings", "setting"])
     async def nitrorole_settings(self, ctx: GuildContext) -> None:
         """
         Shows the current NitroRole settings for the server.
