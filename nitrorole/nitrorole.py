@@ -317,6 +317,42 @@ class NitroRole(commands.Cog):
             return False
         return await func(self, guild)
 
+    @nitrorole.command(name="show", aliases=["showsettings", "setting"])
+    async def nitrorole_settings(self, ctx: GuildContext) -> None:
+        """
+        Shows the current NitroRole settings for the server.
+        """
+        
+        guild = ctx.guild
+        guild_data = await self.get_guild_data(guild)
+        role = guild_data.role_id
+        channel_id = guild_data.channel_id
+        unassign_on_boost_end = guild_data.unassign_on_boost_end
+
+        # Check if the channel is set, implying the cog is enabled
+        is_enabled = "Enabled" if channel_id else "Disabled"
+
+        role_mention = f"<@&{role}>" if role else "None"
+        channel = guild.get_channel(channel_id)
+        channel_mention = channel.mention if channel else "None"
+        unassign_status = "Enabled" if unassign_on_boost_end else "Disabled"
+        
+        description = (
+            f"**Auto-assign Role:** {role_mention}\n"
+            f"**Boost Message Channel:** {channel_mention}\n"
+            f"**Unassign Role on Boost End:** {unassign_status}\n"
+            f"**Cog Status:** {is_enabled}"
+        )
+
+        embed_color = await ctx.embed_color()  # Bot's color
+        embed = discord.Embed(
+            title=f"NitroRole Settings for {guild.name}",
+            description=description,
+            color=embed_color
+        )
+
+        await ctx.send(embed=embed)
+
     @commands.Cog.listener()
     async def on_member_update(
         self, before: discord.Member, after: discord.Member
@@ -454,3 +490,4 @@ class NitroRole(commands.Cog):
                 guild.id,
             )
             return
+
