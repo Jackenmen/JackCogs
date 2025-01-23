@@ -144,7 +144,7 @@ class NitroRole(commands.Cog):
             return
 
         await guild_data.set_role(role)
-        await ctx.send(f"Nitro boosters will now be assigned {role.name} role.")
+        await ctx.send(f"Nitro boosters will now be assigned {role.mention} role.")
 
     @nitrorole.command(name="channel")
     async def nitrorole_channel(
@@ -325,33 +325,27 @@ class NitroRole(commands.Cog):
         
         guild = ctx.guild
         guild_data = await self.get_guild_data(guild)
-        role = guild_data.role_id
+        role_id = guild_data.role_id
         channel_id = guild_data.channel_id
         unassign_on_boost_end = guild_data.unassign_on_boost_end
 
         # Check if the channel is set, implying the cog is enabled
         is_enabled = "Enabled" if channel_id else "Disabled"
 
-        role_mention = f"<@&{role}>" if role else "None"
-        channel = guild.get_channel(channel_id)
-        channel_mention = channel.mention if channel else "None"
-        unassign_status = "Enabled" if unassign_on_boost_end else "Disabled"
-        
-        description = (
-            f"**Auto-assign Role:** {role_mention}\n"
-            f"**Boost Message Channel:** {channel_mention}\n"
-            f"**Unassign Role on Boost End:** {unassign_status}\n"
-            f"**Cog Status:** {is_enabled}"
-        )
+        role = guild.get_role(role_id) if role_id else None
+        role_mention = role.mention if role is not None else "None"
+        channel = channel_id and guild.get_channel(channel_id) if channel_id else None
+        channel_mention = channel.mention if channel is not None else "None"
+        unassign_status = "Yes" if unassign_on_boost_end else "No"
 
-        embed_color = await ctx.embed_color()  # Bot's color
-        embed = discord.Embed(
-            title=f"NitroRole Settings for {guild.name}",
-            description=description,
-            color=embed_color
+        await ctx.send(
+            "## __**NitroRole's Guild Settings**__\n\n"
+            ">>> "
+            f"- **Auto-assign role:** {role_mention}\n"
+            f"- **Boost message channel:** {channel_mention}\n"
+            f"- **Unassign role on boost end:** {unassign_status}\n"
+            f"- **Cog status:** {is_enabled}"
         )
-
-        await ctx.send(embed=embed)
 
     @commands.Cog.listener()
     async def on_member_update(
@@ -490,4 +484,3 @@ class NitroRole(commands.Cog):
                 guild.id,
             )
             return
-
