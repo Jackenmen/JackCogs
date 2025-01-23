@@ -484,4 +484,3 @@ class NitroRole(commands.Cog):
                 guild.id,
             )
             return
-        
