@@ -331,9 +331,9 @@ class NitroRole(commands.Cog):
         # Check if the channel is set, implying the cog is enabled
         is_enabled = "Enabled" if channel_id else "Disabled"
 
-        role = role_id and guild.get_role(role_id)
+        role = guild.get_role(role_id) if role_id is not None else None
         role_mention = role.mention if role is not None else "*None*"
-        channel = channel_id and guild.get_channel(channel_id)
+        channel = guild.get_channel(channel_id) if channel_id is not None else None
         channel_mention = channel.mention if channel is not None else "*None*"
         unassign_status = "Yes" if unassign_on_boost_end else "No"
 
