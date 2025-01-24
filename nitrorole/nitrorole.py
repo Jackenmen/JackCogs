@@ -341,7 +341,7 @@ class NitroRole(commands.Cog):
             "## __**NitroRole's Server Settings**__\n\n"
             ">>> "
             f"- **Enabled:** {is_enabled}\n"
-            f"- **Auto-assign role:** {role_mention}\n"
+            f"- **Role to auto-assign:** {role_mention}\n"
             f"- **Boost message channel:** {channel_mention}\n"
             f"- **Unassign role on boost end:** {unassign_status}"
         )
