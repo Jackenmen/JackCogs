@@ -322,7 +322,6 @@ class NitroRole(commands.Cog):
         """
         Shows the current NitroRole settings for the server.
         """
-        
         guild = ctx.guild
         guild_data = await self.get_guild_data(guild)
         role_id = guild_data.role_id
