@@ -332,10 +332,10 @@ class NitroRole(commands.Cog):
         # Check if the channel is set, implying the cog is enabled
         is_enabled = "Enabled" if channel_id else "Disabled"
 
-        role = guild.get_role(role_id) if role_id else None
-        role_mention = role.mention if role is not None else "None"
-        channel = channel_id and guild.get_channel(channel_id) if channel_id else None
-        channel_mention = channel.mention if channel is not None else "None"
+        role = role_id and guild.get_role(role_id)
+        role_mention = role.mention if role is not None else "*None*"
+        channel = channel_id and guild.get_channel(channel_id)
+        channel_mention = channel.mention if channel is not None else "*None*"
         unassign_status = "Yes" if unassign_on_boost_end else "No"
 
         await ctx.send(
@@ -344,7 +344,7 @@ class NitroRole(commands.Cog):
             f"- **Auto-assign role:** {role_mention}\n"
             f"- **Boost message channel:** {channel_mention}\n"
             f"- **Unassign role on boost end:** {unassign_status}\n"
-            f"- **Cog status:** {is_enabled}"
+            f"- **Enabled:** {is_enabled}"
         )
 
     @commands.Cog.listener()
