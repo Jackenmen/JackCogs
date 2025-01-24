@@ -338,7 +338,7 @@ class NitroRole(commands.Cog):
         unassign_status = "Yes" if unassign_on_boost_end else "No"
 
         await ctx.send(
-            "## __**NitroRole's Guild Settings**__\n\n"
+            "## __**NitroRole's Server Settings**__\n\n"
             ">>> "
             f"- **Enabled:** {is_enabled}\n"
             f"- **Auto-assign role:** {role_mention}\n"
