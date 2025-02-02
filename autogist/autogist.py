@@ -601,7 +601,8 @@ class AutoGist(commands.Cog):
         author = message.author
 
         filename, content = await fetch_attachment_from_message(message)
-        if content is None:
+        if not content:
+            # content could not be decoded (is None) *or* the file is empty (== "")
             return
 
         try:
