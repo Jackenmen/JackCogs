@@ -1392,14 +1392,23 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             if not await self._check_client_credentials(ctx):
                 return
 
-            lookup_info = await self._get_player_data_by_user(ctx.author)
-            if lookup_info.tracked and lookup_info.platform is not None:
+            lookup_info = None
+            try:
+                lookup_info = await self._get_player_data_by_user(ctx.author)
+            except errors.PlayerDataNotFound:
+                pass
+            if (
+                lookup_info is not None
+                and lookup_info.tracked
+                and lookup_info.platform is not None
+            ):
                 await self._maybe_untrack_player(
                     lookup_info.platform, lookup_info.player_id
                 )
 
             players = await self._maybe_get_players(ctx, [LookupInfo(player_id)])
             if players is None:
+                # message already sent by `_maybe_get_players()` when it returns `None`
                 return
 
             try:
@@ -1417,7 +1426,7 @@ class RLStats(SettingsMixin, commands.Cog, metaclass=CogAndABCMeta):
             if player.user_id is not None:
                 await scope.lookup_method.set(LookupMethod.id.value)
                 await scope.player_id.set(str(player.user_id))
-                if lookup_info.tracked:
+                if lookup_info is not None and lookup_info.tracked:
                     await self._track_player(player.platform, str(player.user_id))
             else:
                 await scope.lookup_method.set(LookupMethod.name.value)
