@@ -80,7 +80,7 @@ class MessageCreate(MessageEvent):
         if self.message.channel.id in self._cog.removed_bridges:
             return
         message = self.message
-        if await self._cog.bot.cog_disabled_in_message.guild(self, message.guild):
+        if await self._cog.bot.cog_disabled_in_guild(self, message.guild):
             return
 
         webhook, thread = await self._cog.get_webhook(message.channel)
