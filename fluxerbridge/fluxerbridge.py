@@ -137,7 +137,8 @@ class MessageCreate(MessageEvent):
             embeds.append(discord.Embed(description=content))
             content = None
 
-        extra_embed = discord.Embed(description="")
+        extra_embed = discord.Embed()
+        extra_embed.description = ""
         if len(files) != len(message.attachments):
             extra_embed.description += (
                 "Some of the attachments could not be forwarded,"
