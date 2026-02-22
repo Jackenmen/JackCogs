@@ -51,13 +51,17 @@ class WebhookAdapter(AsyncWebhookAdapter):
         super().__init__()
         self.__base = base
 
-    async def request(self, route, *args: Any, **kwargs: Any) -> Any:
+    async def request(  # type: ignore[no-untyped-def]
+        self, route, *args: Any, **kwargs: Any
+    ) -> Any:
         route.url = f"https://{self.__base}" + route.url[len(route.BASE) :]
         return await super().request(route, *args, **kwargs)
 
 
 class Webhook(discord.Webhook):
     __slots__ = ("red_webhook_base_url",)
+
+    red_webhook_base_url: str
 
     @property
     def url(self) -> str:
@@ -89,7 +93,7 @@ class WebhookTestMessageEvent(MessageEvent):
     def __init__(self, cog: FluxerBridge, /, *, webhook_data: Dict[str, Any]) -> None:
         super().__init__(cog)
         self._webhook, self._thread = self._cog.get_webhook_from_data(webhook_data)
-        self.last_error = None
+        self.last_error: Optional[Exception] = None
 
     async def execute(self) -> None:
         token = async_context.set(WebhookAdapter(self._webhook.red_webhook_base_url))
@@ -122,9 +126,9 @@ class MessageCreate(MessageEvent):
         if webhook is None:
             return
 
-        content = message.content
+        content: Optional[str] = message.content
         embeds: List[discord.Embed] = []
-        if len(content) > 2000:
+        if content and len(content) > 2000:
             embeds.append(discord.Embed(description=content))
             content = None
 
@@ -144,7 +148,7 @@ class MessageCreate(MessageEvent):
                 message.content,
                 thread=thread,
                 username=message.author.display_name,
-                avatar_url=message.author.avatar.url,
+                avatar_url=str(message.author.avatar or ""),
                 embeds=embeds,
                 wait=True,
             )
@@ -189,22 +193,24 @@ class MessageEdit(MessageEvent):
         if webhook is None:
             return
 
-        content = message.content
+        content: Optional[str] = message.content
         embeds: List[discord.Embed] = []
-        if len(content) > 2000:
+        if content and len(content) > 2000:
             embeds.append(discord.Embed(description=content))
             embeds.append(
                 discord.Embed(description=discord.utils.format_dt(message.created_at))
             )
             content = None
 
-        latency = datetime.datetime.now(tz=datetime.timezone.utc) - message.edited_at
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        latency = now - (message.edited_at or now)
         if latency.seconds > 15:
             embeds.append(
                 discord.Embed(
                     description=(
                         f"{discord.utils.format_dt(message.created_at)}\n"
-                        f"Edit delayed! {discord.utils.format_dt(message.edited_at)}"
+                        "Edit delayed!"
+                        f" {discord.utils.format_dt(message.edited_at or now)}"
                     )
                 )
             )
@@ -291,8 +297,8 @@ class FluxerBridge(commands.Cog):
         # "local" message id -> {...}
         self.config.init_custom(MESSAGES, 1)
         self.config.register_custom(MESSAGES, message_id=None, user_id=None)
-        self._queue = asyncio.Queue()
-        self._queue_handler: Optional[asyncio.Task] = None
+        self._queue: asyncio.Queue[MessageEvent] = asyncio.Queue()
+        self._queue_handler: Optional[asyncio.Task[None]] = None
         self.removed_bridges: Set[int] = set()
 
     async def initialize(self) -> None:
@@ -424,7 +430,7 @@ class FluxerBridge(commands.Cog):
 
     async def get_webhook(
         self, channel_id: int
-    ) -> Tuple[Optional[discord.Webhook], discord.abc.Snowflake]:
+    ) -> Tuple[Optional[Webhook], discord.abc.Snowflake]:
         webhook_data = await self.config.channel_from_id(channel_id).webhook_data()
         if not webhook_data:
             return None, discord.utils.MISSING
@@ -433,11 +439,11 @@ class FluxerBridge(commands.Cog):
 
     def get_webhook_from_data(
         self, webhook_data: Dict[str, Any]
-    ) -> Tuple[discord.Webhook, discord.abc.Snowflake]:
+    ) -> Tuple[Webhook, discord.abc.Snowflake]:
         webhook_data["type"] = 1
         webhook_base_url = webhook_data.pop("red_webhook_base_url")
         thread_id = webhook_data.pop("red_thread_id")
-        webhook = Webhook(webhook_data, self._session)
+        webhook = Webhook(webhook_data, self._session)  # type: ignore[arg-type]
         webhook.red_webhook_base_url = webhook_base_url
         thread = discord.Object(thread_id) if thread_id else discord.utils.MISSING
         return webhook, thread
@@ -445,7 +451,7 @@ class FluxerBridge(commands.Cog):
     @commands.guildowner()
     @commands.guild_only()
     @commands.group()
-    async def fluxerbridge(self, ctx: commands.Context) -> None:
+    async def fluxerbridge(self, ctx: commands.GuildContext) -> None:
         """
         Fluxer bridge settings.
 
@@ -455,7 +461,7 @@ class FluxerBridge(commands.Cog):
         """
 
     @fluxerbridge.command(name="add", aliases=["create"])
-    async def fluxerbridge_add(self, ctx: commands.Context) -> None:
+    async def fluxerbridge_add(self, ctx: commands.GuildContext) -> None:
         """
         Add a new one-way bridge for the current channel.
 
@@ -533,7 +539,7 @@ class FluxerBridge(commands.Cog):
         await ctx.send("A one-way bridge has been set up.")
 
     @fluxerbridge.command(name="remove", aliases=["delete"])
-    async def fluxerbridge_remove(self, ctx: commands.Context) -> None:
+    async def fluxerbridge_remove(self, ctx: commands.GuildContext) -> None:
         """Remove a one-way bridge for the current channel."""
         if not await self.config.channel(ctx.channel).webhook_data():
             await ctx.send("There is no bridge in this channel!")
@@ -544,7 +550,7 @@ class FluxerBridge(commands.Cog):
 
     @commands.is_owner()
     @fluxerbridge.command(name="fulllist")
-    async def fluxerbridge_fulllist(self, ctx: commands.Context) -> None:
+    async def fluxerbridge_fulllist(self, ctx: commands.GuildContext) -> None:
         """List bridges from all servers."""
         lines: List[str] = []
         for channel_id, channel_data in await self.config.all_channels():
@@ -560,7 +566,7 @@ class FluxerBridge(commands.Cog):
             await ctx.send(page)
 
     @fluxerbridge.command(name="list")
-    async def fluxerbridge_list(self, ctx: commands.Context) -> None:
+    async def fluxerbridge_list(self, ctx: commands.GuildContext) -> None:
         """List bridges in the current server."""
         lines: List[str] = []
         for channel in itertools.chain(ctx.guild.channels, ctx.guild.threads):
