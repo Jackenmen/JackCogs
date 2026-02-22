@@ -51,7 +51,7 @@ class WebhookAdapter(AsyncWebhookAdapter):
         self.__base = base
 
     async def request(self, route, *args: Any, **kwargs: Any) -> Any:
-        route.url = self.__base + route.url[route.BASE :]
+        route.url = self.__base + route.url[len(route.BASE) :]
         return super().request(route, *args, **kwargs)
 
 
