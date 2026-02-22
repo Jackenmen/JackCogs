@@ -395,7 +395,7 @@ class FluxerBridge(commands.Cog):
         Do the same on the other platform for a two-way bridge.
         """
 
-    @commands.command(name="add", aliases=["create"])
+    @fluxerbridge.command(name="add", aliases=["create"])
     async def fluxerbridge_add(self, ctx: commands.Context) -> None:
         """
         Add a new one-way bridge for the current channel.
@@ -449,7 +449,7 @@ class FluxerBridge(commands.Cog):
             }
         )
 
-    @commands.command(name="remove", aliases=["delete"])
+    @fluxerbridge.command(name="remove", aliases=["delete"])
     async def fluxerbridge_remove(self, ctx: commands.Context) -> None:
         """Remove a one-way bridge for the current channel."""
         if not await self.config.channel(ctx.channel).webhook_data():
@@ -460,7 +460,7 @@ class FluxerBridge(commands.Cog):
         await ctx.send("Bridge removed.")
 
     @commands.is_owner()
-    @commands.command(name="fulllist")
+    @fluxerbridge.command(name="fulllist")
     async def fluxerbridge_fulllist(self, ctx: commands.Context) -> None:
         """List bridges from all servers."""
         lines: List[str] = []
@@ -476,7 +476,7 @@ class FluxerBridge(commands.Cog):
         for page in pagify(content):
             await ctx.send(page)
 
-    @commands.command(name="list")
+    @fluxerbridge.command(name="list")
     async def fluxerbridge_list(self, ctx: commands.Context) -> None:
         """List bridges in the current server."""
         lines: List[str] = []
