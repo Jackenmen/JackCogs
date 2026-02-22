@@ -38,7 +38,7 @@ WEBHOOK_URL_RE = re.compile(
     r"/(?P<id>[0-9]{17,20})/(?P<token>[A-Za-z0-9\.\-\_]{60,})"
 )
 VALID_BASE_URLS = (
-    ("discord.com/api", "discordapp.com/api") if IS_DISCORD else ("api.fluxer.app",)
+    ("api.fluxer.app",) if IS_DISCORD else ("discord.com/api", "discordapp.com/api")
 )
 
 log = logging.getLogger("red.jackcogs.fluxerbridge")
