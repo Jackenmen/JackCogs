@@ -31,6 +31,7 @@ from redbot.core.bot import Red
 from redbot.core.config import Config
 from redbot.core.utils.chat_formatting import pagify
 from redbot.core.utils.predicates import MessagePredicate
+from redbot.core.utils.tunnel import Tunnel
 
 IS_DISCORD = discord.utils.oauth_url("").startswith("https://discord.com/")
 USER_MESSAGES = "USER_MESSAGES"
@@ -116,9 +117,9 @@ class MessageCreate(MessageEvent):
         self.message = message
 
     async def execute(self) -> None:
-        if self.message.channel.id in self._cog.removed_bridges:
-            return
         message = self.message
+        if message.channel.id in self._cog.removed_bridges:
+            return
         if await self._cog.bot.cog_disabled_in_guild(self._cog, message.guild):
             return
 
@@ -127,20 +128,29 @@ class MessageCreate(MessageEvent):
             return
 
         content: Optional[str] = message.content
+        if content is None and not message.attachments:
+            return
+        files = Tunnel.files_from_attach(message)
+
         embeds: List[discord.Embed] = []
         if content and len(content) > 2000:
             embeds.append(discord.Embed(description=content))
             content = None
 
+        extra_embed = discord.Embed(description="")
+        if len(files) != len(message.attachments):
+            extra_embed.description += (
+                "Some of the attachment could not be forwarded,"
+                " probably due to their size."
+            )
         latency = datetime.datetime.now(tz=datetime.timezone.utc) - message.created_at
         if latency.seconds > 15:
-            embeds.append(
-                discord.Embed(
-                    description=(
-                        f"Delayed! {discord.utils.format_dt(message.created_at)}"
-                    )
-                )
+            extra_embed.set_footer(
+                text=f"Delayed! {discord.utils.format_dt(message.created_at)}"
             )
+
+        if extra_embed:
+            embeds.append(extra_embed)
 
         source = "Discord" if IS_DISCORD else "Fluxer"
         username = f"{message.author.display_name} [relayed from {source}]"
@@ -148,6 +158,7 @@ class MessageCreate(MessageEvent):
         try:
             remote_message = await webhook.send(
                 message.content,
+                files=files,
                 thread=thread,
                 username=username,
                 avatar_url=str(message.author.avatar or ""),
