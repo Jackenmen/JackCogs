@@ -52,7 +52,7 @@ class WebhookAdapter(AsyncWebhookAdapter):
 
     async def request(self, route, *args: Any, **kwargs: Any) -> Any:
         route.url = self.__base + route.url[len(route.BASE) :]
-        return super().request(route, *args, **kwargs)
+        return await super().request(route, *args, **kwargs)
 
 
 class Webhook(discord.Webhook):
