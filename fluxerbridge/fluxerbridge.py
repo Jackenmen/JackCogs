@@ -142,8 +142,8 @@ class MessageCreate(MessageEvent):
                 )
             )
 
-        source = " [from Discord]" if IS_DISCORD else " [from Fluxer]"
-        username = f"{message.author.display_name}{source}"
+        source = "Discord" if IS_DISCORD else "Fluxer"
+        username = f"{message.author.display_name} [relayed from {source}]"
         token = async_context.set(WebhookAdapter(webhook.red_webhook_base_url))
         try:
             remote_message = await webhook.send(
