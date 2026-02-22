@@ -437,7 +437,7 @@ class FluxerBridge(commands.Cog):
             await ctx.author.send("This does not appear to be a valid URL.")
             return
 
-        thread_id = url.params.get("thread_id")
+        thread_id = url.query.get("thread_id")
         webhook_id = match["id"]
         webhook_token = match["token"]
         await self.config.channel(ctx.channel).set(
@@ -448,6 +448,8 @@ class FluxerBridge(commands.Cog):
                 "red_thread_id": thread_id,
             }
         )
+        await ctx.author.send("A one-way bridge has been set up.")
+        await ctx.send("A one-way bridge has been set up.")
 
     @fluxerbridge.command(name="remove", aliases=["delete"])
     async def fluxerbridge_remove(self, ctx: commands.Context) -> None:
