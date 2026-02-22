@@ -385,7 +385,7 @@ class FluxerBridge(commands.Cog):
 
     @commands.Cog.listener()
     async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent) -> None:
-        if not IS_DISCORD or payload.guild_id is None:
+        if IS_DISCORD or payload.guild_id is None:
             return
         self._queue.put_nowait(MessageEdit(self, message=payload.message))
 
@@ -393,7 +393,7 @@ class FluxerBridge(commands.Cog):
     async def on_raw_bulk_message_delete(
         self, payload: discord.RawBulkMessageDeleteEvent
     ) -> None:
-        if not IS_DISCORD or payload.guild_id is None:
+        if IS_DISCORD or payload.guild_id is None:
             return
         for message_id in payload.message_ids:
             self._queue.put_nowait(
@@ -409,7 +409,7 @@ class FluxerBridge(commands.Cog):
     async def on_raw_message_delete(
         self, payload: discord.RawMessageDeleteEvent
     ) -> None:
-        if not IS_DISCORD or payload.guild_id is None:
+        if IS_DISCORD or payload.guild_id is None:
             return
         self._queue.put_nowait(
             MessageDelete(
