@@ -140,7 +140,7 @@ class MessageCreate(MessageEvent):
         extra_embed = discord.Embed(description="")
         if len(files) != len(message.attachments):
             extra_embed.description += (
-                "Some of the attachment could not be forwarded,"
+                "Some of the attachments could not be forwarded,"
                 " probably due to their size."
             )
         latency = datetime.datetime.now(tz=datetime.timezone.utc) - message.created_at
