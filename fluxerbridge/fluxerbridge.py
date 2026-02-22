@@ -164,6 +164,7 @@ class MessageCreate(MessageEvent):
                 avatar_url=str(message.author.avatar or ""),
                 embeds=embeds,
                 wait=True,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
         finally:
             async_context.reset(token)
@@ -238,6 +239,7 @@ class MessageEdit(MessageEvent):
                 content=content,
                 embeds=embeds,
                 thread=thread,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
         finally:
             async_context.reset(token)
