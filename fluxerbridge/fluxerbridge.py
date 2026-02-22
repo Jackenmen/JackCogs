@@ -501,7 +501,7 @@ class FluxerBridge(commands.Cog):
             "red_thread_id": thread_id,
         }
 
-        event = WebhookTestMessageEvent(self, webhook_data=webhook_data)
+        event = WebhookTestMessageEvent(self, webhook_data=webhook_data.copy())
         self._queue.put_nowait(event)
         await event.finished.wait()
 
