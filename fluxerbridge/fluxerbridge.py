@@ -132,11 +132,6 @@ class MessageCreate(MessageEvent):
             embeds.append(discord.Embed(description=content))
             content = None
 
-        msg_source = "Discord" if IS_DISCORD else "Fluxer"
-        if not embeds:
-            embeds.append(discord.Embed())
-        embeds[0] = embeds[0].set_footer(text=f"Sent from {msg_source}")
-
         latency = datetime.datetime.now(tz=datetime.timezone.utc) - message.created_at
         if latency.seconds > 15:
             embeds.append(
@@ -147,12 +142,14 @@ class MessageCreate(MessageEvent):
                 )
             )
 
+        source = " [from Discord]" if IS_DISCORD else " [from Fluxer]"
+        username = f"{message.author.display_name}{source}"
         token = async_context.set(WebhookAdapter(webhook.red_webhook_base_url))
         try:
             remote_message = await webhook.send(
                 message.content,
                 thread=thread,
-                username=message.author.display_name,
+                username=username,
                 avatar_url=str(message.author.avatar or ""),
                 embeds=embeds,
                 wait=True,
@@ -206,11 +203,6 @@ class MessageEdit(MessageEvent):
                 discord.Embed(description=discord.utils.format_dt(message.created_at))
             )
             content = None
-
-        msg_source = "Discord" if IS_DISCORD else "Fluxer"
-        if not embeds:
-            embeds.append(discord.Embed())
-        embeds[0] = embeds[0].set_footer(text=f"Sent from {msg_source}")
 
         now = datetime.datetime.now(tz=datetime.timezone.utc)
         latency = now - (message.edited_at or now)
