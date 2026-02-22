@@ -281,7 +281,7 @@ class FluxerBridge(commands.Cog):
             )
             return
         for attempt in range(10):
-            delay = random.random() + 2.0 * attempt
+            delay = random.random() + (0.0 if attempt < 4 else 2.0 * (attempt - 3))
             log_suffix = (
                 f"Retrying in {delay:.2f}s." if attempt < 9 else "Will not retry."
             )
