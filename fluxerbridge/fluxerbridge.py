@@ -91,15 +91,16 @@ class WebhookTestMessageEvent(MessageEvent):
         self.last_error = None
 
     async def execute(self) -> None:
+        token = async_context.set(WebhookAdapter(self._webhook.red_webhook_base_url))
         try:
-            with async_context.set(WebhookAdapter(self._webhook.red_webhook_base_url)):
-                await self._webhook.send(
-                    "A one-way bridge to this channel has been set up!",
-                    thread=self._thread,
-                )
+            await self._webhook.send(
+                "A one-way bridge to this channel has been set up!", thread=self._thread
+            )
         except discord.HTTPException as exc:
             self.last_error = exc
             raise
+        finally:
+            async_context.reset(token)
 
 
 class MessageCreate(MessageEvent):
@@ -134,7 +135,8 @@ class MessageCreate(MessageEvent):
                 )
             )
 
-        with async_context.set(WebhookAdapter(webhook.red_webhook_base_url)):
+        token = async_context.set(WebhookAdapter(webhook.red_webhook_base_url))
+        try:
             remote_message = await webhook.send(
                 message.content,
                 thread=thread,
@@ -142,6 +144,8 @@ class MessageCreate(MessageEvent):
                 avatar_url=message.author.avatar.url,
                 embeds=embeds,
             )
+        finally:
+            async_context.reset(token)
         await self._cog.config.custom(MESSAGES, message.id).set(
             {
                 "message_id": remote_message.id,
@@ -204,13 +208,16 @@ class MessageEdit(MessageEvent):
         if not embeds:
             embeds = discord.utils.MISSING
 
-        with async_context.set(WebhookAdapter(webhook.red_webhook_base_url)):
+        token = async_context.set(WebhookAdapter(webhook.red_webhook_base_url))
+        try:
             await webhook.edit_message(
                 self.remote_message_id,
                 content=content,
                 embeds=embeds,
                 thread=thread,
             )
+        finally:
+            async_context.reset(token)
 
 
 class MessageDelete(MessageEvent):
@@ -250,8 +257,11 @@ class MessageDelete(MessageEvent):
         if webhook is None:
             return
 
-        with async_context.set(WebhookAdapter(webhook.red_webhook_base_url)):
+        token = async_context.set(WebhookAdapter(webhook.red_webhook_base_url))
+        try:
             await webhook.delete_message(self.remote_message_id, thread=thread)
+        finally:
+            async_context.reset(token)
         await self._cfg_msg.clear()
         await self._cog.config.custom(USER_MESSAGES, self.user_id, self.message_id)
 
