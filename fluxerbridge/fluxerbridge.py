@@ -132,6 +132,11 @@ class MessageCreate(MessageEvent):
             embeds.append(discord.Embed(description=content))
             content = None
 
+        msg_source = "Discord" if IS_DISCORD else "Fluxer"
+        if not embeds:
+            embeds.append(discord.Embed())
+        embeds[0] = embeds[0].set_footer(text=f"Sent from {msg_source}")
+
         latency = datetime.datetime.now(tz=datetime.timezone.utc) - message.created_at
         if latency.seconds > 15:
             embeds.append(
@@ -201,6 +206,11 @@ class MessageEdit(MessageEvent):
                 discord.Embed(description=discord.utils.format_dt(message.created_at))
             )
             content = None
+
+        msg_source = "Discord" if IS_DISCORD else "Fluxer"
+        if not embeds:
+            embeds.append(discord.Embed())
+        embeds[0] = embeds[0].set_footer(text=f"Sent from {msg_source}")
 
         now = datetime.datetime.now(tz=datetime.timezone.utc)
         latency = now - (message.edited_at or now)
