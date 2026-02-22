@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 import aiohttp
 import discord
 import yarl
+from discord.webhook.async_ import AsyncWebhookAdapter, async_context
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
@@ -43,6 +44,15 @@ VALID_BASE_URLS = (
 )
 
 log = logging.getLogger("red.jackcogs.fluxerbridge")
+
+
+class WebhookAdapter(AsyncWebhookAdapter):
+    def __init__(self, base: str) -> None:
+        self.__base = base
+
+    async def request(self, route, *args: Any, **kwargs: Any) -> Any:
+        route.url = self.__base + route.url[route.BASE :]
+        return super().request(route, *args, **kwargs)
 
 
 class Webhook(discord.Webhook):
@@ -78,11 +88,18 @@ class WebhookTestMessageEvent(MessageEvent):
     def __init__(self, cog: FluxerBridge, /, *, webhook_data: Dict[str, Any]) -> None:
         super().__init__(cog)
         self._webhook, self._thread = self._cog.get_webhook_from_data(webhook_data)
+        self.last_error = None
 
     async def execute(self) -> None:
-        await self._webhook.send(
-            "A one-way bridge to this channel has been set up!", thread=self._thread
-        )
+        try:
+            with async_context.set(WebhookAdapter(self._webhook.red_webhook_base_url)):
+                await self._webhook.send(
+                    "A one-way bridge to this channel has been set up!",
+                    thread=self._thread,
+                )
+        except discord.HTTPException as exc:
+            self.last_error = exc
+            raise
 
 
 class MessageCreate(MessageEvent):
@@ -117,13 +134,14 @@ class MessageCreate(MessageEvent):
                 )
             )
 
-        remote_message = await webhook.send(
-            message.content,
-            thread=thread,
-            username=message.author.display_name,
-            avatar_url=message.author.avatar.url,
-            embeds=embeds,
-        )
+        with async_context.set(WebhookAdapter(webhook.red_webhook_base_url)):
+            remote_message = await webhook.send(
+                message.content,
+                thread=thread,
+                username=message.author.display_name,
+                avatar_url=message.author.avatar.url,
+                embeds=embeds,
+            )
         await self._cog.config.custom(MESSAGES, message.id).set(
             {
                 "message_id": remote_message.id,
@@ -186,12 +204,13 @@ class MessageEdit(MessageEvent):
         if not embeds:
             embeds = discord.utils.MISSING
 
-        await webhook.edit_message(
-            self.remote_message_id,
-            content=content,
-            embeds=embeds,
-            thread=thread,
-        )
+        with async_context.set(WebhookAdapter(webhook.red_webhook_base_url)):
+            await webhook.edit_message(
+                self.remote_message_id,
+                content=content,
+                embeds=embeds,
+                thread=thread,
+            )
 
 
 class MessageDelete(MessageEvent):
@@ -231,7 +250,8 @@ class MessageDelete(MessageEvent):
         if webhook is None:
             return
 
-        await webhook.delete_message(self.remote_message_id, thread=thread)
+        with async_context.set(WebhookAdapter(webhook.red_webhook_base_url)):
+            await webhook.delete_message(self.remote_message_id, thread=thread)
         await self._cfg_msg.clear()
         await self._cog.config.custom(USER_MESSAGES, self.user_id, self.message_id)
 
@@ -475,6 +495,14 @@ class FluxerBridge(commands.Cog):
         await event.finished.wait()
 
         if not event.success:
+            if isinstance(event.last_error, discord.HTTPException):
+                await ctx.author.send(
+                    "Failed to send a message through provided webhook URL,"
+                    f" received: {event.last_error.status}"
+                    f" (error code: {event.last_error.code})"
+                )
+                return
+
             await ctx.author.send(
                 "Failed to send a message through provided webhook URL."
             )
