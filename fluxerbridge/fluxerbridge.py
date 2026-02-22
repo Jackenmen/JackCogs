@@ -18,6 +18,7 @@ import asyncio
 import datetime
 import itertools
 import logging
+import random
 import re
 from typing import List, Optional, Set, Tuple
 
@@ -279,17 +280,16 @@ class FluxerBridge(commands.Cog):
                 exc_info=exc,
             )
             return
-        for attempt in range(5):
-            # maybe add jitter?
-            delay = 1.0 + 2.0 * attempt
+        for attempt in range(10):
+            delay = random.random() + 2.0 * attempt
             log_suffix = (
-                f"Retrying in {delay:.2f}s." if attempt < 4 else "Will not retry."
+                f"Retrying in {delay:.2f}s." if attempt < 9 else "Will not retry."
             )
             try:
                 await event.execute()
             except aiohttp.ClientError as exc:
                 log.warning(
-                    "Server error occurred, while working on a queue item." "%s",
+                    "Server error occurred, while working on a queue item. %s",
                     log_suffix,
                     exc_info=exc,
                 )
@@ -297,7 +297,7 @@ class FluxerBridge(commands.Cog):
             except discord.HTTPException as exc:
                 if exc.code >= 500:
                     log.warning(
-                        "Server error occurred, while working on a queue item." "%s",
+                        "Server error occurred, while working on a queue item. %s",
                         log_suffix,
                     )
                 elif 400 <= exc.code < 500:
@@ -310,21 +310,21 @@ class FluxerBridge(commands.Cog):
                 else:
                     log.warning(
                         "Unexpected HTTP error occurred, while working on a queue item."
-                        "%s",
+                        " %s",
                         log_suffix,
                         exc_info=exc,
                     )
             except Exception as exc:
                 log.error(
                     "Unexpected error occurred, while working on a queue item."
-                    "Will not retry.",
+                    " Will not retry.",
                     exc_info=exc,
                 )
                 break
             else:
                 # success!
                 break
-            if attempt < 4:
+            if attempt < 9:
                 await asyncio.sleep(delay)
 
     @commands.Cog.listener()
