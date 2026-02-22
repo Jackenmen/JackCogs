@@ -20,7 +20,7 @@ import itertools
 import logging
 import random
 import re
-from typing import List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import aiohttp
 import discord
@@ -58,6 +58,8 @@ class MessageEvent:
     def __init__(self, cog: FluxerBridge, /) -> None:
         self._cog = cog
         self._initialized = False
+        self.finished = asyncio.Event()
+        self.success = False
 
     async def init(self) -> None:
         if not self._initialized:
@@ -69,6 +71,17 @@ class MessageEvent:
     async def execute(self) -> None:
         raise NotImplementedError(
             f"execute() method for {self.__class__} has not been implemented"
+        )
+
+
+class WebhookTestMessageEvent(MessageEvent):
+    def __init__(self, cog: FluxerBridge, /, *, webhook_data: Dict[str, Any]) -> None:
+        super().__init__(cog)
+        self._webhook, self._thread = self._cog.get_webhook_from_data(webhook_data)
+
+    async def execute(self) -> None:
+        await self._webhook.send(
+            "A one-way bridge to this channel has been set up!", thread=self._thread
         )
 
 
@@ -279,6 +292,7 @@ class FluxerBridge(commands.Cog):
                 " Will not retry.",
                 exc_info=exc,
             )
+            event.finished.set()
             return
         for attempt in range(10):
             delay = random.random() + (0.0 if attempt < 4 else 2.0 * (attempt - 3))
@@ -295,13 +309,13 @@ class FluxerBridge(commands.Cog):
                 )
                 continue
             except discord.HTTPException as exc:
-                if exc.code >= 500:
+                if exc.status >= 500:
                     log.warning(
-                        "Server error occurred, while working on a queue item. %s",
+                        "Received server error, while working on a queue item. %s",
                         log_suffix,
                         exc_info=exc,
                     )
-                elif 400 <= exc.code < 500:
+                elif 400 <= exc.status < 500:
                     log.error(
                         "Received client error, while working on a queue item."
                         " Will not retry.",
@@ -323,10 +337,11 @@ class FluxerBridge(commands.Cog):
                 )
                 break
             else:
-                # success!
+                event.success = True
                 break
             if attempt < 9:
                 await asyncio.sleep(delay)
+        event.finished.set()
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
@@ -378,6 +393,11 @@ class FluxerBridge(commands.Cog):
         if not webhook_data:
             return None, discord.utils.MISSING
 
+        return self.get_webhook_from_data(webhook_data)
+
+    def get_webhook_from_data(
+        self, webhook_data: Dict[str, Any]
+    ) -> Tuple[discord.Webhook, discord.abc.Snowflake]:
         webhook_data["type"] = 1
         webhook_base_url = webhook_data.pop("red_webhook_base_url")
         thread_id = webhook_data.pop("red_thread_id")
@@ -443,14 +463,25 @@ class FluxerBridge(commands.Cog):
         thread_id = url.query.get("thread_id")
         webhook_id = match["id"]
         webhook_token = match["token"]
-        await self.config.channel(ctx.channel).webhook_data.set(
-            {
-                "red_webhook_base_url": webhook_base_url,
-                "id": webhook_id,
-                "token": webhook_token,
-                "red_thread_id": thread_id,
-            }
-        )
+        webhook_data = {
+            "red_webhook_base_url": webhook_base_url,
+            "id": webhook_id,
+            "token": webhook_token,
+            "red_thread_id": thread_id,
+        }
+
+        event = WebhookTestMessageEvent(self, webhook_data=webhook_data)
+        self._queue.put_nowait(event)
+        await event.finished.wait()
+
+        if not event.success:
+            await ctx.author.send(
+                "Failed to send a message through provided webhook URL."
+            )
+            return
+
+        await self.config.channel(ctx.channel).webhook_data.set(webhook_data)
+
         await ctx.author.send("A one-way bridge has been set up.")
         await ctx.send("A one-way bridge has been set up.")
 
