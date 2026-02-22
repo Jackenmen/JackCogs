@@ -83,7 +83,7 @@ class MessageCreate(MessageEvent):
         if await self._cog.bot.cog_disabled_in_guild(self._cog, message.guild):
             return
 
-        webhook, thread = await self._cog.get_webhook(message.channel)
+        webhook, thread = await self._cog.get_webhook(message.channel.id)
         if webhook is None:
             return
 
