@@ -48,6 +48,7 @@ log = logging.getLogger("red.jackcogs.fluxerbridge")
 
 class WebhookAdapter(AsyncWebhookAdapter):
     def __init__(self, base: str) -> None:
+        super().__init__()
         self.__base = base
 
     async def request(self, route, *args: Any, **kwargs: Any) -> Any:
