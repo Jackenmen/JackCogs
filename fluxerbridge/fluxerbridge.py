@@ -95,7 +95,9 @@ class WebhookTestMessageEvent(MessageEvent):
         token = async_context.set(WebhookAdapter(self._webhook.red_webhook_base_url))
         try:
             await self._webhook.send(
-                "A one-way bridge to this channel has been set up!", thread=self._thread
+                "A one-way bridge to this channel has been set up!",
+                thread=self._thread,
+                wait=True,
             )
         except discord.HTTPException as exc:
             self.last_error = exc
@@ -144,6 +146,7 @@ class MessageCreate(MessageEvent):
                 username=message.author.display_name,
                 avatar_url=message.author.avatar.url,
                 embeds=embeds,
+                wait=True,
             )
         finally:
             async_context.reset(token)
@@ -457,6 +460,9 @@ class FluxerBridge(commands.Cog):
         This will make the bot listen in the current channel
         and send them over the provided webhook URL.
         """
+        if await self.config.channel(ctx.channel).webhook_data():
+            await ctx.send("A bridge is already set in this channel!")
+
         try:
             dm_msg = await ctx.author.send("Send webhook URL in the next message.")
         except discord.Forbidden:
