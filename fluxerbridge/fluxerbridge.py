@@ -111,11 +111,13 @@ class MessageCreate(MessageEvent):
             embeds=embeds,
         )
         await self._cog.config.custom(MESSAGES, message.id).set(
-            message_id=remote_message.id,
-            user_id=message.author.id,
+            {
+                "message_id": remote_message.id,
+                "user_id": message.author.id,
+            }
         )
-        await self._cog.config.custom(MESSAGES, message.author.id, message.id).set(
-            ack=True
+        await self._cog.config.custom(MESSAGES, message.author.id, message.id).ack.set(
+            True
         )
 
 
@@ -440,8 +442,8 @@ class FluxerBridge(commands.Cog):
         thread_id = url.query.get("thread_id")
         webhook_id = match["id"]
         webhook_token = match["token"]
-        await self.config.channel(ctx.channel).set(
-            webhook_data={
+        await self.config.channel(ctx.channel).webhook_data.set(
+            {
                 "red_webhook_base_url": webhook_base_url,
                 "id": webhook_id,
                 "token": webhook_token,
