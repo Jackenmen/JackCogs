@@ -130,7 +130,7 @@ class MessageCreate(MessageEvent):
         content: Optional[str] = message.content
         if content is None and not message.attachments:
             return
-        files = Tunnel.files_from_attach(message)
+        files = await Tunnel.files_from_attach(message)
 
         embeds: List[discord.Embed] = []
         if content and len(content) > 2000:
