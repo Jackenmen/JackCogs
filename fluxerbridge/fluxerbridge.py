@@ -156,9 +156,9 @@ class MessageCreate(MessageEvent):
                 "user_id": message.author.id,
             }
         )
-        await self._cog.config.custom(MESSAGES, message.author.id, message.id).ack.set(
-            True
-        )
+        await self._cog.config.custom(
+            USER_MESSAGES, message.author.id, message.id
+        ).remote_message_id.set(remote_message.id)
 
 
 class MessageEdit(MessageEvent):
@@ -267,7 +267,9 @@ class MessageDelete(MessageEvent):
         finally:
             async_context.reset(token)
         await self._cfg_msg.clear()
-        await self._cog.config.custom(USER_MESSAGES, self.user_id, self.message_id)
+        await self._cog.config.custom(
+            USER_MESSAGES, self.user_id, self.message_id
+        ).clear()
 
 
 class FluxerBridge(commands.Cog):
