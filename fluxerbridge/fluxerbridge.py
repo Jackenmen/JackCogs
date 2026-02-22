@@ -289,7 +289,7 @@ class FluxerBridge(commands.Cog):
                 await event.execute()
             except aiohttp.ClientError as exc:
                 log.warning(
-                    "Server error occurred, while working on a queue item. %s",
+                    "aiohttp error occurred, while working on a queue item. %s",
                     log_suffix,
                     exc_info=exc,
                 )
@@ -299,6 +299,7 @@ class FluxerBridge(commands.Cog):
                     log.warning(
                         "Server error occurred, while working on a queue item. %s",
                         log_suffix,
+                        exc_info=exc,
                     )
                 elif 400 <= exc.code < 500:
                     log.error(
