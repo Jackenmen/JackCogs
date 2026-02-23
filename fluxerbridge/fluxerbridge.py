@@ -168,7 +168,7 @@ class MessageCreate(MessageEvent):
 
         extra_embed = discord.Embed()
         extra_embed.description = ""
-        if sum(a.size for a in message.attachments) <= MAX_FILE_SIZE:
+        if sum(a.size for a in message.attachments) > MAX_FILE_SIZE:
             extra_embed.description += (
                 "The attachments could not be forwarded due to their size."
             )
@@ -279,7 +279,7 @@ class MessageEdit(MessageEvent):
 
         extra_embed = discord.Embed()
         extra_embed.description = ""
-        if sum(a.size for a in message.attachments) <= MAX_FILE_SIZE:
+        if sum(a.size for a in message.attachments) > MAX_FILE_SIZE:
             extra_embed.description += (
                 "The attachments could not be forwarded due to their size."
             )
