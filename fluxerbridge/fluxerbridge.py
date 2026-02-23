@@ -29,7 +29,7 @@ from discord.webhook.async_ import AsyncWebhookAdapter, async_context
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
-from redbot.core.utils.chat_formatting import pagify
+from redbot.core.utils.chat_formatting import inline, pagify
 from redbot.core.utils.predicates import MessagePredicate
 from redbot.core.utils.tunnel import Tunnel
 
@@ -122,6 +122,8 @@ class MessageCreate(MessageEvent):
             return
         if await self._cog.bot.cog_disabled_in_guild(self._cog, message.guild):
             return
+        if not self._cog.is_message_allowed(self.message):
+            return
 
         webhook, thread = await self._cog.get_webhook(message.channel.id)
         if webhook is None:
@@ -196,6 +198,8 @@ class MessageEdit(MessageEvent):
         if self.remote_message_id is None:
             return
         if self.message.channel.id in self._cog.removed_bridges:
+            return
+        if not self._cog.is_message_allowed(self.message):
             return
         message = self.message
         if message.guild is None or await self._cog.bot.cog_disabled_in_guild(
@@ -305,6 +309,9 @@ class FluxerBridge(commands.Cog):
             176070082584248320,
             force_registration=True,
         )
+        self.config.register_global(
+            bots_allowed=False, bots_allowlist=[], bots_blocklist=[]
+        )
         self.config.register_channel(webhook_data=None)
         # user id -> "local" message id -> {...}
         self.config.init_custom(USER_MESSAGES, 2)
@@ -315,10 +322,17 @@ class FluxerBridge(commands.Cog):
         self._queue: asyncio.Queue[MessageEvent] = asyncio.Queue()
         self._queue_handler: Optional[asyncio.Task[None]] = None
         self.removed_bridges: Set[int] = set()
+        # bot allow configuration
+        self.bots_allowed = False
+        self.bots_allowlist = set()
+        self.bots_blocklist = set()
 
     async def initialize(self) -> None:
         self._session = aiohttp.ClientSession()
         self._queue_handler = asyncio.create_task(self._handle_queue())
+        self.bots_allowlist = set(await self.config.bots_allowlist())
+        self.bots_blocklist = set(await self.config.bots_blocklist())
+        self.bots_allowed = await self.config.bots_allowed()
 
     async def cog_unload(self) -> None:
         if self._queue_handler is not None:
@@ -414,9 +428,22 @@ class FluxerBridge(commands.Cog):
 
         event.finished.set()
 
+    def is_message_allowed(self, message: discord.Message) -> bool:
+        if not message.author.bot:
+            return True
+        if not self.bots_allowed:
+            return False
+        if self.bots_allowlist and message.author.id not in self.bots_allowlist:
+            return False
+        if message.author.id in self.bots_blocklist:
+            return False
+        if message.webhook_id is not None and message.application_id is None:
+            return False
+        return True
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
-        if message.guild is None or message.author.bot:
+        if message.guild is None:
             return
         self._queue.put_nowait(MessageCreate(self, message=message))
 
@@ -609,3 +636,181 @@ class FluxerBridge(commands.Cog):
         content = "\n".join(lines)
         for page in pagify(content):
             await ctx.send(page)
+
+    @commands.is_owner()
+    @fluxerbridge.group(name="bots")
+    async def fluxerbridge_bots(self, ctx: commands.GuildContext) -> None:
+        """
+        Bot-wide configuration for relaying bot messages.
+
+        Use `[p]fluxerbridge bots allowlist` commands to configure the bot allowlist
+        and then use `[p]fluxerbridge bots allow` to allow messages of those bots
+        to be relayed.
+
+        Alternatively, use `[p]fluxerbridge bots blocklist` commands to configure
+        a bot blocklist.
+
+        If the bot messages are allowed to be relayed and the allowlist is empty,
+        messages of all bots excluding ones on the blocklist will be relayed.
+
+        Non-application webhook messages are ignored regardless.
+        """
+
+    @fluxerbridge_bots.command(name="allow")
+    async def fluxerbridge_bots_allow(self, ctx: commands.GuildContext) -> None:
+        """
+        Allow bot messages to be relayed (bot-wide setting).
+
+        Make sure to use `[p]fluxerbridge bots allowlist` commands to
+        configure bot allowlist *before* running this command, if you want to
+        limit the bots whose messages can be relayed.
+        """
+        await self.config.bots_allowed.set(True)
+        self.bots_allowed = True
+        await ctx.send(
+            "Bot messages are now relayed on all bridges configured on the bot."
+        )
+
+    @fluxerbridge_bots.command(name="disallow")
+    async def fluxerbridge_bots_disallow(self, ctx: commands.GuildContext) -> None:
+        """
+        Disallow bot messages from being relayed (bot-wide setting).
+
+        Make sure to use `[p]fluxerbridge bots allowlist` commands to
+        configure bot allowlist *before* running this command, if you want to
+        limit the bots whose messages can be relayed.
+        """
+        await self.config.bots_allowed.set(False)
+        self.bots_allowed = False
+        await ctx.send(
+            "Bot messages are no longer relayed on all bridges configured on the bot."
+        )
+
+    @fluxerbridge_bots.group(name="allowlist")
+    async def fluxerbridge_bots_allowlist(self, ctx: commands.GuildContext) -> None:
+        """
+        Configure which bots can have their messages relayed (bot-wide setting).
+
+        If the bot messages are allowed to be relayed and the allowlist is empty,
+        messages of all bots excluding ones on the blocklist will be relayed.
+
+        Note that if the allowlist is not empty, it takes precedence over the blocklist.
+
+        Non-application webhook messages are ignored regardless.
+        """
+
+    @fluxerbridge_bots_allowlist.command(name="add")
+    async def fluxerbridge_bots_allowlist_add(
+        self, ctx: commands.GuildContext, user: discord.User
+    ) -> None:
+        """Add a bot to the allowlist (bot-wide setting)."""
+        if not user.bot:
+            await ctx.send("This user is not a bot!")
+            return
+        if user.id in self.bots_allowlist:
+            await ctx.send("This user is already on the allowlist!")
+            return
+        async with self.config.bots_allowlist() as bots_allowlist:
+            bots_allowlist.append(user.id)
+        self.bots_allowlist.add(user.id)
+        await ctx.send("The user has been added to the allowlist.")
+
+    @fluxerbridge_bots_allowlist.command(name="remove", aliases=["delete"])
+    async def fluxerbridge_bots_allowlist_remove(
+        self, ctx: commands.GuildContext, user: discord.User
+    ) -> None:
+        """Remove a bot from the allowlist (bot-wide setting)."""
+        if not user.bot:
+            await ctx.send("This user is not a bot!")
+            return
+        if user.id not in self.bots_allowlist:
+            await ctx.send("This user is already not on the allowlist!")
+            return
+        if len(self.bots_allowlist) == 1:
+            await self.config.bots_allowed.set(False)
+            self.bots_allowed = False
+        async with self.config.bots_allowlist() as bots_allowlist:
+            bots_allowlist.remove(user.id)
+        self.bots_allowlist.remove(user.id)
+        if self.bots_allowlist:
+            await ctx.send("The user has been removed from the allowlist.")
+        else:
+            command = inline(f"{ctx.prefix}fluxerbridge bots allow")
+            await ctx.send(
+                "The bot has been removed from the allowlist and the list is now empty."
+                f" To avoid mistakes, you'll need to run {command} again,"
+                " if you really want to allow all bots to have their messages relayed."
+            )
+
+    @fluxerbridge_bots_allowlist.command(name="clear")
+    async def fluxerbridge_bots_allowlist_clear(
+        self, ctx: commands.GuildContext
+    ) -> None:
+        """Clear the allowlist (bot-wide setting)."""
+        await self.config.bots_allowed.set(False)
+        self.bots_allowed = False
+        await self.config.bots_allowlist.clear()
+        self.bots_allowlist.clear()
+        command = inline(f"{ctx.prefix}fluxerbridge bots allow")
+        await ctx.send(
+            "The bots allowlist has been cleared."
+            f" To avoid mistakes, you'll need to run {command} again,"
+            " if you really want to allow all bots to have their messages relayed."
+        )
+
+    @fluxerbridge_bots.group(name="blocklist")
+    async def fluxerbridge_bots_blocklist(self, ctx: commands.GuildContext) -> None:
+        """
+        Configure which bots cannot have their messages relayed (bot-wide setting).
+
+        Note that if the bot messages are allowed to be relayed and the allowlist
+        is not empty, it will take precedence over this list.
+
+        Non-application webhook messages are ignored regardless.
+        """
+
+    @fluxerbridge_bots_blocklist.command(name="add")
+    async def fluxerbridge_bots_blocklist_add(
+        self, ctx: commands.GuildContext, user: discord.User
+    ) -> None:
+        """Add a bot to the blocklist (bot-wide setting)."""
+        if not user.bot:
+            await ctx.send("This user is not a bot!")
+            return
+        if user.id in self.bots_blocklist:
+            await ctx.send("This user is already on the blocklist!")
+            return
+        async with self.config.bots_blocklist() as bots_blocklist:
+            bots_blocklist.append(user.id)
+        self.bots_blocklist.add(user.id)
+        await ctx.send("The user has been added to the blocklist.")
+
+    @fluxerbridge_bots_blocklist.command(name="remove", aliases=["delete"])
+    async def fluxerbridge_bots_blocklist_remove(
+        self, ctx: commands.GuildContext, user: discord.User
+    ) -> None:
+        """Remove a bot from the blocklist (bot-wide setting)."""
+        if not user.bot:
+            await ctx.send("This user is not a bot!")
+            return
+        if user.id not in self.bots_blocklist:
+            await ctx.send("This user is already not on the blocklist!")
+            return
+        async with self.config.bots_blocklist() as bots_blocklist:
+            bots_blocklist.remove(user.id)
+        self.bots_blocklist.remove(user.id)
+        if self.bots_blocklist:
+            await ctx.send("The user has been removed from the blocklist.")
+        else:
+            await ctx.send(
+                "The bot has been removed from the blocklist and the list is now empty."
+            )
+
+    @fluxerbridge_bots_blocklist.command(name="clear")
+    async def fluxerbridge_bots_blocklist_clear(
+        self, ctx: commands.GuildContext
+    ) -> None:
+        """Clear the blocklist (bot-wide setting)."""
+        await self.config.bots_blocklist.clear()
+        self.bots_blocklist.clear()
+        await ctx.send("The bots blocklist has been cleared.")
