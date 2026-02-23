@@ -284,7 +284,12 @@ class MessageCreate(MessageEvent):
             return
 
         source = "Discord" if IS_DISCORD else "Fluxer"
-        username = f"{message.author.display_name} [relayed from {source}]"
+        bot_indicator = (
+            "\N{ROBOT FACE}" if message.author.bot else "\N{BUST IN SILHOUETTE}"
+        )
+        username = (
+            f"{bot_indicator} {message.author.display_name} [relayed from {source}]"
+        )
         token = async_context.set(
             WebhookAdapter(msg_params.webhook.red_webhook_base_url)
         )
