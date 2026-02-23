@@ -59,7 +59,18 @@ class WebhookAdapter(AsyncWebhookAdapter):
         self, route, *args: Any, **kwargs: Any
     ) -> Any:
         route.url = f"https://{self.__base}" + route.url[len(route.BASE) :]
-        return await super().request(route, *args, **kwargs)
+
+        # handle Fluxer differences
+        data = await super().request(route, *args, **kwargs)
+        timestamp = data.get("edited_timestamp")
+        if timestamp is not None:
+            data["edited_timestamp"] = timestamp.replace("Z", "+00:00")
+        for raw_embed in data.get("embeds", []):
+            timestamp = raw_embed.get("timestamp")
+            if timestamp is not None:
+                raw_embed["timestamp"] = timestamp.replace("Z", "+00:00")
+
+        return data
 
 
 class Webhook(discord.Webhook):
