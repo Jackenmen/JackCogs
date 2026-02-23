@@ -142,6 +142,10 @@ class MessageCreate(MessageEvent):
             for sticker in message.stickers
         ]
         msg_embeds = [embed for embed in message.embeds if embed.type == "rich"]
+        print(f"{content=}")
+        print(f"{message.attachments=}")
+        print(f"{sticker_urls=}")
+        print(f"{msg_embeds=}")
         if (
             not content
             and not message.attachments
@@ -196,7 +200,7 @@ class MessageCreate(MessageEvent):
         token = async_context.set(WebhookAdapter(webhook.red_webhook_base_url))
         try:
             remote_message = await webhook.send(
-                message.content,
+                content,
                 files=files,
                 thread=thread,
                 username=username,
@@ -233,6 +237,7 @@ class MessageEdit(MessageEvent):
         self.remote_created_at = discord.Object(remote_message_id).created_at
 
     async def execute(self) -> None:
+        print("EDIT")
         if self.remote_message_id is None:
             return
         if self.message.channel.id in self._cog.removed_bridges:
@@ -259,6 +264,10 @@ class MessageEdit(MessageEvent):
             for sticker in message.stickers
         ]
         msg_embeds = [embed for embed in message.embeds if embed.type == "rich"]
+        print(f"{content=}")
+        print(f"{message.attachments=}")
+        print(f"{sticker_urls=}")
+        print(f"{msg_embeds=}")
         if not content and not sticker_urls and not msg_embeds:
             return
         if sticker_urls:
