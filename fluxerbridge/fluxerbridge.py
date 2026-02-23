@@ -114,23 +114,44 @@ class WebhookTestMessageEvent(MessageEvent):
             async_context.reset(token)
 
 
-class MessageCreate(MessageEvent):
-    def __init__(self, cog: FluxerBridge, /, *, message: discord.Message) -> None:
-        super().__init__(cog)
-        self.message = message
+class MessageParams:
+    def __init__(
+        self,
+        cog: FluxerBridge,
+        webhook: Webhook,
+        thread: discord.abc.Snowflake = discord.utils.MISSING,
+        *,
+        content: str,
+        files: List[discord.File],
+        embeds: List[discord.Embed],
+    ) -> None:
+        self._cog = cog
+        self.webhook = webhook
+        self.thread = thread
+        self.content = content
+        self.files = files
+        self.embeds = embeds
 
-    async def execute(self) -> None:
-        message = self.message
-        if message.channel.id in self._cog.removed_bridges:
-            return
-        if await self._cog.bot.cog_disabled_in_guild(self._cog, message.guild):
-            return
-        if not self._cog.is_message_allowed(self.message):
-            return
+    @classmethod
+    async def from_message(
+        cls,
+        cog: FluxerBridge,
+        message: discord.Message,
+        *,
+        remote_message_id: Optional[int] = None,
+    ) -> Optional[MessageParams]:
+        if message.channel.id in cog.removed_bridges:
+            return None
+        if not cog.is_message_allowed(message):
+            return None
+        if message.guild is None or await cog.bot.cog_disabled_in_guild(
+            cog, message.guild
+        ):
+            return None
 
-        webhook, thread = await self._cog.get_webhook(message.channel.id)
+        webhook, thread = await cog.get_webhook(message.channel.id)
         if webhook is None:
-            return
+            return None
 
         content: str = message.content or ""
         sticker_urls = [
@@ -144,12 +165,16 @@ class MessageCreate(MessageEvent):
         msg_embeds = [embed for embed in message.embeds if embed.type == "rich"]
         if (
             not content
-            and not message.attachments
+            and (remote_message_id is not None or not message.attachments)
             and not sticker_urls
             and not msg_embeds
         ):
-            return
-        files = await Tunnel.files_from_attach(message)
+            return None
+        files = (
+            await Tunnel.files_from_attach(message)
+            if remote_message_id is None
+            else discord.utils.MISSING
+        )
         if sticker_urls:
             sticker_text = "\n".join(sticker_urls)
             content = f"{content}\n{sticker_text}".strip()
@@ -172,13 +197,26 @@ class MessageCreate(MessageEvent):
             extra_embed.description += (
                 "The attachments could not be forwarded due to their size."
             )
-        elif len(files) != len(message.attachments):
+        elif remote_message_id is None and len(files) != len(message.attachments):
             extra_embed.description += "Some of the attachments could not be forwarded."
 
-        latency = datetime.datetime.now(tz=datetime.timezone.utc) - message.created_at
+        remote_created_at = (
+            datetime.datetime.now(tz=datetime.timezone.utc)
+            if remote_message_id is None
+            else discord.Object(remote_message_id).created_at
+        )
+        latency = remote_created_at - message.created_at
         if latency.seconds > 15:
             extra_embed.set_footer(text="Delayed!")
             extra_embed.timestamp = message.created_at
+
+        if message.edited_at is not None:
+            now = datetime.datetime.now(tz=datetime.timezone.utc)
+            edit_latency = now - message.edited_at
+            if edit_latency.seconds > 15:
+                extra_embed.description += (
+                    f"\nEdit delayed! {discord.utils.format_dt(message.edited_at)}"
+                )
 
         if had_more_embeds or (extra_embed and len(embeds) == 10):
             extra_embed.description += (
@@ -191,17 +229,43 @@ class MessageCreate(MessageEvent):
                 embeds.pop()
             embeds.append(extra_embed)
 
+        if not embeds:
+            embeds = discord.utils.MISSING
+
+        return MessageParams(
+            cog,
+            webhook,
+            thread,
+            content=content,
+            files=files,
+            embeds=embeds,
+        )
+
+
+class MessageCreate(MessageEvent):
+    def __init__(self, cog: FluxerBridge, /, *, message: discord.Message) -> None:
+        super().__init__(cog)
+        self.message = message
+
+    async def execute(self) -> None:
+        message = self.message
+        msg_params = await MessageParams.from_message(self._cog, message)
+        if msg_params is None:
+            return
+
         source = "Discord" if IS_DISCORD else "Fluxer"
         username = f"{message.author.display_name} [relayed from {source}]"
-        token = async_context.set(WebhookAdapter(webhook.red_webhook_base_url))
+        token = async_context.set(
+            WebhookAdapter(msg_params.webhook.red_webhook_base_url)
+        )
         try:
-            remote_message = await webhook.send(
-                content,
-                files=files,
-                thread=thread,
+            remote_message = await msg_params.webhook.send(
+                msg_params.content,
+                embeds=msg_params.embeds,
+                files=msg_params.files,
+                thread=msg_params.thread,
                 username=username,
                 avatar_url=str(message.author.avatar or ""),
-                embeds=embeds,
                 wait=True,
                 allowed_mentions=discord.AllowedMentions.none(),
             )
@@ -235,88 +299,22 @@ class MessageEdit(MessageEvent):
     async def execute(self) -> None:
         if self.remote_message_id is None:
             return
-        if self.message.channel.id in self._cog.removed_bridges:
-            return
-        if not self._cog.is_message_allowed(self.message):
-            return
-        message = self.message
-        if message.guild is None or await self._cog.bot.cog_disabled_in_guild(
-            self._cog, message.guild
-        ):
+
+        msg_params = await MessageParams.from_message(
+            self._cog, self.message, remote_message_id=self.remote_message_id
+        )
+        if msg_params is None:
             return
 
-        webhook, thread = await self._cog.get_webhook(self.message.channel.id)
-        if webhook is None:
-            return
-
-        content: str = message.content or ""
-        sticker_urls = [
-            (
-                sticker.url
-                if sticker.format is not discord.StickerFormatType.lottie
-                else LOTTIE_PLACEHOLDER_URL
-            )
-            for sticker in message.stickers
-        ]
-        msg_embeds = [embed for embed in message.embeds if embed.type == "rich"]
-        if not content and not sticker_urls and not msg_embeds:
-            return
-        if sticker_urls:
-            sticker_text = "\n".join(sticker_urls)
-            content = f"{content}\n{sticker_text}".strip()
-
-        embeds: List[discord.Embed] = []
-        if content and len(content) > 2000:
-            embeds.append(discord.Embed(description=content))
-            content = ""
-
-        had_more_embeds = False
-        for embed in msg_embeds:
-            if len(embeds) == 10:
-                had_more_embeds = True
-                break
-            embeds.append(embed)
-
-        extra_embed = discord.Embed()
-        extra_embed.description = ""
-        if sum(a.size for a in message.attachments) > MAX_FILE_SIZE:
-            extra_embed.description += (
-                "The attachments could not be forwarded due to their size."
-            )
-
-        latency = self.remote_created_at - message.created_at
-        if latency.seconds > 15:
-            extra_embed.set_footer(text="Delayed!")
-            extra_embed.timestamp = message.created_at
-
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
-        edit_latency = now - (message.edited_at or now)
-        if edit_latency.seconds > 15:
-            extra_embed.description += (
-                f"\nEdit delayed! {discord.utils.format_dt(message.edited_at or now)}"
-            )
-
-        if had_more_embeds or (extra_embed and len(embeds) == 10):
-            extra_embed.description += (
-                "\nSome of the embeds could not be forwarded due to"
-                " exceeding max number of embeds (10)."
-            )
-
-        if extra_embed:
-            if len(embeds) == 10:
-                embeds.pop()
-            embeds.append(extra_embed)
-
-        if not embeds:
-            embeds = discord.utils.MISSING
-
-        token = async_context.set(WebhookAdapter(webhook.red_webhook_base_url))
+        token = async_context.set(
+            WebhookAdapter(msg_params.webhook.red_webhook_base_url)
+        )
         try:
-            await webhook.edit_message(
+            await msg_params.webhook.edit_message(
                 self.remote_message_id,
-                content=content,
-                embeds=embeds,
-                thread=thread,
+                content=msg_params.content,
+                embeds=msg_params.embeds,
+                thread=msg_params.thread,
                 allowed_mentions=discord.AllowedMentions.none(),
             )
         finally:
