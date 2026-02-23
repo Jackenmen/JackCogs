@@ -43,6 +43,9 @@ WEBHOOK_URL_RE = re.compile(
 VALID_BASE_URLS = (
     ("api.fluxer.app",) if IS_DISCORD else ("discord.com/api", "discordapp.com/api")
 )
+LOTTIE_PLACEHOLDER_URL = "https://cdn.discordapp.com/stickers/1475357345885196308.png"
+# DEP-WARN
+MAX_FILE_SIZE = discord.utils.DEFAULT_FILE_SIZE_LIMIT_BYTES
 
 log = logging.getLogger("red.jackcogs.fluxerbridge")
 
@@ -129,29 +132,63 @@ class MessageCreate(MessageEvent):
         if webhook is None:
             return
 
-        content: Optional[str] = message.content
-        if content is None and not message.attachments:
+        content: str = message.content or ""
+        sticker_urls = [
+            (
+                sticker.url
+                if sticker.format is not discord.StickerFormatType.lottie
+                else LOTTIE_PLACEHOLDER_URL
+            )
+            for sticker in message.stickers
+        ]
+        msg_embeds = [embed for embed in message.embeds if embed.type == "rich"]
+        if (
+            not content
+            and not message.attachments
+            and not sticker_urls
+            and not msg_embeds
+        ):
             return
         files = await Tunnel.files_from_attach(message)
+        if sticker_urls:
+            sticker_text = "\n".join(sticker_urls)
+            content = f"{content}\n{sticker_text}".strip()
 
         embeds: List[discord.Embed] = []
         if content and len(content) > 2000:
             embeds.append(discord.Embed(description=content))
-            content = None
+            content = ""
+
+        had_more_embeds = False
+        for embed in msg_embeds:
+            if len(embeds) == 10:
+                had_more_embeds = True
+                break
+            embeds.append(embed)
 
         extra_embed = discord.Embed()
         extra_embed.description = ""
-        if len(files) != len(message.attachments):
+        if sum(a.size for a in message.attachments) <= MAX_FILE_SIZE:
             extra_embed.description += (
-                "Some of the attachments could not be forwarded,"
-                " probably due to their size."
+                "The attachments could not be forwarded due to their size."
             )
+        elif len(files) != len(message.attachments):
+            extra_embed.description += "Some of the attachments could not be forwarded."
+
         latency = datetime.datetime.now(tz=datetime.timezone.utc) - message.created_at
         if latency.seconds > 15:
             extra_embed.set_footer(text="Delayed!")
             extra_embed.timestamp = message.created_at
 
+        if had_more_embeds or (extra_embed and len(embeds) == 10):
+            extra_embed.description += (
+                "\nSome of the embeds could not be forwarded due to"
+                " exceeding max number of embeds (10)."
+            )
+
         if extra_embed:
+            if len(embeds) == 10:
+                embeds.pop()
             embeds.append(extra_embed)
 
         source = "Discord" if IS_DISCORD else "Fluxer"
@@ -191,8 +228,9 @@ class MessageEdit(MessageEvent):
 
     async def _init(self) -> None:
         message_data = await self._cfg_msg.all()
-        self.remote_message_id = message_data["message_id"]
+        self.remote_message_id = remote_message_id = message_data["message_id"]
         self.user_id = message_data["user_id"]
+        self.remote_created_at = discord.Object(remote_message_id).created_at
 
     async def execute(self) -> None:
         if self.remote_message_id is None:
@@ -211,27 +249,63 @@ class MessageEdit(MessageEvent):
         if webhook is None:
             return
 
-        content: Optional[str] = message.content
+        content: str = message.content or ""
+        sticker_urls = [
+            (
+                sticker.url
+                if sticker.format is not discord.StickerFormatType.lottie
+                else LOTTIE_PLACEHOLDER_URL
+            )
+            for sticker in message.stickers
+        ]
+        msg_embeds = [embed for embed in message.embeds if embed.type == "rich"]
+        if not content and not sticker_urls and not msg_embeds:
+            return
+        if sticker_urls:
+            sticker_text = "\n".join(sticker_urls)
+            content = f"{content}\n{sticker_text}".strip()
+
         embeds: List[discord.Embed] = []
         if content and len(content) > 2000:
             embeds.append(discord.Embed(description=content))
-            embeds.append(
-                discord.Embed(description=discord.utils.format_dt(message.created_at))
+            content = ""
+
+        had_more_embeds = False
+        for embed in msg_embeds:
+            if len(embeds) == 10:
+                had_more_embeds = True
+                break
+            embeds.append(embed)
+
+        extra_embed = discord.Embed()
+        extra_embed.description = ""
+        if sum(a.size for a in message.attachments) <= MAX_FILE_SIZE:
+            extra_embed.description += (
+                "The attachments could not be forwarded due to their size."
             )
-            content = None
+
+        latency = self.remote_created_at - message.created_at
+        if latency.seconds > 15:
+            extra_embed.set_footer(text="Delayed!")
+            extra_embed.timestamp = message.created_at
 
         now = datetime.datetime.now(tz=datetime.timezone.utc)
-        latency = now - (message.edited_at or now)
-        if latency.seconds > 15:
-            embeds.append(
-                discord.Embed(
-                    description=(
-                        f"{discord.utils.format_dt(message.created_at)}\n"
-                        "Edit delayed!"
-                        f" {discord.utils.format_dt(message.edited_at or now)}"
-                    )
-                )
+        edit_latency = now - (message.edited_at or now)
+        if edit_latency.seconds > 15:
+            extra_embed.description += (
+                f"\nEdit delayed! {discord.utils.format_dt(message.edited_at or now)}"
             )
+
+        if had_more_embeds or (extra_embed and len(embeds) == 10):
+            extra_embed.description += (
+                "\nSome of the embeds could not be forwarded due to"
+                " exceeding max number of embeds (10)."
+            )
+
+        if extra_embed:
+            if len(embeds) == 10:
+                embeds.pop()
+            embeds.append(extra_embed)
 
         if not embeds:
             embeds = discord.utils.MISSING
