@@ -324,8 +324,8 @@ class FluxerBridge(commands.Cog):
         self.removed_bridges: Set[int] = set()
         # bot allow configuration
         self.bots_allowed = False
-        self.bots_allowlist = set()
-        self.bots_blocklist = set()
+        self.bots_allowlist: Set[int] = set()
+        self.bots_blocklist: Set[int] = set()
 
     async def initialize(self) -> None:
         self._session = aiohttp.ClientSession()

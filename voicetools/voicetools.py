@@ -379,9 +379,7 @@ class VoiceTools(commands.Cog):
                 vip_type = "member" if member_on_list else "role"
                 before_channel = before.channel
                 if before_channel is not None and before_channel.user_limit != 0:
-                    await before_channel.edit(
-                        user_limit=before_channel.user_limit - 1
-                    )  # type: ignore # incorrect overload in d.py
+                    await before_channel.edit(user_limit=before_channel.user_limit - 1)
                     channel_id = before_channel.id
                     log.debug(
                         (
@@ -396,9 +394,7 @@ class VoiceTools(commands.Cog):
 
                 after_channel = after.channel
                 if after_channel is not None and after_channel.user_limit != 0:
-                    await after_channel.edit(
-                        user_limit=after_channel.user_limit + 1
-                    )  # type: ignore # incorrect overload in d.py
+                    await after_channel.edit(user_limit=after_channel.user_limit + 1)
                     channel_id = after_channel.id
                     log.debug(
                         (
