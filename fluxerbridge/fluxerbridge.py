@@ -170,7 +170,8 @@ class MessageParams:
                 sticker.url
                 if sticker.format is not discord.StickerFormatType.lottie
                 else LOTTIE_PLACEHOLDER_URL
-            )
+            ).replace("cdn.discordapp.com", "media.discordapp.net")
+            + "?size=160"
             for sticker in message.stickers
         ]
         msg_embeds = [embed for embed in message.embeds if embed.type == "rich"]
@@ -186,14 +187,26 @@ class MessageParams:
             if remote_message_id is None
             else discord.utils.MISSING
         )
-        if sticker_urls:
-            sticker_text = "\n".join(sticker_urls)
-            content = f"{content}\n{sticker_text}".strip()
-
         embeds: List[discord.Embed] = []
-        if content and len(content) > 2000:
+
+        content_length = len(content) if content else 0
+        max_length = 2000
+        if content_length > max_length:
             embeds.append(discord.Embed(description=content))
+            if sticker_urls:
+                # rest of the stickers get lost
+                # but the client does not let you send multiple anyway
+                embeds[0] = embeds[0].set_image(url=sticker_urls[0])
             content = ""
+        elif sticker_urls:
+            sticker_text = "\n".join(sticker_urls)
+            if content_length + len(sticker_text) + 1 > max_length:
+                embeds.append(discord.Embed().set_image(url=sticker_urls[0]))
+                if IS_DISCORD:
+                    # Fluxer does not render image-only embeds for some reason
+                    embeds[0].description = "\u200b"
+            else:
+                content = f"{content}\n{sticker_text}"
 
         had_more_embeds = False
         for embed in msg_embeds:
