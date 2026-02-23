@@ -483,7 +483,7 @@ class FluxerBridge(commands.Cog):
                 retry_on_fail = True
             else:
                 delay = random.random() + 2.0 * attempt
-                retry_on_fail = attempt >= 9
+                retry_on_fail = attempt < 9
 
             log_suffix = (
                 f"Retrying in {delay:.2f}s." if retry_on_fail else "Will not retry."
@@ -528,7 +528,7 @@ class FluxerBridge(commands.Cog):
                 event.success = True
                 break
 
-            if retry_on_fail:
+            if not retry_on_fail:
                 break
             await asyncio.sleep(delay)
             attempt += 1
