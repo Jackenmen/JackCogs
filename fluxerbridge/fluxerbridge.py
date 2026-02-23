@@ -147,7 +147,7 @@ class MessageCreate(MessageEvent):
         latency = datetime.datetime.now(tz=datetime.timezone.utc) - message.created_at
         if latency.seconds > 15:
             extra_embed.set_footer(text="Delayed!")
-            extra_embed = message.created_at
+            extra_embed.timestamp = message.created_at
 
         if extra_embed:
             embeds.append(extra_embed)
