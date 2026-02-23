@@ -221,18 +221,23 @@ class MessageParams:
             extra_embed.set_footer(text="Delayed!")
             extra_embed.timestamp = message.created_at
 
+        add_edit_delay = False
+        edit_latency = datetime.timedelta()
         if message.edited_at is not None:
             now = datetime.datetime.now(tz=datetime.timezone.utc)
             edit_latency = now - message.edited_at
             if edit_latency.seconds > 15:
-                extra_embed.description += (
-                    f"\nEdit delayed! {discord.utils.format_dt(message.edited_at)}"
-                )
+                add_edit_delay = True
 
-        if had_more_embeds or (extra_embed and len(embeds) == 10):
+        if had_more_embeds or ((extra_embed or add_edit_delay) and len(embeds) == 10):
             extra_embed.description += (
                 "\nSome of the embeds could not be forwarded due to"
                 " exceeding max number of embeds (10)."
+            )
+
+        if add_edit_delay:
+            extra_embed.description += (
+                f"\n\n*Edit delayed! {discord.utils.format_dt(message.edited_at)}*"
             )
 
         if extra_embed:
