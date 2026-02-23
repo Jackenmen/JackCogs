@@ -351,10 +351,21 @@ class FluxerBridge(commands.Cog):
             )
             event.finished.set()
             return
-        for attempt in range(10):
-            delay = random.random() + (0.0 if attempt < 4 else 2.0 * (attempt - 3))
+        attempt = 0
+        while True:
+            if IS_DISCORD:
+                # be aggressive on Fluxer early due to its instability and retry forever
+                if attempt < 4:
+                    delay = random.random()
+                else:
+                    delay = 2.0 ** ((attempt - 3) % 8)
+                retry_on_fail = True
+            else:
+                delay = random.random() + 2.0 * attempt
+                retry_on_fail = attempt >= 9
+
             log_suffix = (
-                f"Retrying in {delay:.2f}s." if attempt < 9 else "Will not retry."
+                f"Retrying in {delay:.2f}s." if retry_on_fail else "Will not retry."
             )
             try:
                 await event.execute()
@@ -364,7 +375,6 @@ class FluxerBridge(commands.Cog):
                     log_suffix,
                     exc_info=exc,
                 )
-                continue
             except discord.HTTPException as exc:
                 if exc.status >= 500:
                     log.warning(
@@ -396,8 +406,12 @@ class FluxerBridge(commands.Cog):
             else:
                 event.success = True
                 break
-            if attempt < 9:
-                await asyncio.sleep(delay)
+
+            if retry_on_fail:
+                break
+            await asyncio.sleep(delay)
+            attempt += 1
+
         event.finished.set()
 
     @commands.Cog.listener()
