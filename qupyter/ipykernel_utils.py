@@ -137,7 +137,7 @@ class RedIPythonKernel(IPythonKernel):
 
             # mypy has its issues with this
             @gen.coroutine
-            def run_cell(*args: Any, **kwargs: Any) -> ExecutionResult:
+            def run_cell(*args: Any, **kwargs: Any) -> ExecutionResult:  # type: ignore
                 return shell.run_cell(*args, **kwargs)
 
         try:

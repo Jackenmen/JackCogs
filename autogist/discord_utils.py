@@ -142,7 +142,7 @@ async def fetch_attachment_from_message(
         )
 
     encoding_data = chardet.detect(raw_data)
-    encoding: str = encoding_data["encoding"] or "utf-8"  # type: ignore
+    encoding: str = encoding_data["encoding"] or "utf-8"
 
     try:
         content = raw_data.decode(encoding)
