@@ -249,6 +249,7 @@ class MessageParams:
             )
 
         if add_edit_delay:
+            assert message.edited_at is not None, "mypy"
             extra_embed.description += (
                 f"\n\n*Edit delayed! {discord.utils.format_dt(message.edited_at)}*"
             )
