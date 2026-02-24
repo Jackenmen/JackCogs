@@ -51,6 +51,10 @@ MENTIONS_RE = re.compile(r"<(?P<mention_type>@[&!]?|#)(?P<id>[0-9]{15,20})>")
 log = logging.getLogger("red.jackcogs.fluxerbridge")
 
 
+class FluxerMaintenanceError(Exception):
+    """Raised by the retry logic to indicate downtime."""
+
+
 class WebhookAdapter(AsyncWebhookAdapter):
     def __init__(self, base: str) -> None:
         super().__init__()
@@ -91,6 +95,17 @@ class MessageEvent:
         self._initialized = False
         self.finished = asyncio.Event()
         self.success = False
+
+    @property
+    def _last_webhook(self) -> Optional[Webhook]:
+        try:
+            return self.__last_webhook
+        except AttributeError:
+            return None
+
+    @_last_webhook.setter
+    def _last_webhook(self, value: Webhook) -> None:
+        self.__last_webhook = value
 
     async def init(self) -> None:
         if not self._initialized:
@@ -165,11 +180,12 @@ class MessageParams:
     @classmethod
     async def from_message(
         cls,
-        cog: FluxerBridge,
+        event: MessageEvent,
         message: discord.Message,
         *,
         remote_message_id: Optional[int] = None,
     ) -> Optional[MessageParams]:
+        cog = event._cog
         if message.channel.id in cog.removed_bridges:
             return None
         if not cog.is_message_allowed(message):
@@ -179,6 +195,7 @@ class MessageParams:
             return None
 
         webhook, thread = await cog.get_webhook(message.channel.id)
+        event._last_webhook = webhook
         if webhook is None:
             return None
 
@@ -299,7 +316,7 @@ class MessageCreate(MessageEvent):
 
     async def execute(self) -> None:
         message = self.message
-        msg_params = await MessageParams.from_message(self._cog, message)
+        msg_params = await MessageParams.from_message(self, message)
         if msg_params is None:
             return
 
@@ -356,7 +373,7 @@ class MessageEdit(MessageEvent):
             return
 
         msg_params = await MessageParams.from_message(
-            self._cog, self.message, remote_message_id=self.remote_message_id
+            self, self.message, remote_message_id=self.remote_message_id
         )
         if msg_params is None:
             return
@@ -410,6 +427,7 @@ class MessageDelete(MessageEvent):
             return
 
         webhook, thread = await self._cog.get_webhook(self.channel_id)
+        self._last_webhook = webhook
         if webhook is None:
             return
 
@@ -492,11 +510,15 @@ class FluxerBridge(commands.Cog):
             )
             event.finished.set()
             return
+
+        has_downtime = False
         attempt = 0
         while True:
             if IS_DISCORD:
                 # be aggressive on Fluxer early due to its instability and retry forever
-                if attempt < 4:
+                if has_downtime:
+                    delay = 60.0 + random.random()
+                elif attempt < 4:
                     delay = random.random()
                 else:
                     delay = 2.0 ** ((attempt - 3) % 8)
@@ -508,8 +530,32 @@ class FluxerBridge(commands.Cog):
             log_suffix = (
                 f"Retrying in {delay:.2f}s." if retry_on_fail else "Will not retry."
             )
+            had_downtime = has_downtime
+            has_downtime = False
             try:
-                await event.execute()
+                try:
+                    await event.execute()
+                except discord.Forbidden:
+                    if not IS_DISCORD:
+                        raise
+                    webhook = event._last_webhook
+                    if webhook is None:
+                        raise
+                    async with self._session.get(
+                        f"https://{webhook.red_webhook_base_url}/.well-known/fluxer"
+                    ) as resp:
+                        if resp.status != 403:
+                            raise
+                        raise FluxerMaintenanceError
+            except FluxerMaintenanceError:
+                has_downtime = True
+                delay = 60.0 + random.random()
+                if not had_downtime:
+                    log.warning(
+                        "Fluxer instance appears to be in maintenance,"
+                        " slowing down retries... Next retry in %.2fs",
+                        delay,
+                    )
             except aiohttp.ClientError as exc:
                 log.warning(
                     "aiohttp error occurred, while working on a queue item. %s",
@@ -551,7 +597,8 @@ class FluxerBridge(commands.Cog):
             if not retry_on_fail:
                 break
             await asyncio.sleep(delay)
-            attempt += 1
+            if not has_downtime:
+                attempt += 1
 
         event.finished.set()
 
