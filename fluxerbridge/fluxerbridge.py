@@ -732,6 +732,8 @@ class FluxerBridge(commands.Cog):
             else:
                 await ctx.author.send("The given URL is not a Discord webhook.")
             return
+        if webhook_base_url == "discordapp.com/api":
+            webhook_base_url = "discord.com/api"
 
         try:
             url = yarl.URL(msg.content)
