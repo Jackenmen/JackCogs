@@ -707,9 +707,13 @@ class FluxerBridge(commands.Cog):
             await ctx.send("I couldn't send you a DM.")
             return
 
-        msg = await self.bot.wait_for(
-            "message", check=MessagePredicate.same_context(channel=dm_msg.channel)
-        )
+        try:
+            msg = await self.bot.wait_for(
+                "message", check=MessagePredicate.same_context(channel=dm_msg.channel)
+            )
+        except asyncio.TimeoutError:
+            await ctx.author.send("Timed out.")
+            return
         match = WEBHOOK_URL_RE.match(msg.content)
         if match is None:
             await ctx.author.send(
