@@ -60,7 +60,7 @@ WEBHOOK_URL_RE = re.compile(
     r"https://(?P<base_url>.+)/webhooks"
     r"/(?P<id>[0-9]{17,20})/(?P<token>[A-Za-z0-9\.\-\_]{60,})"
 )
-VALID_API_HOSTNAMES = ("api.fluxer.app",) if IS_DISCORD else ("discord.com/api",)
+VALID_API_HOSTNAMES = ("api.fluxer.app",) if IS_DISCORD else ("discord.com",)
 VALID_BASE_URLS = (
     ("api.fluxer.app",) if IS_DISCORD else ("discord.com/api", "discordapp.com/api")
 )
