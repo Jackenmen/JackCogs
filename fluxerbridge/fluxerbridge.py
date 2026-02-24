@@ -20,26 +20,47 @@ import itertools
 import logging
 import random
 import re
-from typing import Any, Callable, Dict, List, Match, Optional, Set, Tuple
+from typing import (
+    Any,
+    Callable,
+    Coroutine,
+    Dict,
+    Iterable,
+    List,
+    Match,
+    Set,
+    Tuple,
+    TypeVar,
+    Union,
+    overload,
+)
 
 import aiohttp
 import discord
 import yarl
+
+# DEP-WARN
+from discord.http import HTTPClient, Route
 from discord.webhook.async_ import AsyncWebhookAdapter, async_context
 from redbot.core import commands
 from redbot.core.bot import Red
+from redbot.core.commands import NoParseOptional as Optional
 from redbot.core.config import Config
 from redbot.core.utils.chat_formatting import inline, pagify
-from redbot.core.utils.predicates import MessagePredicate
+from redbot.core.utils.menus import start_adding_reactions
+from redbot.core.utils.predicates import MessagePredicate, ReactionPredicate
 from redbot.core.utils.tunnel import Tunnel
+from typing_extensions import Self
 
 IS_DISCORD = discord.utils.oauth_url("").startswith("https://discord.com/")
 USER_MESSAGES = "USER_MESSAGES"
 MESSAGES = "MESSAGES"
+EMOJI_CACHE = "EMOJI_CACHE"
 WEBHOOK_URL_RE = re.compile(
     r"https://(?P<base_url>.+)/webhooks"
     r"/(?P<id>[0-9]{17,20})/(?P<token>[A-Za-z0-9\.\-\_]{60,})"
 )
+VALID_API_HOSTNAMES = ("api.fluxer.app",) if IS_DISCORD else ("discord.com/api",)
 VALID_BASE_URLS = (
     ("api.fluxer.app",) if IS_DISCORD else ("discord.com/api", "discordapp.com/api")
 )
@@ -47,6 +68,8 @@ LOTTIE_PLACEHOLDER_URL = "https://cdn.discordapp.com/stickers/147535734588519630
 # DEP-WARN
 MAX_FILE_SIZE = discord.utils.DEFAULT_FILE_SIZE_LIMIT_BYTES
 MENTIONS_RE = re.compile(r"<(?P<mention_type>@[&!]?|#)(?P<id>[0-9]{15,20})>")
+EMOJI_RE = re.compile(r"<a?:[a-zA-Z0-9\_]{1,32}:([0-9]{15,20})>")
+T = TypeVar("T")
 
 log = logging.getLogger("red.jackcogs.fluxerbridge")
 
@@ -177,6 +200,17 @@ class MessageParams:
 
         return replace_mention
 
+    @staticmethod
+    def _extract_partial_emojis(
+        bot: Red, content: str
+    ) -> Iterable[discord.PartialEmoji]:
+        for match in EMOJI_RE.finditer(content):
+            emoji = discord.PartialEmoji.from_str(match.group())
+            # DEP-WARN
+            emoji._state = bot._connection
+            print(emoji)
+            yield emoji
+
     @classmethod
     async def from_message(
         cls,
@@ -223,6 +257,16 @@ class MessageParams:
             else discord.utils.MISSING
         )
         embeds: List[discord.Embed] = []
+
+        emoji_cache = cog.emoji_cache.get_from_base_url(webhook.red_webhook_base_url)
+        if emoji_cache is not None:
+            emoji_replacements, _ = await emoji_cache.get_emoji_replacements(
+                cls._extract_partial_emojis(cog.bot, content)
+            )
+            content = EMOJI_RE.sub(
+                lambda m: emoji_replacements.get(m.group(0), m.group(0)),
+                content,
+            )
 
         # maybe this could be applied to embeds in the future as well
         content = MENTIONS_RE.sub(cls._mention_replacer(guild), content)
@@ -442,6 +486,333 @@ class MessageDelete(MessageEvent):
         ).clear()
 
 
+class InstanceEmojiCache:
+    MAX_EMOJIS = 50
+
+    def __init__(
+        self,
+        global_cache: EmojiCache,
+        hostname: str,
+        *,
+        guild_id: int,
+        token: str,
+        static_cache: Optional[Dict[int, str]] = None,
+        animated_cache: Optional[Dict[int, str]] = None,
+    ) -> None:
+        self.global_cache = global_cache
+        self._cog = global_cache._cog
+        self.hostname = hostname
+        self.guild_id = guild_id
+        self._token = token
+        self._static_cache = static_cache or {}
+        self._animated_cache = animated_cache or {}
+        # DEP-WARN
+        self._http = HTTPClient(asyncio.get_running_loop())
+        self._http.connector = aiohttp.TCPConnector(limit=0)
+        self._http._HTTPClient__session = (  # type: ignore[attr-defined]
+            aiohttp.ClientSession(
+                connector=self._http.connector,
+                trace_configs=(
+                    None if self._http.http_trace is None else [self._http.http_trace]
+                ),
+                cookie_jar=aiohttp.DummyCookieJar(),
+            )
+        )
+        self._http._global_over = asyncio.Event()
+        self._http._global_over.set()
+        self._http.token = self._token
+
+    async def close(self) -> None:
+        await self._http.close()
+
+    @classmethod
+    def from_dict(
+        cls, global_cache: EmojiCache, hostname: str, data: Dict[str, Any]
+    ) -> Self:
+        return cls(
+            global_cache,
+            hostname,
+            guild_id=data["guild_id"],
+            token=data["token"],
+            static_cache=dict(data["static"]),
+            animated_cache=dict(data["animated"]),
+        )
+
+    def _emoji_uploader(
+        self,
+    ) -> Callable[[discord.PartialEmoji], Coroutine[None, None, discord.PartialEmoji]]:
+        uploaded_count = 0
+        allow_uploads = True
+
+        async def upload(emoji: discord.PartialEmoji) -> discord.PartialEmoji:
+            nonlocal allow_uploads, uploaded_count
+            if not allow_uploads:
+                raise RuntimeError
+            if uploaded_count >= self.global_cache.per_msg_upload_limit:
+                raise RuntimeError
+            try:
+                remote_emoji = await self.upload_emoji(emoji)
+            except discord.Forbidden:
+                log.warning("Could not upload emojis due to missing permissions")
+                raise RuntimeError
+            except discord.HTTPException as exc:
+                log.error("Could not upload emojis due to HTTP error", exc_info=exc)
+                raise RuntimeError
+            except RuntimeError as exc:
+                allow_uploads = False
+                log.warning("%s", str(exc))
+                raise RuntimeError
+            assert emoji.id is not None, "mypy"
+            if remote_emoji.animated:
+                self._animated_cache[emoji.id] = str(remote_emoji)
+            else:
+                self._static_cache[emoji.id] = str(remote_emoji)
+            uploaded_count += 1
+            return remote_emoji
+
+        return upload
+
+    async def get_emoji_replacements(
+        self, emojis: Iterable[discord.PartialEmoji]
+    ) -> Tuple[Dict[str, str], bool]:
+        static_replacements: Dict[str, str] = {}
+        animated_replacements: Dict[str, str] = {}
+        incomplete = False
+
+        upload = self._emoji_uploader()
+        for emoji in emojis:
+            try:
+                remote_emoji = self.get_remote_emoji(emoji)
+            except KeyError:
+                if (
+                    len(static_replacements) == self.MAX_EMOJIS
+                    or len(animated_replacements) == self.MAX_EMOJIS
+                ):
+                    # uploading would result in an earlier replacement not working
+                    incomplete = True
+                    continue
+                try:
+                    remote_emoji = await upload(emoji)
+                except RuntimeError:
+                    incomplete = True
+                    continue
+
+            if remote_emoji.animated:
+                animated_replacements[str(emoji)] = str(remote_emoji)
+            else:
+                static_replacements[str(emoji)] = str(remote_emoji)
+
+        await self.save_cache()
+
+        return {**static_replacements, **animated_replacements}, incomplete
+
+    def get_remote_emoji(self, emoji: discord.PartialEmoji) -> discord.PartialEmoji:
+        # updates position in cache but does not save it
+        assert emoji.id is not None, "mypy"
+        try:
+            raw_remote_emoji = self._static_cache.pop(emoji.id)
+            self._static_cache[emoji.id] = raw_remote_emoji
+        except KeyError:
+            raw_remote_emoji = self._animated_cache.pop(emoji.id)
+            self._animated_cache[emoji.id] = raw_remote_emoji
+        return discord.PartialEmoji.from_str(raw_remote_emoji)
+
+    async def get_or_upload_remote_emoji(
+        self, emoji: discord.PartialEmoji
+    ) -> discord.PartialEmoji:
+        assert emoji.id is not None, "mypy"
+        try:
+            remote_emoji = self.get_remote_emoji(emoji)
+        except KeyError:
+            remote_emoji = await self.upload_emoji(emoji)
+
+        if remote_emoji.animated:
+            self._animated_cache[emoji.id] = str(remote_emoji)
+        else:
+            self._static_cache[emoji.id] = str(remote_emoji)
+        await self.save_cache()
+
+        return remote_emoji
+
+    def _update_route_url(self, route: Route) -> Route:
+        base_url = (
+            f"https://{self.hostname}/api/v10"
+            if self.hostname == "discord.com"
+            else f"https://{self.hostname}/v1"
+        )
+        route.url = base_url + route.url[len(route.BASE) :]
+        return route
+
+    async def _delete_emoji(self, emoji_id: int, reason: str) -> None:
+        route = Route(
+            "DELETE",
+            "/guilds/{guild_id}/emojis/{emoji_id}",
+            guild_id=self.guild_id,
+            emoji_id=emoji_id,
+        )
+        self._update_route_url(route)
+        await self._http.request(route, reason=reason)
+
+    async def upload_emoji(
+        self,
+        emoji: discord.PartialEmoji,
+        *,
+        delete_static: bool = False,
+        delete_animated: bool = False,
+    ) -> discord.PartialEmoji:
+        delete_requested = delete_static or delete_animated
+        if not delete_requested:
+            if len(self._static_cache) == self.MAX_EMOJIS:
+                delete_static = True
+            if len(self._animated_cache) == self.MAX_EMOJIS:
+                delete_animated = True
+        for emoji_cache, should_delete in (
+            (self._static_cache, delete_static),
+            (self._animated_cache, delete_animated),
+        ):
+            if not should_delete:
+                continue
+            try:
+                raw_emoji = emoji_cache.pop(next(iter(emoji_cache)))
+            except StopIteration:
+                raise RuntimeError("Emoji cache is empty but deletion was requested.")
+            else:
+                to_remove = discord.PartialEmoji.from_str(raw_emoji)
+
+            assert to_remove.id is not None, "mypy"
+            await self._delete_emoji(to_remove.id, "Fluxer bridge's emoji cache filled")
+
+        route = Route("POST", "/guilds/{guild_id}/emojis", guild_id=self.guild_id)
+        self._update_route_url(route)
+        payload = {
+            "name": emoji.name,
+            # DEP-WARN
+            "image": discord.utils._bytes_to_base64_data(await emoji.read()),
+            "roles": [],
+        }
+        try:
+            data = await self._http.request(
+                route, json=payload, reason="Emoji cached by a fluxer bridge"
+            )
+        except discord.HTTPException as exc:
+            if delete_requested:
+                raise
+            if IS_DISCORD:
+                # Fluxer returns string error codes
+                if exc.code == "MAX_EMOJIS":  # type: ignore[comparison-overlap]
+                    return await self.upload_emoji(emoji, delete_static=True)
+                if exc.code == (  # type: ignore[comparison-overlap]
+                    "MAX_ANIMATED_EMOJIS"
+                ):
+                    return await self.upload_emoji(emoji, delete_animated=True)
+            else:
+                if exc.code == 30008:
+                    return await self.upload_emoji(emoji, delete_static=True)
+                if exc.code == 30018:
+                    return await self.upload_emoji(emoji, delete_animated=True)
+            raise
+
+        if data.get("animated", False):
+            return discord.PartialEmoji.from_str(f"<a:{data['name']}:{data['id']}>")
+        return discord.PartialEmoji.from_str(f"<:{data['name']}:{data['id']}>")
+
+    async def clear_all_remote_emojis(self) -> None:
+        route = Route("GET", "/guilds/{guild_id}/emojis", guild_id=self.guild_id)
+        self._update_route_url(route)
+        data = await self._http.request(route)
+
+        for raw_emoji in data:
+            await self._delete_emoji(
+                raw_emoji["id"],
+                "Removing all emojis in Fluxer bridge emoji cache server",
+            )
+
+        await self.clear_cache()
+
+    async def clear_cache(self) -> None:
+        self._static_cache.clear()
+        self._animated_cache.clear()
+        await self.save_cache()
+
+    async def save_cache(self) -> None:
+        scope = self._cog.config.custom(EMOJI_CACHE, self.hostname)
+        await scope.static.set(list(self._static_cache.items()))
+        await scope.animated.set(list(self._animated_cache.items()))
+
+    async def save_configuration(self) -> None:
+        scope = self._cog.config.custom(EMOJI_CACHE, self.hostname)
+        await scope.guild_id.set(self.guild_id)
+        await scope.token.set(self._token)
+
+
+class EmojiCache:
+    def __init__(self, cog: FluxerBridge) -> None:
+        self._cog = cog
+        self._caches: Dict[str, InstanceEmojiCache] = {}
+        self.per_msg_upload_limit = 0
+
+    async def close(self) -> None:
+        for cache in self._caches.values():
+            await cache.close()
+
+    def __getitem__(self, hostname: str) -> InstanceEmojiCache:
+        return self._caches[hostname]
+
+    def __setitem__(self, hostname: str, emoji_cache: InstanceEmojiCache) -> None:
+        self._caches[hostname] = emoji_cache
+
+    def __contains__(self, hostname: str) -> bool:
+        return hostname in self._caches
+
+    @overload
+    def get(self, hostname: str, default: None = ...) -> Optional[InstanceEmojiCache]:
+        ...
+
+    @overload
+    def get(self, hostname: str, default: T) -> Union[InstanceEmojiCache, T]:
+        ...
+
+    def get(
+        self, hostname: str, default: Optional[T] = None
+    ) -> Union[InstanceEmojiCache, T, None]:
+        return self._caches.get(hostname, default)
+
+    @overload
+    def get_from_base_url(
+        self, base_url: str, default: None = ...
+    ) -> Optional[InstanceEmojiCache]:
+        ...
+
+    @overload
+    def get_from_base_url(
+        self, base_url: str, default: T
+    ) -> Union[InstanceEmojiCache, T]:
+        ...
+
+    def get_from_base_url(
+        self, base_url: str, default: Optional[T] = None
+    ) -> Union[InstanceEmojiCache, T, None]:
+        hostname = yarl.URL(f"https://{base_url}").host or ""
+        return self._caches.get(hostname, default)
+
+    def is_configured(self, hostname: str) -> bool:
+        return hostname in self._caches
+
+    async def initialize(self) -> None:
+        raw_caches = await self._cog.config.custom(EMOJI_CACHE).all()
+        self._caches = {
+            hostname: InstanceEmojiCache.from_dict(self, hostname, data)
+            for hostname, data in raw_caches.items()
+        }
+        self.per_msg_upload_limit = (
+            await self._cog.config.emoji_cache_per_msg_upload_limit()
+        )
+
+    async def clear_configuration(self, hostname: str) -> None:
+        await self._cog.config.custom(EMOJI_CACHE, hostname).clear()
+        self._caches.pop(hostname, None)
+
+
 class FluxerBridge(commands.Cog):
     """Fluxer <-> Discord bridge relaying messages with webhooks."""
 
@@ -455,7 +826,10 @@ class FluxerBridge(commands.Cog):
             force_registration=True,
         )
         self.config.register_global(
-            bots_allowed=False, bots_allowlist=[], bots_blocklist=[]
+            bots_allowed=False,
+            bots_allowlist=[],
+            bots_blocklist=[],
+            emoji_cache_per_msg_upload_limit=3,
         )
         self.config.register_channel(webhook_data=None)
         # user id -> "local" message id -> {...}
@@ -464,6 +838,11 @@ class FluxerBridge(commands.Cog):
         # "local" message id -> {...}
         self.config.init_custom(MESSAGES, 1)
         self.config.register_custom(MESSAGES, message_id=None, user_id=None)
+        # base url hostname -> {...}
+        self.config.init_custom(EMOJI_CACHE, 1)
+        self.config.register_custom(
+            EMOJI_CACHE, static=[], animated=[], guild_id=None, token=None
+        )
         self._queue: asyncio.Queue[MessageEvent] = asyncio.Queue()
         self._queue_handler: Optional[asyncio.Task[None]] = None
         self.removed_bridges: Set[int] = set()
@@ -471,9 +850,11 @@ class FluxerBridge(commands.Cog):
         self.bots_allowed = False
         self.bots_allowlist: Set[int] = set()
         self.bots_blocklist: Set[int] = set()
+        self.emoji_cache = EmojiCache(self)
 
     async def initialize(self) -> None:
         self._session = aiohttp.ClientSession()
+        await self.emoji_cache.initialize()
         self.bots_allowlist = set(await self.config.bots_allowlist())
         self.bots_blocklist = set(await self.config.bots_blocklist())
         self.bots_allowed = await self.config.bots_allowed()
@@ -486,6 +867,7 @@ class FluxerBridge(commands.Cog):
                 await self._queue_handler
             except asyncio.CancelledError:
                 pass
+        await self.emoji_cache.close()
         await self._session.close()
 
     async def _handle_queue(self) -> None:
@@ -689,6 +1071,143 @@ class FluxerBridge(commands.Cog):
         with a webhook URL for the other platform.
         Do the same on the other platform for a two-way bridge.
         """
+
+    @commands.is_owner()
+    @fluxerbridge.group(name="emojis")
+    async def fluxerbridge_emojis(self, ctx: commands.GuildContext) -> None:
+        """
+        Configure emoji cache server. This allows for emojis to work over the bridge.
+
+        The emojis will get automatically uploaded to the emoji cache server
+        and those emojis will be used for relayed messages.
+
+        When the emoji cache fills up, emojis will be removed based on their last use
+        (the least recently used will be removed first).
+        """
+
+    def _get_api_hostname(self, api_hostname: Optional[str] = None) -> str:
+        if api_hostname is None:
+            api_hostname = "api.fluxer.app" if IS_DISCORD else "discord.com"
+        if api_hostname == "discordapp.com":
+            api_hostname = "discord.com"
+        if api_hostname not in VALID_API_HOSTNAMES:
+            raise ValueError("The given API hostname is not valid.")
+        return api_hostname
+
+    @fluxerbridge_emojis.command(name="configure")
+    async def fluxerbridge_emojis_configure(
+        self, ctx: commands.GuildContext, guild_id: int
+    ) -> None:
+        """Configure the emoji cache server."""
+        api_hostname = self._get_api_hostname()
+        if self.emoji_cache.is_configured(api_hostname):
+            command = inline(f"{ctx.prefix}fluxerbridge emojis reset")
+            await ctx.send(
+                f"An emoji cache is already configured for {api_hostname}."
+                f" If you want to reconfigure, run {command} first."
+            )
+            return
+
+        try:
+            dm_msg = await ctx.author.send(
+                "Send token for a bot with Manage Emojis permissions in the server"
+                " you provided ID of in the next message."
+            )
+        except discord.Forbidden:
+            await ctx.send("I couldn't send you a DM.")
+            return
+
+        try:
+            msg = await self.bot.wait_for(
+                "message",
+                check=MessagePredicate.same_context(channel=dm_msg.channel),
+                timeout=60,
+            )
+        except asyncio.TimeoutError:
+            await ctx.author.send("Timed out.")
+            return
+
+        emoji_cache = InstanceEmojiCache(
+            self.emoji_cache, api_hostname, guild_id=guild_id, token=msg.content
+        )
+        await emoji_cache.save_cache()
+        await emoji_cache.save_configuration()
+        self.emoji_cache[api_hostname] = emoji_cache
+
+        await ctx.send("The emoji cache server has been configured.")
+
+    @fluxerbridge_emojis.command(name="reset")
+    async def fluxerbridge_emojis_reset(self, ctx: commands.GuildContext) -> None:
+        """Reset the emoji cache server configuration and clear the cache."""
+        api_hostname = self._get_api_hostname()
+        if api_hostname not in self.emoji_cache:
+            await ctx.send(f"There is no emoji cache server for {api_hostname}!")
+            return
+
+        await self.emoji_cache.clear_configuration(api_hostname)
+
+        await ctx.send("The emoji cache server configuration has been reset.")
+
+    @fluxerbridge_emojis.command(name="removeall")
+    async def fluxerbridge_emojis_removeall(
+        self, ctx: commands.GuildContext, *, api_hostname: Optional[str] = None
+    ) -> None:
+        """
+        Remove all emojis (tracked and untracked) in the configured emoji cache server.
+        """
+        api_hostname = self._get_api_hostname()
+        try:
+            emoji_cache = self.emoji_cache[api_hostname]
+        except KeyError:
+            await ctx.send(f"There is no emoji cache server for {api_hostname}!")
+            return
+
+        query = await ctx.send(
+            "Are you sure that you want to remove all emojis (including ones"
+            " not created by the bot) in the emoji cache server"
+            f" (ID: {emoji_cache.guild_id}) you have configured for {api_hostname})?"
+            " This action cannot be reverted."
+        )
+        start_adding_reactions(query, ReactionPredicate.YES_OR_NO_EMOJIS)
+        pred = ReactionPredicate.yes_or_no(query, ctx.author)
+        try:
+            await ctx.bot.wait_for("reaction_add", check=pred, timeout=30)
+        except asyncio.TimeoutError:
+            await ctx.send("Timed out.")
+            return
+        if not pred.result:
+            await ctx.send("OK then.")
+            return
+
+        async with ctx.typing():
+            await emoji_cache.clear_all_remote_emojis()
+
+        await ctx.send(
+            "All emojis have been removed from the configured emoji cache server."
+        )
+
+    @fluxerbridge_emojis.command(name="uploadlimit")
+    async def fluxerbridge_emojis_maxuploadlimit(
+        self, ctx: commands.GuildContext, *, value: commands.Range[int, 0, 50]
+    ) -> None:
+        """
+        Set the max number of emojis that can be uploaded to cache by a single message.
+
+        Any emoji over this limit that's not already cached will not be replaced
+        with valid emojis and will show as: `:emojiname:`
+
+        This directly affects performance of the bridges as each emoji upload
+        requires 2 additional API requests to download and upload that emoji.
+
+        You can set this to 0 to effectively stop caching new emojis
+        and avoid the performance penalty. This also allows to populate the cache
+        with emojis of your choice by first setting the limit to max value (50),
+        sending a message with emojis you'd like to work in the relayed messages
+        and then setting it to 0 to prevent further modifications.
+        """
+        await self.config.emoji_cache_per_msg_upload_limit.set(value)
+        self.emoji_cache.per_msg_upload_limit = value
+        await ctx.send(f"The new per-message upload limit has been set to {value}.")
 
     @fluxerbridge.command(name="add", aliases=["create"])
     async def fluxerbridge_add(self, ctx: commands.GuildContext) -> None:
