@@ -20,7 +20,7 @@ import itertools
 import logging
 import random
 import re
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Match, Optional, Set, Tuple
 
 import aiohttp
 import discord
@@ -46,6 +46,7 @@ VALID_BASE_URLS = (
 LOTTIE_PLACEHOLDER_URL = "https://cdn.discordapp.com/stickers/1475357345885196308.png"
 # DEP-WARN
 MAX_FILE_SIZE = discord.utils.DEFAULT_FILE_SIZE_LIMIT_BYTES
+MENTIONS_RE = re.compile(r"<(?P<mention_type>@[&!]?|#)(?P<id>[0-9]{15,20})>")
 
 log = logging.getLogger("red.jackcogs.fluxerbridge")
 
@@ -155,9 +156,8 @@ class MessageParams:
             return None
         if not cog.is_message_allowed(message):
             return None
-        if message.guild is None or await cog.bot.cog_disabled_in_guild(
-            cog, message.guild
-        ):
+        guild = message.guild
+        if guild is None or await cog.bot.cog_disabled_in_guild(cog, guild):
             return None
 
         webhook, thread = await cog.get_webhook(message.channel.id)
@@ -189,7 +189,23 @@ class MessageParams:
         )
         embeds: List[discord.Embed] = []
 
-        content_length = len(content) if content else 0
+        def replace_mention(match: Match[str]) -> str:
+            mention_type = match["mention_type"]
+            object_id = int(match["id"])
+            if mention_type == "@&":
+                if role := guild.get_role(object_id):
+                    return f"@{role.name}"
+            elif mention_type == "#":
+                if channel := guild.get_channel(object_id):
+                    return f"#{channel.name}"
+            else:
+                if member := guild.get_member(object_id):
+                    return f"@{member.display_name}"
+            return match.group()
+
+        # maybe this could be applied to embeds in the future as well
+        content = MENTIONS_RE.sub(replace_mention, content)
+        content_length = len(content)
         max_length = 2000
         if content_length > max_length:
             embeds.append(discord.Embed(description=content))
