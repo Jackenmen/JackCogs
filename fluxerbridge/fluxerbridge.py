@@ -20,7 +20,7 @@ import itertools
 import logging
 import random
 import re
-from typing import Any, Dict, List, Match, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Match, Optional, Set, Tuple
 
 import aiohttp
 import discord
@@ -145,6 +145,24 @@ class MessageParams:
         self.embeds = embeds
 
     @classmethod
+    def _mention_replacer(cls, guild: discord.Guild) -> Callable[[Match[str]], str]:
+        def replace_mention(match: Match[str]) -> str:
+            mention_type = match["mention_type"]
+            object_id = int(match["id"])
+            if mention_type == "@&":
+                if role := guild.get_role(object_id):
+                    return f"@{role.name}"
+            elif mention_type == "#":
+                if channel := guild.get_channel(object_id):
+                    return f"#{channel.name}"
+            else:
+                if member := guild.get_member(object_id):
+                    return f"@{member.display_name}"
+            return match.group()
+
+        return replace_mention
+
+    @classmethod
     async def from_message(
         cls,
         cog: FluxerBridge,
@@ -189,22 +207,8 @@ class MessageParams:
         )
         embeds: List[discord.Embed] = []
 
-        def replace_mention(match: Match[str]) -> str:
-            mention_type = match["mention_type"]
-            object_id = int(match["id"])
-            if mention_type == "@&":
-                if role := guild.get_role(object_id):
-                    return f"@{role.name}"
-            elif mention_type == "#":
-                if channel := guild.get_channel(object_id):
-                    return f"#{channel.name}"
-            else:
-                if member := guild.get_member(object_id):
-                    return f"@{member.display_name}"
-            return match.group()
-
         # maybe this could be applied to embeds in the future as well
-        content = MENTIONS_RE.sub(replace_mention, content)
+        content = MENTIONS_RE.sub(cls._mention_replacer(guild), content)
         content_length = len(content)
         max_length = 2000
         if content_length > max_length:
