@@ -474,10 +474,10 @@ class FluxerBridge(commands.Cog):
 
     async def initialize(self) -> None:
         self._session = aiohttp.ClientSession()
-        self._queue_handler = asyncio.create_task(self._handle_queue())
         self.bots_allowlist = set(await self.config.bots_allowlist())
         self.bots_blocklist = set(await self.config.bots_blocklist())
         self.bots_allowed = await self.config.bots_allowed()
+        self._queue_handler = asyncio.create_task(self._handle_queue())
 
     async def cog_unload(self) -> None:
         if self._queue_handler is not None:
