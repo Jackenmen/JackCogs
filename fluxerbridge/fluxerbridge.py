@@ -1172,7 +1172,7 @@ class FluxerBridge(commands.Cog):
         try:
             msg = await self.bot.wait_for(
                 "message",
-                check=MessagePredicate.same_context(channel=dm_msg.channel),
+                check=MessagePredicate.same_context(ctx, channel=dm_msg.channel),
                 timeout=60,
             )
         except asyncio.TimeoutError:
@@ -1280,7 +1280,8 @@ class FluxerBridge(commands.Cog):
 
         try:
             msg = await self.bot.wait_for(
-                "message", check=MessagePredicate.same_context(channel=dm_msg.channel)
+                "message",
+                check=MessagePredicate.same_context(ctx, channel=dm_msg.channel),
             )
         except asyncio.TimeoutError:
             await ctx.author.send("Timed out.")
