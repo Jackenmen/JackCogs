@@ -124,8 +124,7 @@ class WebhookAdapter(AsyncWebhookAdapter):
         # handle Fluxer differences
         if multipart:
             payload = discord.utils._from_json(multipart[0]["value"])
-        assert payload is not None
-        attachments = payload.get("attachments", [])
+        attachments = (payload or {}).get("attachments", [])
         if attachments:
             assert files is not None
             assert multipart is not None
@@ -139,6 +138,8 @@ class WebhookAdapter(AsyncWebhookAdapter):
         data = await super().request(
             route, *args, payload=payload, multipart=multipart, **kwargs
         )
+        if not isinstance(data, dict):
+            return data
         timestamp = data.get("edited_timestamp")
         if timestamp is not None:
             data["edited_timestamp"] = timestamp.replace("Z", "+00:00")
