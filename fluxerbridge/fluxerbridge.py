@@ -28,6 +28,7 @@ from typing import (
     Iterable,
     List,
     Match,
+    Sequence,
     Set,
     Tuple,
     TypeVar,
@@ -78,18 +79,66 @@ class FluxerMaintenanceError(Exception):
     """Raised by the retry logic to indicate downtime."""
 
 
+def _fix_attachments_payload(
+    *,
+    attachments: List[Dict[str, Any]],
+    multipart: List[Dict[str, Any]],
+    files: Sequence[discord.File],
+) -> None:
+    for a in attachments:
+        file_id = a["id"]
+        # 4194303 is just some large number that isn't going to be a snowflake
+        if file_id > 4194303:
+            continue
+        file = files[file_id]
+        file_payload = multipart[file_id + 1]
+        if IS_DISCORD:
+            file_payload["filename"] = file._filename
+            a["filename"] = file._filename
+            flags = discord.AttachmentFlags(spoiler=file.spoiler)
+            if flags:
+                a["flags"] = flags.value
+        else:
+            file_payload["filename"] = file._filename
+            a["filename"] = file._filename
+            a["is_spoiler"] = file.spoiler
+            a.pop("flags", None)
+
+
 class WebhookAdapter(AsyncWebhookAdapter):
     def __init__(self, base: str) -> None:
         super().__init__()
         self.__base = base
 
     async def request(  # type: ignore[no-untyped-def]
-        self, route, *args: Any, **kwargs: Any
+        self,
+        route,
+        *args: Any,
+        payload: Optional[Dict[str, Any]] = None,
+        multipart: Optional[List[Dict[str, Any]]] = None,
+        files: Optional[Sequence[discord.File]] = None,
+        **kwargs: Any,
     ) -> Any:
         route.url = f"https://{self.__base}" + route.url[len(route.BASE) :]
 
         # handle Fluxer differences
-        data = await super().request(route, *args, **kwargs)
+        if multipart:
+            payload = discord.utils._from_json(multipart[0]["value"])
+        assert payload is not None
+        attachments = payload.get("attachments", [])
+        if attachments:
+            assert files is not None
+            assert multipart is not None
+            _fix_attachments_payload(
+                attachments=attachments, multipart=multipart, files=files
+            )
+        if multipart:
+            multipart[0]["value"] = discord.utils._to_json(payload)
+            payload = None
+
+        data = await super().request(
+            route, *args, payload=payload, multipart=multipart, **kwargs
+        )
         timestamp = data.get("edited_timestamp")
         if timestamp is not None:
             data["edited_timestamp"] = timestamp.replace("Z", "+00:00")
