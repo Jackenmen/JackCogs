@@ -455,12 +455,14 @@ class MessageEdit(MessageEvent):
         self._cfg_msg = self._cog.config.custom(MESSAGES, self.message.id)
         self.remote_message_id: Optional[int] = None
         self.user_id: Optional[int] = None
+        self.remote_created_at: Optional[datetime.datetime] = None
 
     async def _init(self) -> None:
         message_data = await self._cfg_msg.all()
         self.remote_message_id = remote_message_id = message_data["message_id"]
         self.user_id = message_data["user_id"]
-        self.remote_created_at = discord.Object(remote_message_id).created_at
+        if remote_message_id:
+            self.remote_created_at = discord.Object(remote_message_id).created_at
 
     async def execute(self) -> None:
         if self.remote_message_id is None:
